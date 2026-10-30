@@ -4,7 +4,8 @@
     "composite": true,
     "tsBuildInfoFile": "node_modules/.tmp/tsconfig.worker.tsbuildinfo",
     "lib": ["ES2024"],
-    "types": ["node"]
+    "types": []
   },
-  "include": ["worker-configuration.d.ts", "src/worker", "src/shared", "test"]
+  "include": ["worker-configuration.d.ts", "src/worker", "src/shared"],
+  "exclude": ["**/*.test.ts"]
 }

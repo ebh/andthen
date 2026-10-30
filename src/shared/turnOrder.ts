@@ -44,17 +44,17 @@ export interface ResolvedTurn {
   changed: boolean;
 }
 
-export interface Contribution {
+export interface ContributeAction {
   contributorPosition: number;
   turnVersion: number;
 }
 
-export interface Skip {
+export interface SkipAction {
   skipperPosition: number;
   turnVersion: number;
 }
 
-export interface Join {
+export interface JoinAction {
   state: TurnState;
   joinerPosition: number;
 }
@@ -111,7 +111,7 @@ export function turnEndsAt(state: TurnState): number | null {
 export function afterContribution(
   state: TurnState,
   now: number,
-  contribution: Contribution,
+  contribution: ContributeAction,
 ): TurnResult {
   const current = resolveTurn(state, now).state;
 
@@ -145,7 +145,7 @@ export function afterContribution(
  * When the only other person is the last contributor, the turn would come straight back to the
  * holder with a fresh window, so the skip is refused with `no_one_to_skip_to`.
  */
-export function skip(state: TurnState, now: number, request: Skip): TurnResult {
+export function skip(state: TurnState, now: number, request: SkipAction): TurnResult {
   const current = resolveTurn(state, now).state;
 
   if (request.turnVersion !== current.turnVersion || current.currentPosition === null) {
@@ -172,7 +172,7 @@ export function skip(state: TurnState, now: number, request: Skip): TurnResult {
 }
 
 /** Adds a joiner at the end of the rotation. A joiner to a waiting story takes the turn. */
-export function onJoin(state: TurnState, now: number): Join {
+export function onJoin(state: TurnState, now: number): JoinAction {
   const current = resolveTurn(state, now).state;
   const joinerPosition = Math.max(...current.participantPositions) + 1;
   const joined = {

@@ -22,6 +22,13 @@
     ".stryker-tmp/**",
     ".wrangler/**"
   ],
+  "overrides": [
+    {
+      // Tests run steps in order on purpose: each one reads what the one before wrote.
+      "files": ["test/**", "**/*.test.ts"],
+      "rules": { "no-await-in-loop": "off" }
+    }
+  ],
   "rules": {
     "no-var": "error",
     "prefer-const": "error",

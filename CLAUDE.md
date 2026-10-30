@@ -22,4 +22,5 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 
 ## Background
 
+- `docs/api.md`: the story routes, error statuses, request guards, cookie, write guards and test helpers (`createApp`, `createBrowser`, `gateLoads`). Read it before adding a route or changing how writes are guarded.
 - `docs/spike-findings.md`: tool versions and what was proven about Stryker, the Vite plugin, Workers AI locally, lint coverage and the `__Host-` cookie. Read it before changing the toolchain, test harness or cookie handling.

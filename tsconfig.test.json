@@ -6,5 +6,12 @@
     "lib": ["ES2024"],
     "types": ["node"]
   },
-  "include": ["worker-configuration.d.ts", "src/worker", "src/shared", "test"]
+  "include": [
+    "worker-configuration.d.ts",
+    "src/worker",
+    "src/shared",
+    "src/client/live.ts",
+    "src/client/live.test.ts",
+    "test"
+  ]
 }

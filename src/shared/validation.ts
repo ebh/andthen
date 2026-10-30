@@ -13,7 +13,8 @@ export const TURN_WINDOW_MS = 24 * 60 * 60 * 1000;
 const STORY_ID_PATTERN = /^[A-Za-z0-9]{5}$/;
 
 // Grapheme is the default granularity: one user-perceived character, so an emoji counts as 1.
-const graphemes = new Intl.Segmenter();
+// The locale is fixed so the browser and the Worker count the same text the same way.
+const graphemes = new Intl.Segmenter("en");
 
 /** Trims a passage and checks it is 1 to MAX_PASSAGE_LENGTH graphemes long. */
 export function validatePassage(raw: string): ValidationResult {

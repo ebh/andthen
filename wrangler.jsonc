@@ -1,0 +1,64 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Top level is local dev: local D1, local Durable Object, fake AI.
+  "name": "andthen-dev",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-23",
+  "observability": { "enabled": true },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "andthen-dev",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "STORY_ROOM", "class_name": "StoryRoom" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StoryRoom"] }],
+  "vars": { "AI_PROVIDER": "fake" },
+  "env": {
+    "preview": {
+      "name": "andthen-preview",
+      "workers_dev": true,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "andthen-preview",
+          // Placeholder: fill in from `wrangler d1 create andthen-preview`.
+          "database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "STORY_ROOM", "class_name": "StoryRoom" }],
+      },
+      // `vars` aren't inherited from the top level.
+      "vars": { "AI_PROVIDER": "workers-ai" },
+    },
+    "production": {
+      "name": "andthen",
+      "workers_dev": false,
+      "routes": [{ "pattern": "app.andthen.page", "custom_domain": true }],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "andthen-prod",
+          // Placeholder: fill in from `wrangler d1 create andthen-prod`.
+          "database_id": "00000000-0000-0000-0000-000000000002",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "STORY_ROOM", "class_name": "StoryRoom" }],
+      },
+      // `vars` aren't inherited from the top level.
+      "vars": { "AI_PROVIDER": "workers-ai" },
+    },
+  },
+}

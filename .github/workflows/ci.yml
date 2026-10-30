@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      # Reads `packageManager` from package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Lint (oxlint, then ESLint)
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Generated Worker types are current
+        run: pnpm wrangler types --check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Mutation test
+        run: pnpm stryker
+
+      # Builds each deployed environment and validates its config without credentials.
+      - name: Build and dry-run deploy (preview)
+        run: pnpm build && pnpm wrangler deploy --dry-run
+        env:
+          CLOUDFLARE_ENV: preview
+
+      - name: Build and dry-run deploy (production)
+        run: pnpm build && pnpm wrangler deploy --dry-run
+        env:
+          CLOUDFLARE_ENV: production

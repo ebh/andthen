@@ -47,7 +47,7 @@ pnpm 12 blocks dependency build scripts. `pnpm-workspace.yaml` `allowBuilds` all
 
 - An `ai` binding is always remote. With it in the top-level config, `pnpm dev` **fails to start** without Cloudflare credentials ("Failed to start the remote proxy session… set a CLOUDFLARE_API_TOKEN").
 - With `cloudflare({ remoteBindings: false })` in `vite.config.ts`, dev starts and `env.AI.run()` throws `Binding AI needs to be run remotely`. Wrangler warns that AI bindings "may incur usage charges even in local dev".
-- So Phase 5 should: keep the `fake` provider as the local default, set `remoteBindings: false` (or gate it behind an env var for people who are logged in), and pass `remoteBindings: false` in tests (the harness already does).
+- **Decided (Phase 5 implements):** local dev uses `AI_PROVIDER=fake` with `remoteBindings: false` by default. The real model is opt-in after a Cloudflare login. Tests pass `remoteBindings: false` (the harness already does). Preview and production set `AI_PROVIDER=workers-ai`.
 - JSON-schema output (`response_format: { type: "json_schema", json_schema }`) is supported by `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, the plan's default, among others ([JSON mode docs](https://developers.cloudflare.com/workers-ai/features/json-mode/)). Output is not guaranteed to match: handle the "JSON Mode couldn't be met" error. No streaming in JSON mode.
 - No remote AI call was made.
 
@@ -73,8 +73,10 @@ Checked with Playwright 1.64.1 against a plain HTTP server on `localhost` and `1
 | `b=1; Path=/; Secure; HttpOnly; SameSite=Lax`        | stored       | stored      |
 | `c=1; Path=/; HttpOnly; SameSite=Lax`                | stored       | stored      |
 
-WebKit accepts `Secure` on localhost but rejects the `__Host-` prefix over HTTP. Phase 3 must pick one (open question for the owner):
+WebKit accepts `Secure` on localhost but rejects the `__Host-` prefix over HTTP.
 
-- Use `__Host-andthen_bt` over HTTPS and `andthen_bt` (still Secure, HttpOnly) when the request is `http://localhost`.
-- Serve dev over HTTPS (e.g. `@vitejs/plugin-basic-ssl`) and keep one name.
-- Keep one name and run local and e2e checks in Chromium only.
+**Decided (Phase 3 implements):** the cookie is `__Host-andthen_bt` (Secure, HttpOnly, SameSite=Lax) in preview and production. On `http://localhost` only, it is plain `andthen_bt` without `Secure`.
+
+## Known gaps to review before production
+
+- `/api/health` runs a D1 query for any unauthenticated caller. Fine while nothing is deployed; review its cost and exposure before production.

@@ -1,8 +1,13 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 import { createTestHarness, type TestHarness } from "wrangler";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   createStoryResponseSchema,
+  errorBodySchema,
   liveMessageSchema,
   storyViewSchema,
   type StoryView,
@@ -15,29 +20,14 @@ type Socket = NonNullable<Awaited<ReturnType<TestHarness["fetch"]>>["webSocket"]
 // load `cloudflare:workers`. Stryker doesn't mutate storyRoom.ts and index.ts, so this is their
 // only coverage.
 describe("StoryRoom in workerd", () => {
-  const server = createTestHarness({
-    // wrangler.jsonc minus `assets`, which needs a built `dist/` this test has no use for.
-    workers: [
-      {
-        config: {
-          name: "andthen-test",
-          main: "src/worker/index.ts",
-          compatibility_date: "2026-10-23",
-          d1_databases: [
-            { binding: "DB", database_name: "andthen-test", migrations_dir: "migrations" },
-          ],
-          durable_objects: { bindings: [{ name: "STORY_ROOM", class_name: "StoryRoom" }] },
-          migrations: [{ tag: "v1", new_sqlite_classes: ["StoryRoom"] }],
-          vars: { AI_PROVIDER: "fake" },
-        },
-      },
-    ],
-  });
+  // Configured in beforeAll, from wrangler.jsonc.
+  const server = createTestHarness();
   // The harness serves on a random port, and the same-origin check compares against it.
   let origin = "";
   const openSockets: Socket[] = [];
 
   beforeAll(async () => {
+    await server.update({ workers: [{ config: await readWranglerConfig() }] });
     const { url } = await server.listen();
     origin = url.origin;
     await server.getWorker().applyD1Migrations("DB");
@@ -51,21 +41,22 @@ describe("StoryRoom in workerd", () => {
   });
 
   describe("upgrade guard", () => {
-    it("refuses every upgrade that isn't a participant's same-origin one", async () => {
+    it("refuses every upgrade that isn't a participant's same-origin one, and says why", async () => {
       const { storyId, cookie } = await createStory("Ana");
-      const attempts: Record<string, string>[] = [
-        { Origin: origin },
-        { Origin: origin, Cookie: "andthen_bt=not-a-participant" },
-        { Origin: "https://evil.example", Cookie: cookie },
-        { Cookie: cookie },
+      const attempts: [Record<string, string>, string][] = [
+        [{ Origin: origin }, "not_participant"],
+        [{ Origin: origin, Cookie: "andthen_bt=not-a-participant" }, "not_participant"],
+        [{ Origin: "https://evil.example", Cookie: cookie }, "forbidden_origin"],
+        [{ Cookie: cookie }, "forbidden_origin"],
       ];
 
-      for (const headers of attempts) {
+      for (const [headers, reason] of attempts) {
         const response = await server.fetch(`/api/stories/${storyId}/live`, {
           headers: { Upgrade: "websocket", ...headers },
         });
 
         expect(response.status).toBe(403);
+        expect(errorBodySchema.parse(await response.json()).error).toBe(reason);
       }
     });
 
@@ -77,6 +68,7 @@ describe("StoryRoom in workerd", () => {
       });
 
       expect(response.status).toBe(404);
+      expect(errorBodySchema.parse(await response.json()).error).toBe("not_found");
     });
 
     it("accepts a participant's same-origin upgrade", async () => {
@@ -85,6 +77,18 @@ describe("StoryRoom in workerd", () => {
       const socket = await openSocket(storyId, cookie);
 
       expect(socket.readyState).toBe(WebSocket.OPEN);
+    });
+  });
+
+  describe("heartbeat", () => {
+    it("answers the client's ping with pong", async () => {
+      const { storyId, cookie } = await createStory("Ana");
+      const socket = await openSocket(storyId, cookie);
+      const heard = nextMessage(socket);
+
+      socket.send("ping");
+
+      expect(await heard).toBe("pong");
     });
   });
 
@@ -109,29 +113,41 @@ describe("StoryRoom in workerd", () => {
 
     it("reaches every socket of the story and none of another story", async () => {
       const ana = await createStory("Ana");
-      const other = await createStory("Zed");
       const ben = await join(ana.storyId, "Ben");
       // With two people the turn can't be skipped: it would come straight back to the holder.
       await join(ana.storyId, "Carol");
+      const zed = await createStory("Zed");
+      const yan = await join(zed.storyId, "Yan");
       const anaSocket = await openSocket(ana.storyId, ana.cookie);
       const benSocket = await openSocket(ana.storyId, ben.cookie);
-      const otherSocket = await openSocket(other.storyId, other.cookie);
-      const heard = [nextMessage(anaSocket), nextMessage(benSocket)];
-      const overheard: string[] = [];
-      otherSocket.addEventListener("message", (event) => overheard.push(messageText(event.data)));
-      const { turn } = await readStory(ana.storyId, ana.cookie);
+      const zedSocket = await openSocket(zed.storyId, zed.cookie);
+      const zedHeard: string[] = [];
+      zedSocket.addEventListener("message", (event) => zedHeard.push(messageText(event.data)));
+      const heardInAnasStory = [nextMessage(anaSocket), nextMessage(benSocket)];
+      const { turn: anasTurn } = await readStory(ana.storyId, ana.cookie);
 
       const skipped = await post(
         `/api/stories/${ana.storyId}/skip`,
-        { turnVersion: turn.version },
+        { turnVersion: anasTurn.version },
         ana.cookie,
       );
       expect(skipped.status).toBe(204);
+      await Promise.all(heardInAnasStory);
 
-      expect(await Promise.all(heard)).toHaveLength(2);
-      // Time for a wrong delivery to arrive.
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(overheard).toEqual([]);
+      // Zed's story then changes, so the one message Zed's socket gets is its own, and anything
+      // sent to it earlier by mistake would have to be in the list before it.
+      const heardSentinel = nextMessage(zedSocket);
+      const { turn: zedsTurn } = await readStory(zed.storyId, yan.cookie);
+      const written = await post(
+        `/api/stories/${zed.storyId}/contributions`,
+        { text: "Zed's story moves on.", turnVersion: zedsTurn.version },
+        yan.cookie,
+      );
+      expect(written.status).toBe(204);
+
+      const sentinel = await heardSentinel;
+      expect(zedHeard).toEqual([sentinel]);
+      expect(liveMessageSchema.parse(JSON.parse(sentinel)).version).toBe(zedsTurn.version + 1);
     });
 
     it("answers a write nobody is listening to", async () => {
@@ -218,4 +234,41 @@ function messageText(data: unknown): string {
   }
 
   return data;
+}
+
+const wranglerConfigSchema = z.object({
+  name: z.string(),
+  main: z.string(),
+  compatibility_date: z.string(),
+  d1_databases: z.array(
+    z.object({
+      binding: z.string(),
+      database_name: z.string(),
+      database_id: z.string(),
+      migrations_dir: z.string(),
+    }),
+  ),
+  durable_objects: z.object({
+    bindings: z.array(z.object({ name: z.string(), class_name: z.string() })),
+  }),
+  migrations: z.array(z.object({ tag: z.string(), new_sqlite_classes: z.array(z.string()) })),
+  vars: z.record(z.string(), z.string()),
+});
+
+// The top-level (local dev) config without `assets`, which needs a built `dist/` this test has
+// no use for. Fields the schema doesn't name, `assets` among them, are dropped.
+async function readWranglerConfig(): Promise<z.infer<typeof wranglerConfigSchema>> {
+  const text = await readFile(path.join(import.meta.dirname, "../wrangler.jsonc"), "utf8");
+
+  return wranglerConfigSchema.parse(parseJsonc(text));
+}
+
+// Handles only what wrangler.jsonc uses: comments on lines of their own, and trailing commas.
+function parseJsonc(text: string): unknown {
+  const withoutComments = text
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n");
+
+  return JSON.parse(withoutComments.replace(/,(\s*[}\]])/g, "$1"));
 }

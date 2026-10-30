@@ -18,7 +18,8 @@ export class ApiError extends Error {
   }
 }
 
-// Every code has exactly one status. 429 and 503 belong to the AI routes (Phase 5).
+// Every code has exactly one status, and every status here belongs to one code. 429 and 503
+// belong to the AI routes (Phase 5).
 const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   bad_request: 400,
   invalid_passage: 400,
@@ -28,12 +29,14 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   not_your_turn: 403,
   cannot_skip_self: 403,
   not_found: 404,
+  payload_too_large: 413,
   stale_turn: 409,
   name_taken: 409,
   already_joined: 409,
   no_one_to_skip_to: 409,
   ai_rate_limited: 429,
   ai_unavailable: 503,
+  internal_error: 500,
 };
 
 // `application/json`, optionally followed by parameters such as `; charset=utf-8`.
@@ -59,7 +62,7 @@ export async function guardMutation(c: AppContext, next: Next): Promise<void> {
 /** Refuses a body over MAX_BODY_BYTES (413) before a route reads it. */
 export const limitBody = bodyLimit({
   maxSize: MAX_BODY_BYTES,
-  onError: (c) => c.json(errorBody("bad_request"), 413),
+  onError: (c) => c.json(errorBody("payload_too_large"), ERROR_STATUS.payload_too_large),
 });
 
 /** Reads and validates a JSON body. A parse or schema failure is `bad_request`. */
@@ -80,7 +83,21 @@ export function handleError(error: Error, c: AppContext): Response {
   }
 
   console.error(error);
-  return c.text("Internal Server Error", 500);
+  return c.json(errorBody("internal_error"), ERROR_STATUS.internal_error);
+}
+
+export function handleNotFound(c: AppContext): Response {
+  return c.json(errorBody("not_found"), ERROR_STATUS.not_found);
+}
+
+/** Keeps private API responses (story text, IDs, the cookie) out of shared and browser caches. */
+export async function noStore(c: AppContext, next: Next): Promise<void> {
+  await next();
+
+  // A WebSocket upgrade response has immutable headers.
+  if (c.res.status !== 101) {
+    c.header("Cache-Control", "no-store");
+  }
 }
 
 function isJson(contentType: string | undefined): boolean {

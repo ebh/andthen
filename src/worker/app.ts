@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import type { HealthResponse } from "../shared/api";
 import { normaliseStoryId } from "../shared/validation";
-import { guardMutation, handleError, limitBody } from "./http";
+import { guardMutation, handleError, handleNotFound, limitBody, noStore } from "./http";
 import { newStoryId } from "./ids";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
 
@@ -10,7 +10,8 @@ export function createApp(deps: StoryDeps): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
 
   app.onError(handleError);
-  app.use("/api/*", guardMutation, limitBody);
+  app.notFound(handleNotFound);
+  app.use("/api/*", noStore, guardMutation, limitBody);
 
   app.get("/api/health", async (c) => {
     await c.env.DB.prepare("SELECT 1").run();

@@ -162,6 +162,77 @@ describe("story journeys", () => {
     expect(row).toEqual({ p: 0, t: T0 + TURN_WINDOW_MS + 5, v: 4, l: 2 });
   });
 
+  // Ana wrote first, Ben holds from T0 at version 2, Cat is third in the rotation.
+  async function threeAtT0() {
+    clock.now = T0;
+    const [ana, ben, cat] = [newBrowser(), newBrowser(), newBrowser()];
+    const storyId = await createStory(ana);
+    await joinStory(ben, storyId, "Ben");
+    await joinStory(cat, storyId, "Cat");
+
+    return { ana, ben, cat, storyId };
+  }
+
+  const turnRow = (storyId: string) =>
+    testEnv.env.DB.prepare(
+      "SELECT current_position AS p, turn_started_at AS t, turn_version AS v, last_contributor_position AS l FROM stories WHERE id = ?",
+    )
+      .bind(storyId)
+      .first();
+
+  it("saves a skip over one expired window, from the version it loaded", async () => {
+    const { ana, storyId } = await threeAtT0();
+
+    clock.now = T0 + TURN_WINDOW_MS + 5;
+    // One window passed: Cat holds at version 3. Skipping her passes over Ana, the last writer.
+    const response = await ana.post(`/api/stories/${storyId}/skip`, { turnVersion: 3 });
+
+    expect(response.status).toBe(204);
+    expect(await turnRow(storyId)).toEqual({ p: 1, t: clock.now, v: 4, l: 0 });
+  });
+
+  it("saves a skip over two expired windows, from the version it loaded", async () => {
+    const { cat, storyId } = await threeAtT0();
+
+    clock.now = T0 + 2 * TURN_WINDOW_MS + 5;
+    // Two windows passed: Ben holds again at version 4. Cat skips him and takes the turn.
+    const response = await cat.post(`/api/stories/${storyId}/skip`, { turnVersion: 4 });
+
+    expect(response.status).toBe(204);
+    expect(await turnRow(storyId)).toEqual({ p: 2, t: clock.now, v: 5, l: 0 });
+  });
+
+  it("saves a join over one expired window, from the version it loaded", async () => {
+    const { storyId } = await threeAtT0();
+
+    clock.now = T0 + TURN_WINDOW_MS + 5;
+    const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
+      displayName: "Dee",
+    });
+
+    expect(response.status).toBe(201);
+    // Cat holds from the end of the first window; the join adds one to version 3.
+    expect(await turnRow(storyId)).toEqual({ p: 2, t: T0 + TURN_WINDOW_MS, v: 4, l: 0 });
+  });
+
+  it("saves a join over two expired windows, from the version it loaded", async () => {
+    const { storyId } = await threeAtT0();
+
+    clock.now = T0 + 2 * TURN_WINDOW_MS + 5;
+    const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
+      displayName: "Dee",
+    });
+
+    expect(response.status).toBe(201);
+    expect(await turnRow(storyId)).toEqual({ p: 1, t: T0 + 2 * TURN_WINDOW_MS, v: 5, l: 0 });
+    const count = await testEnv.env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM participants WHERE story_id = ?",
+    )
+      .bind(storyId)
+      .first();
+    expect(count).toEqual({ n: 4 });
+  });
+
   it("looks a story up whatever the case of the ID in the URL", async () => {
     const ana = newBrowser();
     const storyId = await createStory(ana);
@@ -235,6 +306,7 @@ describe("story IDs", () => {
     });
 
     expect(response.status).toBe(500);
+    expect(await readError(response)).toBe("internal_error");
     expect(asked).toBe(1);
   });
 });

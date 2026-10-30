@@ -82,6 +82,8 @@ export const errorCodeSchema = z.enum([
   "not_participant",
   "already_joined", // this browser is already a participant
   "not_found",
+  "payload_too_large", // body over the size cap
+  "internal_error", // an unexpected server failure
   "stale_turn",
   "not_your_turn",
   "cannot_skip_self",

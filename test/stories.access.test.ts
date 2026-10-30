@@ -422,7 +422,7 @@ describe("story access", () => {
 
       expect(accepted.status).toBe(201);
       expect(refused.status).toBe(413);
-      expect(await readError(refused)).toBe("bad_request");
+      expect(await readError(refused)).toBe("payload_too_large");
     });
 
     it("refuses an oversize body before it validates it", async () => {
@@ -432,6 +432,7 @@ describe("story access", () => {
       });
 
       expect(response.status).toBe(413);
+      expect(await readError(response)).toBe("payload_too_large");
     });
 
     it("refuses an oversize body using its Content-Length, without reading it", async () => {
@@ -450,6 +451,54 @@ describe("story access", () => {
       );
 
       expect(response.status).toBe(413);
+      expect(await readError(response)).toBe("payload_too_large");
+    });
+  });
+
+  describe("error and cache headers", () => {
+    it("answers an unknown API path with a JSON not_found", async () => {
+      const response = await newBrowser().get("/api/nope");
+
+      expect(response.status).toBe(404);
+      expect(await readError(response)).toBe("not_found");
+    });
+
+    it("sends Cache-Control: no-store on reads, writes and errors", async () => {
+      const { ana, ben, storyId } = await twoPersonStory();
+      const responses = [
+        await ana.get(`/api/stories/${storyId}`),
+        await newBrowser().get(`/api/stories/${storyId}`),
+        await newBrowser().post(`/api/stories/${storyId}/participants`, { displayName: "Cat" }),
+        await newBrowser().post("/api/stories", { displayName: "Zed", opening: "Hi." }),
+        await ben.post(`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1 }),
+        await ben.post(`/api/stories/${storyId}/skip`, { turnVersion: 9 }),
+        await newBrowser().get("/api/nope"),
+        await newBrowser().post("/api/stories", {}, { origin: null }),
+      ];
+
+      expect(responses.map((response) => response.headers.get("Cache-Control"))).toEqual(
+        responses.map(() => "no-store"),
+      );
+    });
+
+    it("still sets the cookie when a join is rejected, and that cookie then works", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const cat = newBrowser();
+
+      const rejected = await cat.post(`/api/stories/${storyId}/participants`, {
+        displayName: "Ana",
+      });
+      const token = cat.cookies.get("andthen_bt");
+      await joinStory(cat, storyId, "Cat");
+
+      expect(rejected.status).toBe(409);
+      expect(rejected.headers.get("Set-Cookie")).toMatch(/^andthen_bt=/);
+      expect(cat.cookies.get("andthen_bt")).toBe(token);
+      expect((await readStory(ana, storyId)).participants.map((p) => p.displayName)).toEqual([
+        "Ana",
+        "Ben",
+        "Cat",
+      ]);
     });
   });
 

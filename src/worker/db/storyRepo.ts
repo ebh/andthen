@@ -136,8 +136,10 @@ export async function createStory(db: Db, input: CreateStoryInput): Promise<bool
         .bind(opening.id, storyId, creator.id, opening.text, now),
     ]);
   } catch (error) {
-    // The story insert runs first, so a taken ID is the only way it fails on stories.id.
-    if (error instanceof Error && error.message.includes("stories.id")) {
+    // The batch is atomic, so a failed one leaves nothing behind. If the ID is already stored,
+    // the story insert collided; any other failure is not ours to swallow. Asking the database
+    // avoids depending on the wording of the driver's constraint error.
+    if (await storyExists(db, storyId)) {
       return false;
     }
     throw error;
@@ -215,6 +217,12 @@ function toLoadedStory(stories: StoryRow[], participants: ParticipantRow[]): Loa
       : { ...base, currentPosition: story.currentPosition, turnStartedAt: story.turnStartedAt };
 
   return { story, participants, state };
+}
+
+async function storyExists(db: Db, storyId: string): Promise<boolean> {
+  const result = await db.prepare("SELECT 1 FROM stories WHERE id = ?").bind(storyId).all();
+
+  return result.results.length > 0;
 }
 
 function selectStory(db: Db, storyId: string): D1PreparedStatement {

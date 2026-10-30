@@ -163,6 +163,8 @@ describe("errorBodySchema", () => {
     "not_participant",
     "already_joined",
     "not_found",
+    "payload_too_large",
+    "internal_error",
     "name_taken",
     "invalid_passage",
     "invalid_display_name",

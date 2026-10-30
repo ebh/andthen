@@ -20,13 +20,24 @@ One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorC
 
 - **400:** `bad_request`, `invalid_passage`, `invalid_display_name`.
 - **403:** `forbidden_origin`, `not_participant`, `not_your_turn`, `cannot_skip_self`.
-- **404:** `not_found`. An ID that can't be a story ID is also 404, with no database call.
+- **404:** `not_found`. An ID that can't be a story ID is also 404, with no database call. An unknown `/api/*` path is a JSON 404 too.
 - **409:** `stale_turn`, `name_taken`, `already_joined`, `no_one_to_skip_to`.
 - **429 / 503:** `ai_rate_limited` / `ai_unavailable`, for Phase 5.
-- **413** `{error: "bad_request"}`: body over `MAX_BODY_BYTES` (8 KB), refused before it is parsed. No error code exists for it, so it reuses `bad_request`.
-- **500:** anything unexpected, logged with `console.error`.
+- **413:** `payload_too_large`, a body over `MAX_BODY_BYTES` (8 KB), refused before it is parsed.
+- **500:** `internal_error`, anything unexpected, logged with `console.error`.
+
+Every error body is JSON `{error: <code>}`, so a client can parse it with `errorBodySchema`. Every `/api/*` response carries `Cache-Control: no-store` (except a WebSocket upgrade).
 
 Order of checks on a mutating route: Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403), content validation (400), turn rules (403/409), guarded write (409).
+
+## Things a client or reviewer might not expect
+
+- **Story existence leaks.** An unknown ID is 404 and a known story you aren't in is 403, so anyone can probe whether a story exists. This is the accepted ID risk from the plan.
+- **Taken names leak.** A join to a story you aren't in answers `name_taken` for a name in use, so a link holder can learn the participants' names (a name can't be checked without joining).
+- **Body parsing comes before the story lookup.** A malformed body is 400 even for a story that doesn't exist or that you aren't in.
+- **A rejected join still sets the cookie.** A browser with no cookie gets one before the join is checked, and keeps it after a `name_taken` or `stale_turn`. It is harmless: the token belongs to no participant until a join succeeds, and a retry with another name reuses it.
+- **A waiting story answers contribute and skip differently.** A contribution is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
+- **Plain cookie only on `http://localhost`.** `127.0.0.1` and LAN hosts get the `__Host-` Secure cookie, which browsers drop over plain HTTP, so dev must use `localhost`.
 
 ## Guards on every mutating request
 
@@ -41,7 +52,7 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
 
 Each write is one `db.batch()`. Every statement is guarded by `turn_version = <loaded version>`, so a write that lost a race changes nothing and the route answers 409 `stale_turn`. A join or contribution inserts its row _before_ the story update, so both test the same unchanged snapshot. Unique constraints (`display_name_key`, `browser_token_hash`) are a backstop only: routes check names and tokens against the loaded participants first, and any change to those rows bumps the version.
 
-Story creation retries with a new ID when `stories.id` collides (up to `STORY_ID_ATTEMPTS`).
+Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEMPTS`). A failed create batch leaves nothing behind (it is atomic), so `createStory` asks `SELECT 1 FROM stories WHERE id = ?` to tell a collision from any other error. It does not read the constraint error text, whose wording differs between Miniflare and real D1 and is untested against real D1.
 
 ## Testing
 

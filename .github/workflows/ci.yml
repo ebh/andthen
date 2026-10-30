@@ -46,3 +46,14 @@ jobs:
 
       - name: Mutation test
         run: pnpm stryker
+
+      # Builds each deployed environment and validates its config without credentials.
+      - name: Build and dry-run deploy (preview)
+        run: pnpm build && pnpm wrangler deploy --dry-run
+        env:
+          CLOUDFLARE_ENV: preview
+
+      - name: Build and dry-run deploy (production)
+        run: pnpm build && pnpm wrangler deploy --dry-run
+        env:
+          CLOUDFLARE_ENV: production

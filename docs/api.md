@@ -49,10 +49,14 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
 
 `GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
 
-- **Checks, in order:** `Upgrade: websocket` (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), participant cookie (403 `not_participant`). Only then is the request forwarded to the room.
+- **Checks, in order:** `Upgrade: websocket`, any case (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), participant cookie (403 `not_participant`). Only then is the request forwarded to the room.
 - **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any valid message and does not need the version.
-- **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds, which calls the room's `notify` RPC method. A failure is logged and swallowed, never turned into an error response: the write is already saved, and clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
-- **Client:** `useStoryLive` (`src/client/useStoryLive.ts`) reconnects with backoff and refetches on every open, every valid message and a second after `turn.endsAt` (a turn that times out sends no message). Its logic is in `src/client/live.ts`.
+- **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds. It hands the room's `notify` RPC call to `waitUntil` and returns at once, so a slow or hung room can't delay a committed write. A failure is logged and swallowed, never turned into an error response: clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
+- **Client:** `useStoryLive` (`src/client/useStoryLive.ts`) refetches on every open, every valid message and a second after `turn.endsAt` (a turn that times out sends no message). Its logic is in `src/client/live.ts`.
+  - The `endsAt` timer re-arms every 5 seconds until `endsAt` changes, because a client clock ahead of the server's would otherwise fire early and never try again.
+  - Reconnects back off from 0.5 s to 30 s. The backoff restarts only after a socket stays open 10 s or delivers a live message, so a server that accepts and drops the socket is retried ever more slowly.
+  - A `ping` every 25 s; no `pong` within 10 s marks the socket dead and reconnects.
+  - The hook isn't used by any page yet (Phase 6).
 - **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
 - **A cookie is read at the upgrade only.** An open socket is not rechecked, which is fine while nobody can leave a story.
 
@@ -70,8 +74,8 @@ Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEM
 
 - `createApp({ now, newStoryId })` in `src/worker/app.ts` takes the clock and the ID source. `app` is the real-clock default; `index.ts` re-exports it.
 - `test/support/browser.ts`: `createTestApp(clock)` and `createBrowser(app, env)`, a browser with its own cookie jar that sends a same-origin `Origin` and `Content-Type: application/json` by default. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
-- `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200).
-- `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It uses an inline copy of `wrangler.jsonc` without `assets` (which needs a built `dist/`); keep the bindings in step. `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
+- `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200). A browser's `backgroundWork` holds what the app gave `waitUntil`.
+- `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It reads `wrangler.jsonc` and drops `assets` (which needs a built `dist/`). `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
 - `test/support/gatedDb.ts`: `gateLoads(db, n)` holds `n` concurrent requests at their story load until all have loaded, so they race on one stored version. Pass it as `{ env: { DB: gateLoads(...) } }` in the request options.
 - A route that touches no D1 can be tested with a stand-in `DB`: repo functions take `Db`, a `Pick<D1Database, "prepare" | "batch">`.
 

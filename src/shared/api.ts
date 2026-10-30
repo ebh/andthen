@@ -24,6 +24,10 @@ export type CreateStoryResponse = z.infer<typeof createStoryResponseSchema>;
 export const joinRequestSchema = z.object({ displayName: z.string() });
 export type JoinRequest = z.infer<typeof joinRequestSchema>;
 
+/** The new participant's ID: the `me` the story view will report for this browser. */
+export const joinResponseSchema = z.object({ participantId: idSchema });
+export type JoinResponse = z.infer<typeof joinResponseSchema>;
+
 /** `turnVersion` is the version the page showed; a stale one gets 409 `stale_turn`. */
 export const contributeRequestSchema = z.object({
   text: z.string(),

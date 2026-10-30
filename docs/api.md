@@ -1,4 +1,4 @@
-# Story API (Phase 3)
+# Story API
 
 Routes live in `src/worker/routes/stories.ts`, SQL in `src/worker/db/storyRepo.ts`. Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved.
 
@@ -11,8 +11,9 @@ Routes live in `src/worker/routes/stories.ts`, SQL in `src/worker/db/storyRepo.t
 | `POST /api/stories/:id/participants`  | 201 `{participantId}` | Sets the cookie if the browser has none.                                                    |
 | `POST /api/stories/:id/contributions` | 204                   | Body `{text, turnVersion}`.                                                                 |
 | `POST /api/stories/:id/skip`          | 204                   | Body `{turnVersion}`.                                                                       |
+| `GET /api/stories/:id/live`           | 101 (WebSocket)       | Participants only. See "Live updates".                                                      |
 
-Mutating routes send no body back. Clients refetch `GET /api/stories/:id` (Phase 4 pushes a live message to trigger that).
+Mutating routes send no body back. Clients refetch `GET /api/stories/:id`; the live socket tells them when.
 
 ## Error statuses
 
@@ -41,8 +42,19 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
 
 ## Guards on every mutating request
 
-- `Origin` must equal the request's own origin; a missing `Origin` fails. `GET`, `HEAD` and `OPTIONS` are exempt. Phase 4 must add the same check to the WebSocket upgrade.
+- `Origin` must equal the request's own origin; a missing `Origin` fails. `GET`, `HEAD` and `OPTIONS` are exempt. The live upgrade is a `GET` but runs the same check (`requireSameOrigin`).
 - `Content-Type` must be `application/json`, parameters allowed.
+
+## Live updates
+
+`GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
+
+- **Checks, in order:** `Upgrade: websocket` (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), participant cookie (403 `not_participant`). Only then is the request forwarded to the room.
+- **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any valid message and does not need the version.
+- **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds, which calls the room's `notify` RPC method. A failure is logged and swallowed, never turned into an error response: the write is already saved, and clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
+- **Client:** `useStoryLive` (`src/client/useStoryLive.ts`) reconnects with backoff and refetches on every open, every valid message and a second after `turn.endsAt` (a turn that times out sends no message). Its logic is in `src/client/live.ts`.
+- **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
+- **A cookie is read at the upgrade only.** An open socket is not rechecked, which is fine while nobody can leave a story.
 
 ## Cookie
 
@@ -58,11 +70,12 @@ Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEM
 
 - `createApp({ now, newStoryId })` in `src/worker/app.ts` takes the clock and the ID source. `app` is the real-clock default; `index.ts` re-exports it.
 - `test/support/browser.ts`: `createTestApp(clock)` and `createBrowser(app, env)`, a browser with its own cookie jar that sends a same-origin `Origin` and `Content-Type: application/json` by default. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
+- `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200).
+- `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It uses an inline copy of `wrangler.jsonc` without `assets` (which needs a built `dist/`); keep the bindings in step. `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
 - `test/support/gatedDb.ts`: `gateLoads(db, n)` holds `n` concurrent requests at their story load until all have loaded, so they race on one stored version. Pass it as `{ env: { DB: gateLoads(...) } }` in the request options.
 - A route that touches no D1 can be tested with a stand-in `DB`: repo functions take `Db`, a `Pick<D1Database, "prepare" | "batch">`.
 
 ## Left for later phases
 
-- **Phase 4:** Origin and participant checks on `GET /api/stories/:id/live`; notify `StoryRoom` after each successful write (the 201/204 points in `routes/stories.ts`).
 - **Phase 5:** `suggestions` route and `config.ts` env parsing (`AI_PROVIDER`, `AI_MODEL`); `config.ts` holds only constants for now.
 - **Phase 6:** the client must keep composer text on 409 `stale_turn`.

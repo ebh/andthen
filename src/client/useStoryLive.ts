@@ -5,6 +5,7 @@ import {
   liveUrl,
   refetchWhenTurnEnds,
   type LiveDeps,
+  type LiveSocket,
   type SocketHandlers,
 } from "./live";
 
@@ -30,7 +31,7 @@ export function useStoryLive({ storyId, endsAt, refetch }: StoryLiveOptions): vo
     [storyId],
   );
 
-  useEffect(() => refetchWhenTurnEnds(endsAt, Date.now(), refetchLatest, browserDeps), [endsAt]);
+  useEffect(() => refetchWhenTurnEnds(endsAt, refetchLatest, browserDeps), [endsAt]);
 }
 
 const browserDeps: LiveDeps = {
@@ -42,9 +43,10 @@ const browserDeps: LiveDeps = {
     }
   },
   random: () => Math.random(),
+  now: () => Date.now(),
 };
 
-function openSocket(url: string, handlers: SocketHandlers): { close: () => void } {
+function openSocket(url: string, handlers: SocketHandlers): LiveSocket {
   const socket = new WebSocket(url);
   socket.addEventListener("open", handlers.onOpen);
   socket.addEventListener("message", (event) => {
@@ -53,6 +55,9 @@ function openSocket(url: string, handlers: SocketHandlers): { close: () => void 
   socket.addEventListener("close", handlers.onClose);
 
   return {
+    send: (text) => {
+      socket.send(text);
+    },
     close: () => {
       socket.close();
     },

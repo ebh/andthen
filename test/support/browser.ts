@@ -27,9 +27,16 @@ export interface RequestOptions {
   env?: object;
 }
 
+export interface GetOptions {
+  /** Extra request headers, such as `Upgrade` and `Origin` for a WebSocket handshake. */
+  headers?: Record<string, string>;
+  /** Bindings to run against, instead of the ones the browser was made with. */
+  env?: object;
+}
+
 /** A browser with its own cookie jar, talking to the app in-process. */
 export interface Browser {
-  get: (path: string) => Promise<Response>;
+  get: (path: string, options?: GetOptions) => Promise<Response>;
   post: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
   /** Raw cookie values by name. */
   cookies: Map<string, string>;
@@ -70,7 +77,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
 
   return {
     cookies,
-    get: (path) => send(path, {}),
+    get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options.env),
     post: (path, body, options = {}) => {
       const headers = new Headers();
       const sentOrigin = options.origin === undefined ? origin : options.origin;

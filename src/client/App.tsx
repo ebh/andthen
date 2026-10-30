@@ -8,7 +8,25 @@ export function App() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
 
   useEffect(() => {
-    void checkHealth().then(setApiStatus);
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const status = await checkHealth(controller.signal);
+        if (!controller.signal.aborted) {
+          setApiStatus(status);
+        }
+      } catch (error) {
+        // An abort on unmount is expected; anything else surfaces as an unhandled rejection.
+        if (!controller.signal.aborted) {
+          throw error;
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   return (
@@ -19,13 +37,24 @@ export function App() {
   );
 }
 
-async function checkHealth(): Promise<ApiStatus> {
+// "down" covers a network failure, a non-2xx status or a body that isn't the health contract.
+// Anything else (an abort, a bug here) still rejects.
+async function checkHealth(signal: AbortSignal): Promise<ApiStatus> {
+  let response: Response;
   try {
-    const response = await fetch("/api/health");
-    healthResponseSchema.parse(await response.json());
+    response = await fetch("/api/health", { signal });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      return "down";
+    }
+    throw error;
+  }
 
-    return "ok";
-  } catch {
+  if (!response.ok) {
     return "down";
   }
+
+  const body = healthResponseSchema.safeParse(await response.json().catch(() => null));
+
+  return body.success ? "ok" : "down";
 }

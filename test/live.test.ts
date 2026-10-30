@@ -13,6 +13,7 @@ import {
   type Browser,
   type Clock,
 } from "./support/browser";
+import { gateLoads } from "./support/gatedDb";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
 // A stand-in StoryRoom namespace. Node can't build a 101 response, so `fetch` answers 200.
@@ -35,7 +36,9 @@ describe("GET /api/stories/:id/live", () => {
     await testEnv.dispose();
   });
 
-  function fakeRooms(notify: (version: number) => void = () => undefined): FakeRooms {
+  function fakeRooms(
+    notify: (version: number) => Promise<void> = () => Promise.resolve(),
+  ): FakeRooms {
     const rooms: FakeRooms = {
       env: { DB: testEnv.env.DB, STORY_ROOM: {} },
       upgrades: [],
@@ -49,8 +52,7 @@ describe("GET /api/stories/:id/live", () => {
         },
         notify: (message: { version: number }) => {
           rooms.notifications.push({ storyId, version: message.version });
-          notify(message.version);
-          return Promise.resolve();
+          return notify(message.version);
         },
       }),
     };
@@ -130,6 +132,31 @@ describe("GET /api/stories/:id/live", () => {
       expect(rooms.upgrades).toEqual([]);
     });
 
+    it("checks the Origin before looking at who is asking", async () => {
+      const { storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+      const stranger = newBrowser();
+
+      const response = await stranger.get(`/api/stories/${storyId}/live`, {
+        headers: { Upgrade: "websocket", Origin: "https://evil.example" },
+        env: rooms.env,
+      });
+
+      expect(await readError(response)).toBe("forbidden_origin");
+    });
+
+    it("accepts the Upgrade header in any case", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+
+      const response = await ana.get(`/api/stories/${storyId}/live`, {
+        headers: { Upgrade: "WebSocket", Origin: "http://localhost" },
+        env: rooms.env,
+      });
+
+      expect(await response.text()).toBe("room");
+    });
+
     it("forwards a participant's upgrade to that story's room, case-insensitively", async () => {
       const { ana, storyId } = await twoPersonStory();
       const rooms = fakeRooms();
@@ -195,6 +222,43 @@ describe("GET /api/stories/:id/live", () => {
       expect(rooms.notifications).toEqual([]);
     });
 
+    it("sends nothing for a join that lost a race", async () => {
+      const { storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+      const env = { ...rooms.env, DB: gateLoads(testEnv.env.DB, 2) };
+      const joiners = ["Carol", "Dee"].map((displayName) => ({
+        displayName,
+        browser: newBrowser(),
+      }));
+
+      const responses = await Promise.all(
+        joiners.map(({ browser, displayName }) =>
+          browser.post(`/api/stories/${storyId}/participants`, { displayName }, { env }),
+        ),
+      );
+
+      expect(responses.map((r) => r.status).toSorted((a, b) => a - b)).toEqual([201, 409]);
+      expect(rooms.notifications).toHaveLength(1);
+    });
+
+    it("sends nothing for a skip that lost a race", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const carol = newBrowser();
+      await joinStory(carol, storyId, "Carol");
+      const version = (await readStory(ana, storyId)).turn.version;
+      const rooms = fakeRooms();
+      const env = { ...rooms.env, DB: gateLoads(testEnv.env.DB, 2) };
+
+      const responses = await Promise.all(
+        [ana, carol].map((browser) =>
+          browser.post(`/api/stories/${storyId}/skip`, { turnVersion: version }, { env }),
+        ),
+      );
+
+      expect(responses.map((r) => r.status).toSorted((a, b) => a - b)).toEqual([204, 409]);
+      expect(rooms.notifications).toHaveLength(1);
+    });
+
     it("still answers the write when the room throws, and logs it", async () => {
       const { ben, storyId } = await twoPersonStory();
       const rooms = fakeRooms(() => {
@@ -208,6 +272,7 @@ describe("GET /api/stories/:id/live", () => {
         { text: "Still saved.", turnVersion: version },
         { env: rooms.env },
       );
+      await Promise.all(ben.backgroundWork);
 
       expect(response.status).toBe(204);
       expect(log).toHaveBeenCalledWith("StoryRoom notify failed", expect.any(Error));
@@ -215,6 +280,47 @@ describe("GET /api/stories/:id/live", () => {
         "Still saved.",
       );
       log.mockRestore();
+    });
+
+    it("still answers the write when the room rejects, and logs it", async () => {
+      const { ben, storyId } = await twoPersonStory();
+      const rooms = fakeRooms(() => Promise.reject(new Error("room unreachable")));
+      const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const version = (await readStory(ben, storyId)).turn.version;
+
+      const response = await ben.post(
+        `/api/stories/${storyId}/contributions`,
+        { text: "Still saved.", turnVersion: version },
+        { env: rooms.env },
+      );
+      await Promise.all(ben.backgroundWork);
+
+      expect(response.status).toBe(204);
+      expect(log).toHaveBeenCalledWith("StoryRoom notify failed", expect.any(Error));
+      log.mockRestore();
+    });
+
+    it("answers the write without waiting for a room that never answers", async () => {
+      const { ben, storyId } = await twoPersonStory();
+      const rooms = fakeRooms(() => new Promise(() => undefined));
+      const version = (await readStory(ben, storyId)).turn.version;
+
+      const response = await ben.post(
+        `/api/stories/${storyId}/contributions`,
+        { text: "Saved anyway.", turnVersion: version },
+        { env: rooms.env },
+      );
+
+      expect(response.status).toBe(204);
+      expect(rooms.notifications).toHaveLength(1);
+      // The notification is handed to waitUntil and still pending; the write is committed.
+      const notification = ben.backgroundWork.at(-1);
+      expect(await Promise.race([notification, Promise.resolve("still pending")])).toBe(
+        "still pending",
+      );
+      expect((await readStory(ben, storyId)).contributions.map((c) => c.text)).toContain(
+        "Saved anyway.",
+      );
     });
   });
 });

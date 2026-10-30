@@ -40,6 +40,8 @@ export interface Browser {
   post: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
   /** Raw cookie values by name. */
   cookies: Map<string, string>;
+  /** Promises the app passed to `waitUntil`, in order. A hung one stays pending forever. */
+  backgroundWork: Promise<unknown>[];
 }
 
 export function createTestApp(clock: Clock, newStoryId?: () => string): TestApp {
@@ -58,6 +60,10 @@ export function createTestApp(clock: Clock, newStoryId?: () => string): TestApp 
 
 export function createBrowser(app: TestApp, env: Env, origin = "http://localhost"): Browser {
   const cookies = new Map<string, string>();
+  const background: Promise<unknown>[] = [];
+  const executionCtx = fakeExecutionContext((promise) => {
+    background.push(promise);
+  });
 
   const send = async (path: string, init: RequestInit, extra?: object): Promise<Response> => {
     const headers = new Headers(init.headers);
@@ -65,7 +71,12 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
       headers.set("Cookie", Array.from(cookies, ([name, value]) => `${name}=${value}`).join("; "));
     }
 
-    const response = await app.request(`${origin}${path}`, { ...init, headers }, extra ?? env);
+    const response = await app.request(
+      `${origin}${path}`,
+      { ...init, headers },
+      extra ?? env,
+      executionCtx,
+    );
     for (const setCookie of response.headers.getSetCookie()) {
       const [pair = ""] = setCookie.split(";");
       const [name = "", value = ""] = pair.split("=");
@@ -77,6 +88,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
 
   return {
     cookies,
+    backgroundWork: background,
     get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options.env),
     post: (path, body, options = {}) => {
       const headers = new Headers();
@@ -141,4 +153,11 @@ function expectStatus(response: Response, status: number): void {
   if (response.status !== status) {
     throw new Error(`Expected ${String(status)}, got ${String(response.status)}`);
   }
+}
+
+// Only `waitUntil` is real. Hono reads nothing else, and building the rest of the Workers
+// ExecutionContext (exports, tracing) would mean stubbing the runtime.
+function fakeExecutionContext(waitUntil: (promise: Promise<unknown>) => void): ExecutionContext {
+  // oxlint-disable-next-line typescript/no-unsafe-return -- the partial context is the point
+  return Object.assign(Object.create(null), { waitUntil });
 }

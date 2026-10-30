@@ -169,12 +169,34 @@ describe("afterContribution", () => {
 
   it("wraps around to the lowest position", () => {
     const cHolds = bHolds({ currentPosition: C, lastContributorPosition: B });
-    expect(afterContribution(cHolds, T0, { contributorPosition: C, turnVersion: 5 })).toMatchObject(
-      {
-        ok: true,
-        state: { currentPosition: A, lastContributorPosition: C },
+    expect(afterContribution(cHolds, T0 + 7, { contributorPosition: C, turnVersion: 5 })).toEqual({
+      ok: true,
+      state: {
+        ...cHolds,
+        currentPosition: A,
+        lastContributorPosition: C,
+        turnStartedAt: T0 + 7,
+        turnVersion: 6,
       },
-    );
+    });
+  });
+
+  it("follows position order, not array order, across gaps", () => {
+    const holds3 = bHolds({
+      currentPosition: 3,
+      lastContributorPosition: 1,
+      participantPositions: [7, 3, 1],
+    });
+    expect(afterContribution(holds3, T0, { contributorPosition: 3, turnVersion: 5 })).toEqual({
+      ok: true,
+      state: {
+        ...holds3,
+        currentPosition: 7,
+        lastContributorPosition: 3,
+        turnStartedAt: T0,
+        turnVersion: 6,
+      },
+    });
   });
 
   it("makes a solo writer's story wait, with no timer", () => {
@@ -227,6 +249,25 @@ describe("afterContribution", () => {
     });
   });
 
+  // Three windows: B, then C, then B again (A wrote last). The page showed version 5 + 3.
+  it("accepts the holder after several expired windows, at the loaded version plus windows", () => {
+    const now = T0 + 3 * WINDOW + 10;
+    expect(afterContribution(bHolds(), now, { contributorPosition: C, turnVersion: 8 })).toEqual({
+      ok: true,
+      state: {
+        ...bHolds(),
+        lastContributorPosition: C,
+        currentPosition: A,
+        turnStartedAt: now,
+        turnVersion: 9,
+      },
+    });
+    expect(afterContribution(bHolds(), now, { contributorPosition: C, turnVersion: 7 })).toEqual({
+      ok: false,
+      reason: "stale_turn",
+    });
+  });
+
   it("accepts the new holder after expiry, at the resolved version", () => {
     const now = T0 + WINDOW + 10;
     expect(afterContribution(bHolds(), now, { contributorPosition: C, turnVersion: 6 })).toEqual({
@@ -253,10 +294,45 @@ describe("skip", () => {
 
   it("passes over the last contributor", () => {
     const cHolds = bHolds({ currentPosition: C });
-    expect(skip(cHolds, T0, { skipperPosition: B, turnVersion: 5 })).toMatchObject({
+    expect(skip(cHolds, T0 + 7, { skipperPosition: B, turnVersion: 5 })).toEqual({
       ok: true,
-      state: { currentPosition: B, lastContributorPosition: A },
+      state: { ...cHolds, currentPosition: B, turnStartedAt: T0 + 7, turnVersion: 6 },
     });
+  });
+
+  // Rotation 1, 3, 7, 9 given out of order; 3 wrote last.
+  it.each([
+    [7, 9],
+    [9, 1],
+    [1, 7],
+  ])("follows position order across gaps: %i is skipped to %i", (holder, next) => {
+    const state = bHolds({
+      currentPosition: holder,
+      lastContributorPosition: 3,
+      participantPositions: [7, 3, 1, 9],
+    });
+    expect(skip(state, T0, { skipperPosition: 3, turnVersion: 5 })).toEqual({
+      ok: true,
+      state: { ...state, currentPosition: next, turnStartedAt: T0, turnVersion: 6 },
+    });
+  });
+
+  // Two windows: B, then C, then B. The page showed version 5 + 2.
+  it("skips after several expired windows, at the loaded version plus windows", () => {
+    const now = T0 + 2 * WINDOW + 5;
+    expect(skip(bHolds(), now, { skipperPosition: C, turnVersion: 7 })).toEqual({
+      ok: true,
+      state: { ...bHolds(), currentPosition: C, turnStartedAt: now, turnVersion: 8 },
+    });
+  });
+
+  // docs/turn-persistence.md: the caller checks the client's version against the resolved one,
+  // but guards the write with the version it loaded. The two differ by the windows elapsed.
+  it("returns a state ahead of the loaded version by the windows elapsed plus one", () => {
+    const loaded = bHolds();
+    const result = skip(loaded, T0 + 2 * WINDOW, { skipperPosition: C, turnVersion: 7 });
+    expect(loaded.turnVersion).toBe(5);
+    expect(result).toMatchObject({ ok: true, state: { turnVersion: 5 + 2 + 1 } });
   });
 
   it("rejects the holder skipping themselves", () => {
@@ -322,9 +398,10 @@ describe("onJoin", () => {
     });
   });
 
-  it("adds the joiner at the end of the rotation without touching the turn", () => {
+  // An action that loaded the rotation before the join must fail the storage guard.
+  it("adds the joiner at the end of the rotation, keeps the holder and bumps the version", () => {
     expect(onJoin(bHolds(), T0 + 1)).toEqual({
-      state: { ...bHolds(), participantPositions: [A, B, C, 3] },
+      state: { ...bHolds(), participantPositions: [A, B, C, 3], turnVersion: 6 },
       joinerPosition: 3,
     });
   });
@@ -337,7 +414,7 @@ describe("onJoin", () => {
     expect(onJoin(bHolds(), T0 + WINDOW).state).toMatchObject({
       currentPosition: C,
       turnStartedAt: T0 + WINDOW,
-      turnVersion: 6,
+      turnVersion: 7,
       participantPositions: [A, B, C, 3],
     });
   });

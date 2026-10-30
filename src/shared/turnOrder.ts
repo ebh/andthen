@@ -8,15 +8,13 @@
  *   two-person story the other person keeps the turn, a fresh window at a time, until they write.
  * - Turns expire lazily. Each whole TURN_WINDOW_MS that passes moves the turn on one place.
  *
- * `turnVersion` identifies one turn: one holder for one window. It goes up by exactly one for
- * every turn that ends (a contribution, a skip, each expired window) and when a joiner ends a
- * wait. A join that leaves the turn alone does not change it, so it never invalidates the
- * holder's open page.
+ * `turnVersion` identifies one holder for one window over one rotation. It goes up by exactly one
+ * for each contribution, skip, expired window and join. A join must bump it even when the turn
+ * stays put: an action that loaded the old rotation would otherwise pass the storage guard and
+ * hand the turn to the wrong person.
  *
- * Every action takes the state as loaded from storage and resolves expiry itself. The client's
- * `turnVersion` is compared with the resolved version. Persist the returned state guarded on the
- * version that was loaded, not the resolved one: resolving at t1 and then at t2 always equals
- * resolving once at t2, so a partly persisted expiry never disagrees with a fresh read.
+ * Every action takes the state as loaded from storage and resolves expiry itself.
+ * docs/turn-persistence.md says how to persist the result.
  */
 import { TURN_WINDOW_MS } from "./validation";
 
@@ -171,12 +169,16 @@ export function skip(state: TurnState, now: number, request: SkipAction): TurnRe
   };
 }
 
-/** Adds a joiner at the end of the rotation. A joiner to a waiting story takes the turn. */
+/**
+ * Adds a joiner at the end of the rotation. A joiner to a waiting story takes the turn. Either
+ * way the version goes up by exactly one.
+ */
 export function onJoin(state: TurnState, now: number): JoinAction {
   const current = resolveTurn(state, now).state;
   const joinerPosition = Math.max(...current.participantPositions) + 1;
   const joined = {
     ...current,
+    turnVersion: current.turnVersion + 1,
     participantPositions: [...current.participantPositions, joinerPosition],
   };
 
@@ -184,12 +186,7 @@ export function onJoin(state: TurnState, now: number): JoinAction {
     return { state: joined, joinerPosition };
   }
   return {
-    state: {
-      ...joined,
-      turnVersion: joined.turnVersion + 1,
-      currentPosition: joinerPosition,
-      turnStartedAt: now,
-    },
+    state: { ...joined, currentPosition: joinerPosition, turnStartedAt: now },
     joinerPosition,
   };
 }

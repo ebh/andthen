@@ -38,6 +38,8 @@
       "durable_objects": {
         "bindings": [{ "name": "STORY_ROOM", "class_name": "StoryRoom" }],
       },
+      // `vars` aren't inherited from the top level.
+      "vars": { "AI_PROVIDER": "workers-ai" },
     },
     "production": {
       "name": "andthen",
@@ -55,6 +57,8 @@
       "durable_objects": {
         "bindings": [{ "name": "STORY_ROOM", "class_name": "StoryRoom" }],
       },
+      // `vars` aren't inherited from the top level.
+      "vars": { "AI_PROVIDER": "workers-ai" },
     },
   },
 }

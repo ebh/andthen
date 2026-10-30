@@ -4,20 +4,23 @@ import {
   contributeRequestSchema,
   createStoryRequestSchema,
   createStoryResponseSchema,
-  type ErrorCode,
   errorBodySchema,
+  errorCodeSchema,
   joinRequestSchema,
   liveMessageSchema,
   skipRequestSchema,
+  storyIdSchema,
   storyViewSchema,
   suggestionsResponseSchema,
 } from "./api";
 import type { TurnRejection } from "./turnOrder";
 
-// Fails to compile if turnOrder can reject with a code the API can't send.
-function errorCodeFor(rejection: TurnRejection): ErrorCode {
-  return rejection;
-}
+const turnRejections = {
+  stale_turn: true,
+  not_your_turn: true,
+  cannot_skip_self: true,
+  no_one_to_skip_to: true,
+} satisfies Record<TurnRejection, true>;
 
 const storyView = {
   contributions: [{ id: "c1", authorId: "p1", authorName: "Ana", text: "Once.", createdAt: 1 }],
@@ -53,10 +56,24 @@ describe("request schemas", () => {
   });
 });
 
+describe("storyIdSchema", () => {
+  it("accepts a lowercase five-character ID", () => {
+    expect(storyIdSchema.parse("abc12")).toBe("abc12");
+  });
+
+  it.each(["", "abc1", "abc123", "ABC12", "abC12", "abc-1", " abc12", 12345])(
+    "rejects %j",
+    (id) => {
+      expect(storyIdSchema.safeParse(id).success).toBe(false);
+    },
+  );
+});
+
 describe("createStoryResponseSchema", () => {
-  it("accepts a story ID and rejects a missing one", () => {
+  it("accepts a story ID and rejects a missing or malformed one", () => {
     expect(createStoryResponseSchema.safeParse({ storyId: "abc12" }).success).toBe(true);
     expect(createStoryResponseSchema.safeParse({}).success).toBe(false);
+    expect(createStoryResponseSchema.safeParse({ storyId: "garbage!" }).success).toBe(false);
   });
 });
 
@@ -128,28 +145,31 @@ describe("liveMessageSchema", () => {
 });
 
 describe("errorBodySchema", () => {
-  const codes: ErrorCode[] = [
+  it.each(errorCodeSchema.options)("accepts %s", (code) => {
+    expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
+  });
+
+  // Pins that every way turnOrder can refuse an action has an API code. `satisfies` fails to
+  // compile when a reason is added to TurnRejection and not listed here.
+  it.each(Object.keys(turnRejections))("accepts the turn rejection %s", (reason) => {
+    expect(errorBodySchema.parse({ error: reason })).toEqual({ error: reason });
+  });
+
+  // Pins each code routes and the client rely on by name; the loop over options above only
+  // proves the schema accepts its own list.
+  it.each([
+    "bad_request",
+    "forbidden_origin",
     "not_participant",
+    "already_joined",
     "not_found",
-    "stale_turn",
-    "not_your_turn",
-    "cannot_skip_self",
-    "no_one_to_skip_to",
     "name_taken",
     "invalid_passage",
     "invalid_display_name",
     "ai_unavailable",
     "ai_rate_limited",
-  ];
-
-  it.each(codes)("accepts %s", (code) => {
+  ])("accepts the route code %s", (code) => {
     expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
-  });
-
-  it("accepts every turn rejection", () => {
-    expect(errorBodySchema.safeParse({ error: errorCodeFor("no_one_to_skip_to") }).success).toBe(
-      true,
-    );
   });
 
   it("rejects an unknown code", () => {

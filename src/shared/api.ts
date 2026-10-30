@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { normaliseStoryId } from "./validation";
+
 // Request bodies carry plain strings: routes run validatePassage and validateDisplayName, so the
 // length rules live in one place and fail with invalid_passage or invalid_display_name.
 
@@ -10,10 +12,13 @@ const idSchema = z.string().min(1);
 const timestampSchema = z.number().int().nonnegative();
 const turnVersionSchema = z.number().int().nonnegative();
 
+/** A stored story ID: valid and already lowercase. */
+export const storyIdSchema = z.string().refine((id) => normaliseStoryId(id) === id);
+
 export const createStoryRequestSchema = z.object({ displayName: z.string(), opening: z.string() });
 export type CreateStoryRequest = z.infer<typeof createStoryRequestSchema>;
 
-export const createStoryResponseSchema = z.object({ storyId: z.string() });
+export const createStoryResponseSchema = z.object({ storyId: storyIdSchema });
 export type CreateStoryResponse = z.infer<typeof createStoryResponseSchema>;
 
 export const joinRequestSchema = z.object({ displayName: z.string() });
@@ -66,8 +71,12 @@ export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;
 export const liveMessageSchema = z.object({ version: turnVersionSchema });
 export type LiveMessage = z.infer<typeof liveMessageSchema>;
 
+// Every error code the API sends. A suggestions request from a non-holder is `not_your_turn`.
 export const errorCodeSchema = z.enum([
+  "bad_request", // malformed JSON or body, or a Content-Type other than application/json
+  "forbidden_origin",
   "not_participant",
+  "already_joined", // this browser is already a participant
   "not_found",
   "stale_turn",
   "not_your_turn",

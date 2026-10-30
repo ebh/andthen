@@ -21,6 +21,18 @@ describe("GET /api/stories/:id/live", () => {
     expect(await response.text()).toBe("Expected a WebSocket upgrade");
   });
 
+  // StoryRoom can't run under getPlatformProxy, so forwarding fails here (500). This pins only
+  // that a valid ID gets past the guard, read from the `:id` param.
+  it("passes a valid story ID through to StoryRoom", async () => {
+    const response = await app.request(
+      "/api/stories/ABC12/live",
+      { headers: { Upgrade: "websocket" } },
+      testEnv.env,
+    );
+
+    expect(response.status).not.toBe(404);
+  });
+
   it("returns 404 for a malformed story ID", async () => {
     const response = await app.request(
       "/api/stories/abc-1/live",

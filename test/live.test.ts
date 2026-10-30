@@ -235,6 +235,8 @@ describe("noStore", () => {
     const upgraded = await app.request("/upgrade");
     const plain = await app.request("/plain");
 
+    // Touching the headers of a 101 throws, which Hono answers with a 500.
+    expect(upgraded.status).toBe(101);
     expect(upgraded.headers.get("Cache-Control")).toBeNull();
     expect(plain.headers.get("Cache-Control")).toBe("no-store");
   });

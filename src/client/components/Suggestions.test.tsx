@@ -98,4 +98,21 @@ describe("Suggestions", () => {
       expect(screen.getByRole("button", ASK)).toBeEnabled();
     },
   );
+
+  it("tells the page the turn is lost on a 403 not_your_turn", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_your_turn" })));
+    const onTurnLost = vi.fn<() => void>();
+    render(
+      <Suggestions
+        storyId="abc12"
+        onUse={vi.fn<(text: string) => void>()}
+        onTurnLost={onTurnLost}
+      />,
+    );
+
+    await userEvent.setup().click(screen.getByRole("button", ASK));
+
+    expect(await screen.findByText("It's no longer your turn.")).toBeInTheDocument();
+    expect(onTurnLost).toHaveBeenCalledOnce();
+  });
 });

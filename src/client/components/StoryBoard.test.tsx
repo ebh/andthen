@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ME, OTHER, THIRD, jsonResponse, noContentResponse, storyView } from "../testFixtures";
 import { StoryBoard } from "./StoryBoard";
@@ -112,6 +112,92 @@ describe("suggestions in the composer", () => {
     renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
 
     expect(screen.queryByRole("button", { name: "Suggest continuations" })).not.toBeInTheDocument();
+  });
+});
+
+async function askAndPick(user: ReturnType<typeof userEvent.setup>, pick: string) {
+  await user.click(screen.getByRole("button", { name: "Suggest continuations" }));
+  await user.click(await screen.findByRole("button", { name: pick }));
+}
+
+describe("replacing a draft with a suggestion", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve(jsonResponse(200, { suggestions: ["One.", "Two.", "Three."] })),
+    );
+  });
+
+  it("offers Undo that restores the typed draft, and focuses the field", async () => {
+    renderBoard();
+    const user = userEvent.setup();
+    const field = screen.getByLabelText("Your passage");
+
+    await user.type(field, "My own words");
+    await askAndPick(user, "Two.");
+
+    expect(field).toHaveValue("Two.");
+    expect(field).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(field).toHaveValue("My own words");
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  });
+
+  it("offers no Undo when the composer was empty", async () => {
+    renderBoard();
+
+    await askAndPick(userEvent.setup(), "Two.");
+
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  });
+
+  it("drops the Undo once the user edits the text", async () => {
+    renderBoard();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Your passage"), "Draft");
+    await askAndPick(user, "Two.");
+    await user.type(screen.getByLabelText("Your passage"), "!");
+
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  });
+});
+
+describe("stale pages and notices", () => {
+  it("refetches on 403 not_participant from a contribution, so the page can show the join form", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_participant" })));
+    const refetch = renderBoard();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Your passage"), "Words");
+    await user.click(screen.getByRole("button", { name: "Add to the story" }));
+
+    expect(await screen.findByText(/not part of this story/)).toBeInTheDocument();
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("clears the notice once the story shows a new turn version", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
+    const refetch = vi.fn<() => void>();
+    const { rerender } = render(
+      <StoryBoard storyId="abc12" view={myTurn} refreshFailed={false} refetch={refetch} />,
+    );
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Your passage"), "Words");
+    await user.click(screen.getByRole("button", { name: "Add to the story" }));
+    expect(await screen.findByText(/The story changed while you were writing/)).toBeInTheDocument();
+
+    const newer = storyView({
+      participants: [ME, OTHER, THIRD],
+      holderId: ME,
+      lastWriterId: OTHER,
+      version: 4,
+    });
+    rerender(<StoryBoard storyId="abc12" view={newer} refreshFailed={false} refetch={refetch} />);
+
+    expect(screen.queryByText(/The story changed while you were writing/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Your passage")).toHaveValue("Words");
   });
 });
 

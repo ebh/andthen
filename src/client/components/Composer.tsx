@@ -1,4 +1,4 @@
-import type { SubmitEvent } from "react";
+import type { Ref, SubmitEvent } from "react";
 import { useId } from "react";
 
 import { MAX_PASSAGE_LENGTH, passageLength, validatePassage } from "../../shared/validation";
@@ -10,6 +10,8 @@ interface ComposerProps {
   onSubmit: () => void;
   submitting: boolean;
   submitLabel: string;
+  /** Lets the parent move focus into the field, e.g. after filling it. */
+  fieldRef?: Ref<HTMLTextAreaElement>;
 }
 
 /** A passage editor with a live grapheme counter. The parent owns the text so it survives a failed submit. */
@@ -20,6 +22,7 @@ export function Composer({
   onSubmit,
   submitting,
   submitLabel,
+  fieldRef,
 }: ComposerProps) {
   const fieldId = useId();
   const counterId = useId();
@@ -41,6 +44,7 @@ export function Composer({
       </label>
       <textarea
         id={fieldId}
+        ref={fieldRef}
         className={`textarea textarea-bordered w-full ${tooLong ? "textarea-error" : ""}`}
         rows={4}
         value={value}

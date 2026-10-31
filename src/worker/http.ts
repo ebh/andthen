@@ -18,8 +18,7 @@ export class ApiError extends Error {
   }
 }
 
-// Every code has exactly one status, and every status here belongs to one code. 429 and 503
-// belong to the AI routes (Phase 5).
+// Every code has exactly one status, and every status here belongs to one code.
 const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   bad_request: 400,
   invalid_passage: 400,

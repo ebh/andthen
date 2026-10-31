@@ -7,6 +7,8 @@ import {
   type StoryView,
 } from "../../src/shared/api";
 import { createApp } from "../../src/worker/app";
+import { fakeProvider } from "../../src/worker/suggestions/fake";
+import type { SuggestionProvider } from "../../src/worker/suggestions/provider";
 
 export const T0 = 1_700_000_000_000;
 
@@ -44,7 +46,11 @@ export interface Browser {
   backgroundWork: Promise<unknown>[];
 }
 
-export function createTestApp(clock: Clock, newStoryId?: () => string): TestApp {
+export function createTestApp(
+  clock: Clock,
+  newStoryId?: () => string,
+  suggestionProvider: SuggestionProvider = fakeProvider,
+): TestApp {
   let counter = 0;
 
   return createApp({
@@ -55,6 +61,7 @@ export function createTestApp(clock: Clock, newStoryId?: () => string): TestApp 
         counter += 1;
         return counter.toString(36).padStart(5, "0");
       }),
+    suggestionProvider: () => suggestionProvider,
   });
 }
 

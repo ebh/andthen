@@ -13,6 +13,9 @@ export const SUGGESTION_LIMIT = 3;
 
 export const SUGGESTION_WINDOW_MS = 60 * 60 * 1000;
 
+/** How long a request waits for the model, including its one retry. */
+export const SUGGESTION_TIMEOUT_MS = 25_000;
+
 /** Supports JSON-schema output (docs/spike-findings.md). Any model set in `AI_MODEL` must too. */
 export const DEFAULT_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 

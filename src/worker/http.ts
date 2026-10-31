@@ -31,6 +31,7 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   payload_too_large: 413,
   stale_turn: 409,
   name_taken: 409,
+  story_full: 409,
   already_joined: 409,
   no_one_to_skip_to: 409,
   ai_rate_limited: 429,

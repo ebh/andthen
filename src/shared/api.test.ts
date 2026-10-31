@@ -166,6 +166,7 @@ describe("errorBodySchema", () => {
     "payload_too_large",
     "internal_error",
     "name_taken",
+    "story_full",
     "invalid_passage",
     "invalid_display_name",
     "ai_unavailable",

@@ -1,5 +1,10 @@
 # Copy to .dev.vars for local overrides. Never commit .dev.vars.
 # Values here override the top-level `vars` in wrangler.jsonc during `pnpm dev`.
 
-# Which SuggestionProvider serves suggestions. "fake" needs no Cloudflare login.
+# Which SuggestionProvider serves suggestions: "fake" (no Cloudflare login) or "workers-ai"
+# (needs `wrangler login`; the AI binding may incur usage charges even in local dev).
 AI_PROVIDER=fake
+
+# The Workers AI model, used only when AI_PROVIDER=workers-ai. It must support JSON-schema output.
+# Optional: the default is @cf/meta/llama-3.3-70b-instruct-fp8-fast.
+# AI_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast

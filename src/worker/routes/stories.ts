@@ -41,7 +41,7 @@ import { ApiError, parseJsonBody, requireSameOrigin, type AppContext } from "../
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
 import { buildStoryView } from "../storyView";
-import type { SuggestionProvider } from "../suggestions/provider";
+import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
 
 export interface StoryDeps {
   /** The clock, in epoch milliseconds. Tests set it to control turn expiry. */
@@ -229,9 +229,12 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     const storyText = found.contributions.map(({ text }) => text).join("\n\n");
-    const result = await provider.suggest(storyText);
+    const result = await askProvider(provider, storyText);
     if (!result.ok) {
-      await releaseSuggestion(c.env.DB, request.id);
+      // Only an outage refunds: bad output and a timeout may already have been billed.
+      if (result.failure === "model_error") {
+        await releaseQuietly(c.env.DB, request.id);
+      }
       throw new ApiError("ai_unavailable");
     }
     const response: SuggestionsResponse = { suggestions: result.suggestions };
@@ -254,6 +257,28 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
   });
 
   return routes;
+}
+
+// A provider that throws breaks its contract; the quota slot still gets settled.
+async function askProvider(
+  provider: SuggestionProvider,
+  storyText: string,
+): Promise<SuggestionResult> {
+  try {
+    return await provider.suggest(storyText);
+  } catch (error) {
+    console.error("Suggestion provider threw", error);
+    return { ok: false, failure: "model_error" };
+  }
+}
+
+// If the refund itself fails the participant loses one slot for an hour; the 503 still goes out.
+async function releaseQuietly(db: Db, id: string): Promise<void> {
+  try {
+    await releaseSuggestion(db, id);
+  } catch (error) {
+    console.error("Releasing a suggestion slot failed", error);
+  }
 }
 
 // Retries with a new ID on a collision, one attempt at a time.

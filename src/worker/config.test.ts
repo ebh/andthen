@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_AI_MODEL, parseAiConfig, SUGGESTION_LIMIT, SUGGESTION_WINDOW_MS } from "./config";
+import {
+  DEFAULT_AI_MODEL,
+  parseAiConfig,
+  SUGGESTION_LIMIT,
+  SUGGESTION_TIMEOUT_MS,
+  SUGGESTION_WINDOW_MS,
+} from "./config";
 
 describe("suggestion limits", () => {
   it("pins the agreed values: 3 requests per rolling hour", () => {
     expect(SUGGESTION_LIMIT).toBe(3);
     expect(SUGGESTION_WINDOW_MS).toBe(3_600_000);
+    expect(SUGGESTION_TIMEOUT_MS).toBe(25_000);
   });
 });
 

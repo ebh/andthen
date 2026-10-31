@@ -31,7 +31,24 @@ describe("withTimeout", () => {
     expect(await Promise.race([pending, Promise.resolve("still waiting")])).toBe("still waiting");
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(await pending).toEqual({ ok: false });
+    expect(await pending).toEqual({ ok: false, failure: "timed_out" });
+  });
+
+  it("aborts the provider's signal at the deadline, and not before", async () => {
+    let seenSignal: AbortSignal | undefined;
+    const provider: SuggestionProvider = {
+      suggest: (_story, signal) => {
+        seenSignal = signal;
+        return new Promise(() => undefined);
+      },
+    };
+    void withTimeout(provider, 1000).suggest("s");
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(seenSignal?.aborted).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(seenSignal?.aborted).toBe(true);
   });
 
   it("passes the story text on", async () => {
@@ -39,6 +56,6 @@ describe("withTimeout", () => {
 
     await withTimeout({ suggest }, 1000).suggest("the story");
 
-    expect(suggest).toHaveBeenCalledWith("the story");
+    expect(suggest).toHaveBeenCalledWith("the story", expect.any(AbortSignal));
   });
 });

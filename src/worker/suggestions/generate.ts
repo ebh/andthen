@@ -10,16 +10,18 @@ const ATTEMPTS = 2;
 /**
  * Asks the model and parses the answer. Output that doesn't parse is asked for again once; a
  * thrown error (model error, quota) is not retried, since a second call would hit the same wall.
+ * After `signal` aborts no further call starts: an abandoned request must not spend more.
  */
 export async function generateSuggestions(
   complete: CompleteChat,
   storyText: string,
+  signal?: AbortSignal,
 ): Promise<SuggestionResult> {
   try {
-    return await attempt(complete, buildMessages(storyText), ATTEMPTS);
+    return await attempt(complete, buildMessages(storyText), ATTEMPTS, signal);
   } catch (error) {
     console.error("Suggestion provider failed", error);
-    return { ok: false };
+    return { ok: false, failure: "model_error" };
   }
 }
 
@@ -27,9 +29,13 @@ async function attempt(
   complete: CompleteChat,
   messages: ChatMessage[],
   attemptsLeft: number,
+  signal: AbortSignal | undefined,
 ): Promise<SuggestionResult> {
+  if (signal?.aborted === true) {
+    return { ok: false, failure: "timed_out" };
+  }
   if (attemptsLeft === 0) {
-    return { ok: false };
+    return { ok: false, failure: "unusable_output" };
   }
 
   const suggestions = parseSuggestions(await complete(messages));
@@ -37,5 +43,5 @@ async function attempt(
     return { ok: true, suggestions };
   }
 
-  return attempt(complete, messages, attemptsLeft - 1);
+  return attempt(complete, messages, attemptsLeft - 1, signal);
 }

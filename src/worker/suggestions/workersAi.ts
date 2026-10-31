@@ -22,23 +22,27 @@ const JSON_MODE_UNMET = /JSON Mode couldn't be met/i;
 
 export function createWorkersAiProvider({ model, run }: WorkersAiOptions): SuggestionProvider {
   return {
-    suggest: (storyText) =>
-      generateSuggestions(async (messages) => {
-        try {
-          const output = await run(model, {
-            messages,
-            response_format: { type: "json_schema", json_schema: SUGGESTIONS_JSON_SCHEMA },
-          });
-          const parsed = modelOutputSchema.safeParse(output);
+    suggest: (storyText, signal) =>
+      generateSuggestions(
+        async (messages) => {
+          try {
+            const output = await run(model, {
+              messages,
+              response_format: { type: "json_schema", json_schema: SUGGESTIONS_JSON_SCHEMA },
+            });
+            const parsed = modelOutputSchema.safeParse(output);
 
-          return parsed.success ? parsed.data.response : null;
-        } catch (error) {
-          // The model could not meet the schema: that is bad output, which the caller retries.
-          if (error instanceof Error && JSON_MODE_UNMET.test(error.message)) {
-            return null;
+            return parsed.success ? parsed.data.response : null;
+          } catch (error) {
+            // The model could not meet the schema: that is bad output, which the caller retries.
+            if (error instanceof Error && JSON_MODE_UNMET.test(error.message)) {
+              return null;
+            }
+            throw error;
           }
-          throw error;
-        }
-      }, storyText),
+        },
+        storyText,
+        signal,
+      ),
   };
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SUGGESTIONS_JSON_SCHEMA } from "./prompt";
+import { CLOSING_INSTRUCTION, SUGGESTIONS_JSON_SCHEMA } from "./prompt";
 import { createWorkersAiProvider, type RunModel } from "./workersAi";
 
 const GOOD = ["One.", "Two.", "Three."];
@@ -20,7 +20,7 @@ describe("createWorkersAiProvider", () => {
     expect(run).toHaveBeenCalledWith("@cf/test/model", {
       messages: [
         expect.objectContaining({ role: "system" }),
-        { role: "user", content: "<story>\nStory\n</story>" },
+        { role: "user", content: `<story>\nStory\n</story>\n\n${CLOSING_INSTRUCTION}` },
       ],
       response_format: { type: "json_schema", json_schema: SUGGESTIONS_JSON_SCHEMA },
     });
@@ -62,6 +62,7 @@ describe("createWorkersAiProvider", () => {
 
       expect(await createWorkersAiProvider({ model: "m", run }).suggest("s")).toEqual({
         ok: false,
+        failure: "model_error",
       });
       expect(run).toHaveBeenCalledTimes(1);
     }

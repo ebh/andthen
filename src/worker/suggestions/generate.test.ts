@@ -37,7 +37,10 @@ describe("generateSuggestions", () => {
       .fn<CompleteChat>()
       .mockResolvedValue({ suggestions: ["Same.", "Same.", "Same."] });
 
-    expect(await generateSuggestions(complete, "The story.")).toEqual({ ok: false });
+    expect(await generateSuggestions(complete, "The story.")).toEqual({
+      ok: false,
+      failure: "unusable_output",
+    });
     expect(complete).toHaveBeenCalledTimes(2);
   });
 
@@ -51,9 +54,33 @@ describe("generateSuggestions", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const complete = vi.fn<CompleteChat>().mockRejectedValue(new Error("quota"));
 
-    expect(await generateSuggestions(complete, "The story.")).toEqual({ ok: false });
+    expect(await generateSuggestions(complete, "The story.")).toEqual({
+      ok: false,
+      failure: "model_error",
+    });
     expect(complete).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts no second call once the signal has aborted", async () => {
+    const abandoned = new AbortController();
+    const complete = vi.fn<CompleteChat>().mockImplementation(() => {
+      abandoned.abort();
+      return Promise.resolve("garbage");
+    });
+
+    const result = await generateSuggestions(complete, "s", abandoned.signal);
+
+    expect(result).toEqual({ ok: false, failure: "timed_out" });
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts no call at all when the signal is already aborted", async () => {
+    const complete = vi.fn<CompleteChat>().mockResolvedValue(GOOD);
+
+    await generateSuggestions(complete, "s", AbortSignal.abort());
+
+    expect(complete).not.toHaveBeenCalled();
   });
 
   it("does not retry when the retry itself throws", async () => {
@@ -63,7 +90,7 @@ describe("generateSuggestions", () => {
       .mockResolvedValueOnce("garbage")
       .mockRejectedValueOnce(new Error("x"));
 
-    expect(await generateSuggestions(complete, "s")).toEqual({ ok: false });
+    expect(await generateSuggestions(complete, "s")).toEqual({ ok: false, failure: "model_error" });
     expect(complete).toHaveBeenCalledTimes(2);
   });
 });

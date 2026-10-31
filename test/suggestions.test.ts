@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import { suggestionsResponseSchema } from "../src/shared/api";
 import { createApp } from "../src/worker/app";
-import { SUGGESTION_LIMIT, SUGGESTION_WINDOW_MS } from "../src/worker/config";
+import {
+  SUGGESTION_LIMIT,
+  SUGGESTION_TIMEOUT_MS,
+  SUGGESTION_WINDOW_MS,
+} from "../src/worker/config";
 import { FAKE_SUGGESTIONS } from "../src/worker/suggestions/fake";
 import type { SuggestionProvider, SuggestionResult } from "../src/worker/suggestions/provider";
 import { selectSuggestionProvider } from "../src/worker/suggestions/select";
@@ -29,6 +33,9 @@ const GOOD: SuggestionResult = { ok: true, suggestions: ["One.", "Two.", "Three.
 
 // A provider the test controls: what it answers, and what story text it was shown.
 const goodAnswer = (): SuggestionResult => GOOD;
+const noGate = (): Promise<unknown> => Promise.resolve();
+const MODEL_ERROR: SuggestionResult = { ok: false, failure: "model_error" };
+const UNUSABLE: SuggestionResult = { ok: false, failure: "unusable_output" };
 
 function ask(browser: Browser, storyId: string, options?: Parameters<Browser["post"]>[2]) {
   return browser.post(`/api/stories/${storyId}/suggestions`, undefined, options);
@@ -40,18 +47,19 @@ function envWith(base: Env, vars: object): Env {
   return Object.assign(Object.create(null), base, vars);
 }
 
-function scriptedProvider(answer: () => SuggestionResult = () => GOOD): {
-  provider: SuggestionProvider;
-  seen: string[];
-} {
+function scriptedProvider(
+  answer: () => SuggestionResult,
+  gate: () => Promise<unknown>,
+): { provider: SuggestionProvider; seen: string[] } {
   const seen: string[] = [];
 
   return {
     seen,
     provider: {
-      suggest: (storyText) => {
+      suggest: async (storyText) => {
         seen.push(storyText);
-        return Promise.resolve(answer());
+        await gate();
+        return answer();
       },
     },
   };
@@ -61,7 +69,11 @@ describe("POST /api/stories/:id/suggestions", () => {
   let testEnv: TestEnv;
   const clock: Clock = { now: T0 };
   let answer = goodAnswer;
-  const { provider, seen } = scriptedProvider(() => answer());
+  let gate = noGate;
+  const { provider, seen } = scriptedProvider(
+    () => answer(),
+    () => gate(),
+  );
   const app = createTestApp(clock, undefined, provider);
 
   beforeAll(async () => {
@@ -73,7 +85,9 @@ describe("POST /api/stories/:id/suggestions", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     answer = goodAnswer;
+    gate = noGate;
     seen.length = 0;
     vi.restoreAllMocks();
   });
@@ -350,10 +364,10 @@ describe("POST /api/stories/:id/suggestions", () => {
     });
   });
 
-  describe("when the provider fails", () => {
+  describe("when the model errors", () => {
     it("answers 503 ai_unavailable", async () => {
       const { storyId, ben } = await twoPersonStory();
-      answer = () => ({ ok: false });
+      answer = () => MODEL_ERROR;
 
       const response = await ask(ben, storyId);
 
@@ -363,7 +377,7 @@ describe("POST /api/stories/:id/suggestions", () => {
 
     it("does not use up quota", async () => {
       const { storyId, ben, benId } = await twoPersonStory();
-      answer = () => ({ ok: false });
+      answer = () => MODEL_ERROR;
       for (let n = 0; n < SUGGESTION_LIMIT + 2; n += 1) {
         expect((await ask(ben, storyId)).status).toBe(503);
       }
@@ -379,7 +393,7 @@ describe("POST /api/stories/:id/suggestions", () => {
     it("gives back only the failed request's slot", async () => {
       const { storyId, ben, benId } = await twoPersonStory();
       await ask(ben, storyId);
-      answer = () => ({ ok: false });
+      answer = () => MODEL_ERROR;
 
       await ask(ben, storyId);
 
@@ -389,12 +403,102 @@ describe("POST /api/stories/:id/suggestions", () => {
     it("leaves the story unchanged", async () => {
       const { storyId, ben } = await twoPersonStory();
       const before = await readStory(ben, storyId);
-      answer = () => ({ ok: false });
+      answer = () => MODEL_ERROR;
 
       await ask(ben, storyId);
 
       expect(await readStory(ben, storyId)).toEqual(before);
     });
+
+    it("holds the slot while the call runs, so an overlapping request can get 429 early", async () => {
+      const { storyId, ben, benId } = await twoPersonStory();
+      await ask(ben, storyId);
+      await ask(ben, storyId);
+      const release = Promise.withResolvers<undefined>();
+      gate = () => release.promise;
+      answer = () => MODEL_ERROR;
+
+      const failing = ask(ben, storyId);
+      await vi.waitFor(() => {
+        expect(seen).toHaveLength(3);
+      });
+      const overlapping = await ask(ben, storyId);
+      release.resolve(undefined);
+      const failed = await failing;
+
+      expect(overlapping.status).toBe(429);
+      expect(failed.status).toBe(503);
+      expect(await requestCount(benId)).toBe(2);
+      gate = noGate;
+      answer = goodAnswer;
+      expect((await ask(ben, storyId)).status).toBe(200);
+    });
+
+    it("still answers 503 when giving the slot back fails", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const { storyId, ben, benId } = await twoPersonStory();
+      answer = () => MODEL_ERROR;
+      const brokenRelease = {
+        prepare: (query: string) => {
+          if (query.startsWith("DELETE FROM suggestion_requests")) {
+            throw new Error("D1 unavailable");
+          }
+          return testEnv.env.DB.prepare(query);
+        },
+        batch: testEnv.env.DB.batch.bind(testEnv.env.DB),
+      };
+
+      const response = await ask(ben, storyId, { env: { DB: brokenRelease } });
+
+      expect(response.status).toBe(503);
+      expect(await readError(response)).toBe("ai_unavailable");
+      expect(await requestCount(benId)).toBe(1);
+    });
+
+    it("treats a provider that throws as a model error and refunds", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const { storyId, ben, benId } = await twoPersonStory();
+      gate = () => Promise.reject(new Error("contract broken"));
+
+      const response = await ask(ben, storyId);
+
+      expect(response.status).toBe(503);
+      expect(await requestCount(benId)).toBe(0);
+    });
+  });
+
+  describe("when the model's output is unusable", () => {
+    it("answers 503 and keeps the slot, because the calls were made", async () => {
+      const { storyId, ben, benId } = await twoPersonStory();
+      answer = () => UNUSABLE;
+
+      const response = await ask(ben, storyId);
+
+      expect(response.status).toBe(503);
+      expect(await readError(response)).toBe("ai_unavailable");
+      expect(await requestCount(benId)).toBe(1);
+    });
+
+    it("runs out of quota like any other request", async () => {
+      const { storyId, ben } = await twoPersonStory();
+      answer = () => UNUSABLE;
+      for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
+        expect((await ask(ben, storyId)).status).toBe(503);
+      }
+
+      expect((await ask(ben, storyId)).status).toBe(429);
+    });
+  });
+
+  it("does not tell the story's room anything", async () => {
+    const { storyId, ben } = await twoPersonStory();
+    const before = ben.backgroundWork.length;
+
+    await ask(ben, storyId);
+    answer = () => MODEL_ERROR;
+    await ask(ben, storyId);
+
+    expect(ben.backgroundWork).toHaveLength(before);
   });
 
   describe("with the configured provider", () => {
@@ -435,15 +539,52 @@ describe("POST /api/stories/:id/suggestions", () => {
       expect(run).toHaveBeenCalledTimes(1);
     });
 
-    it("answers 503 when Workers AI throws, and keeps the quota", async () => {
+    it("answers 503 when Workers AI throws, and gives the slot back", async () => {
       vi.spyOn(console, "error").mockImplementation(() => undefined);
       const run = vi.fn<RunModel>().mockRejectedValue(new Error("quota exceeded"));
-      const { ben, storyId } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
+      const { ben, storyId, env } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
+      const before = await totalRequests(env.DB);
 
       const response = await ask(ben, storyId);
 
       expect(response.status).toBe(503);
       expect(await readError(response)).toBe("ai_unavailable");
+      expect(await totalRequests(env.DB)).toBe(before);
+    });
+
+    it("keeps the slot when Workers AI keeps returning unusable output", async () => {
+      const run = vi.fn<RunModel>().mockResolvedValue({ response: "not json" });
+      const { ben, storyId, env } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
+      const before = await totalRequests(env.DB);
+
+      const response = await ask(ben, storyId);
+
+      expect(response.status).toBe(503);
+      expect(run).toHaveBeenCalledTimes(2);
+      expect(await totalRequests(env.DB)).toBe(before + 1);
+    });
+
+    it("gives up on a hung Workers AI call, keeps the slot, and never starts a retry", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const lateAnswer = Promise.withResolvers<unknown>();
+      const run = vi.fn<RunModel>().mockReturnValue(lateAnswer.promise);
+      const { ben, storyId, env } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
+      const before = await totalRequests(env.DB);
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+      const pending = ask(ben, storyId);
+      await vi.waitFor(() => {
+        expect(run).toHaveBeenCalledTimes(1);
+      });
+      await vi.advanceTimersByTimeAsync(SUGGESTION_TIMEOUT_MS);
+      const response = await pending;
+      lateAnswer.resolve({ response: "unusable" });
+      await vi.advanceTimersByTimeAsync(1000);
+      vi.useRealTimers();
+
+      expect(response.status).toBe(503);
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(await totalRequests(env.DB)).toBe(before + 1);
     });
 
     it("fails with 500 on a bad AI_PROVIDER, before using up quota", async () => {

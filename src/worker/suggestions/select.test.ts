@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_AI_MODEL } from "../config";
+import { DEFAULT_AI_MODEL, SUGGESTION_TIMEOUT_MS } from "../config";
 import { FAKE_SUGGESTIONS, fakeProvider } from "./fake";
 import { type RunModel } from "./workersAi";
 import { selectSuggestionProvider } from "./select";
@@ -32,6 +32,22 @@ describe("selectSuggestionProvider", () => {
     ).suggest("s");
 
     expect(run.mock.calls.map(([model]) => model)).toEqual([DEFAULT_AI_MODEL, "@cf/x/y"]);
+  });
+
+  it("gives up on a hung Workers AI call after SUGGESTION_TIMEOUT_MS, not before", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const run = vi.fn<RunModel>().mockReturnValue(new Promise(() => undefined));
+    const pending = selectSuggestionProvider(envWith({ AI_PROVIDER: "workers-ai" }, run)).suggest(
+      "s",
+    );
+
+    await vi.advanceTimersByTimeAsync(SUGGESTION_TIMEOUT_MS - 1);
+    expect(await Promise.race([pending, Promise.resolve("waiting")])).toBe("waiting");
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toEqual({ ok: false, failure: "timed_out" });
+    vi.useRealTimers();
   });
 
   it("throws a clear error for a bad AI_PROVIDER", () => {

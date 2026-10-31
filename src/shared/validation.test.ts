@@ -5,6 +5,7 @@ import {
   MAX_DISPLAY_NAME_LENGTH,
   MAX_PASSAGE_LENGTH,
   normaliseStoryId,
+  passageLength,
   TURN_WINDOW_MS,
   truncatePassage,
   validateDisplayName,
@@ -70,6 +71,14 @@ describe("validatePassage", () => {
       ok: false,
       reason: "too_long",
     });
+  });
+});
+
+describe("passageLength", () => {
+  it("counts trimmed graphemes, so an emoji is 1", () => {
+    expect(passageLength("")).toBe(0);
+    expect(passageLength("  ab  ")).toBe(2);
+    expect(passageLength(`a${FAMILY}b`)).toBe(3);
   });
 });
 

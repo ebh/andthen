@@ -21,6 +21,11 @@ export function validatePassage(raw: string): ValidationResult {
   return validateLength(raw, MAX_PASSAGE_LENGTH);
 }
 
+/** How many graphemes validatePassage counts: the trimmed text. A live counter shows this. */
+export function passageLength(raw: string): number {
+  return countGraphemes(raw.trim());
+}
+
 /**
  * Trims text and cuts it to MAX_PASSAGE_LENGTH graphemes, for model output that may run long.
  * Returns "" when nothing is left; the caller decides what that means.
@@ -55,7 +60,7 @@ export function normaliseStoryId(raw: string): string | null {
 
 function validateLength(raw: string, max: number): ValidationResult {
   const value = raw.trim();
-  const length = Array.from(graphemes.segment(value)).length;
+  const length = countGraphemes(value);
 
   if (length === 0) {
     return { ok: false, reason: "empty" };
@@ -65,4 +70,8 @@ function validateLength(raw: string, max: number): ValidationResult {
   }
 
   return { ok: true, value };
+}
+
+function countGraphemes(value: string): number {
+  return Array.from(graphemes.segment(value)).length;
 }

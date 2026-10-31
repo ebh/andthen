@@ -16,12 +16,12 @@ export function parseSuggestions(raw: unknown): Suggestions | null {
     return null;
   }
 
-  const [first, second, third] = output.data.suggestions.map(truncatePassage);
-  if (first === undefined || second === undefined || third === undefined) {
-    return null;
-  }
-
-  const suggestions: Suggestions = [first, second, third];
+  const [first, second, third] = output.data.suggestions;
+  const suggestions: Suggestions = [
+    truncatePassage(first),
+    truncatePassage(second),
+    truncatePassage(third),
+  ];
   const keys = new Set(suggestions.map(sameSuggestionKey));
   if (suggestions.includes("") || keys.size !== suggestions.length) {
     return null;

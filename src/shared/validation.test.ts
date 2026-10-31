@@ -76,6 +76,9 @@ describe("validatePassage", () => {
 describe("truncatePassage", () => {
   it("trims and leaves a passage within the limit alone", () => {
     expect(truncatePassage("  Short one.  ")).toBe("Short one.");
+    expect(truncatePassage(` ${"a".repeat(MAX_PASSAGE_LENGTH)}`)).toBe(
+      "a".repeat(MAX_PASSAGE_LENGTH),
+    );
     expect(truncatePassage("a".repeat(MAX_PASSAGE_LENGTH))).toBe("a".repeat(MAX_PASSAGE_LENGTH));
   });
 

@@ -153,10 +153,11 @@ export function skip(state: TurnState, now: number, request: SkipAction): TurnRe
     return { ok: false, reason: "cannot_skip_self" };
   }
 
-  const next = nextHolder(current, current.currentPosition);
-  if (next === current.currentPosition) {
+  if (!canSkip(current)) {
     return { ok: false, reason: "no_one_to_skip_to" };
   }
+
+  const next = nextHolder(current, current.currentPosition);
 
   return {
     ok: true,
@@ -167,6 +168,18 @@ export function skip(state: TurnState, now: number, request: SkipAction): TurnRe
       turnStartedAt: now,
     },
   };
+}
+
+/**
+ * Whether the holder's turn has anywhere to go: someone other than the holder and the last
+ * contributor is in the rotation. False while the story waits. A caller that only knows the
+ * rotation order can pass positions 0..n-1.
+ */
+export function canSkip(state: TurnState): boolean {
+  return (
+    state.currentPosition !== null &&
+    nextHolder(state, state.currentPosition) !== state.currentPosition
+  );
 }
 
 /**

@@ -21,6 +21,17 @@ export function validatePassage(raw: string): ValidationResult {
   return validateLength(raw, MAX_PASSAGE_LENGTH);
 }
 
+/**
+ * Trims text and cuts it to MAX_PASSAGE_LENGTH graphemes, for model output that may run long.
+ * Returns "" when nothing is left; the caller decides what that means.
+ */
+export function truncatePassage(raw: string): string {
+  const value = raw.trim();
+  const parts = Array.from(graphemes.segment(value), ({ segment }) => segment);
+
+  return parts.slice(0, MAX_PASSAGE_LENGTH).join("").trim();
+}
+
 /** Trims a display name and checks it is 1 to MAX_DISPLAY_NAME_LENGTH graphemes long. */
 export function validateDisplayName(raw: string): ValidationResult {
   return validateLength(raw, MAX_DISPLAY_NAME_LENGTH);

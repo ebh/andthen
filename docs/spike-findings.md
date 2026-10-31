@@ -47,7 +47,7 @@ pnpm 12 blocks dependency build scripts. `pnpm-workspace.yaml` `allowBuilds` all
 
 - An `ai` binding is always remote. With it in the top-level config, `pnpm dev` **fails to start** without Cloudflare credentials ("Failed to start the remote proxy session… set a CLOUDFLARE_API_TOKEN").
 - With `cloudflare({ remoteBindings: false })` in `vite.config.ts`, dev starts and `env.AI.run()` throws `Binding AI needs to be run remotely`. Wrangler warns that AI bindings "may incur usage charges even in local dev".
-- **Decided (Phase 5 implements):** local dev uses `AI_PROVIDER=fake` with `remoteBindings: false` by default. The real model is opt-in after a Cloudflare login. Tests pass `remoteBindings: false` (the harness already does). Preview and production set `AI_PROVIDER=workers-ai`.
+- **Decided (Phase 5 implements):** local dev uses `AI_PROVIDER=fake` with `remoteBindings: false` by default. The real model is opt-in: `AI_REMOTE=1 pnpm dev` (a shell variable that `vite.config.ts` reads to turn remote bindings on) with `AI_PROVIDER=workers-ai`, after a Cloudflare login. That path has not been run. Tests pass `remoteBindings: false` (the harness already does). Preview and production set `AI_PROVIDER=workers-ai`.
 - JSON-schema output (`response_format: { type: "json_schema", json_schema }`) is supported by `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, the plan's default, among others ([JSON mode docs](https://developers.cloudflare.com/workers-ai/features/json-mode/)). Output is not guaranteed to match: handle the "JSON Mode couldn't be met" error. No streaming in JSON mode.
 - No remote AI call was made.
 

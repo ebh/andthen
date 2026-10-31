@@ -4,6 +4,7 @@ import type { HealthResponse } from "../shared/api";
 import { guardMutation, handleError, handleNotFound, limitBody, noStore } from "./http";
 import { newStoryId } from "./ids";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
+import { selectSuggestionProvider } from "./suggestions/select";
 
 export function createApp(deps: StoryDeps): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
@@ -24,4 +25,8 @@ export function createApp(deps: StoryDeps): Hono<{ Bindings: Env }> {
   return app;
 }
 
-export const app = createApp({ now: () => Date.now(), newStoryId: () => newStoryId() });
+export const app = createApp({
+  now: () => Date.now(),
+  newStoryId: () => newStoryId(),
+  suggestionProvider: selectSuggestionProvider,
+});

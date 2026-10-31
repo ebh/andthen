@@ -6,6 +6,7 @@ import {
   MAX_PASSAGE_LENGTH,
   normaliseStoryId,
   TURN_WINDOW_MS,
+  truncatePassage,
   validateDisplayName,
   validatePassage,
 } from "./validation";
@@ -69,6 +70,32 @@ describe("validatePassage", () => {
       ok: false,
       reason: "too_long",
     });
+  });
+});
+
+describe("truncatePassage", () => {
+  it("trims and leaves a passage within the limit alone", () => {
+    expect(truncatePassage("  Short one.  ")).toBe("Short one.");
+    expect(truncatePassage(` ${"a".repeat(MAX_PASSAGE_LENGTH)}`)).toBe(
+      "a".repeat(MAX_PASSAGE_LENGTH),
+    );
+    expect(truncatePassage("a".repeat(MAX_PASSAGE_LENGTH))).toBe("a".repeat(MAX_PASSAGE_LENGTH));
+  });
+
+  it("cuts to the limit in graphemes, never inside one", () => {
+    const cut = truncatePassage(`${"a".repeat(MAX_PASSAGE_LENGTH - 1)}${FAMILY}${FAMILY}`);
+
+    expect(cut).toBe(`${"a".repeat(MAX_PASSAGE_LENGTH - 1)}${FAMILY}`);
+  });
+
+  it("trims whitespace the cut leaves at the end", () => {
+    expect(truncatePassage(`${"a".repeat(MAX_PASSAGE_LENGTH - 1)} b`)).toBe(
+      "a".repeat(MAX_PASSAGE_LENGTH - 1),
+    );
+  });
+
+  it("returns an empty string for blank text", () => {
+    expect(truncatePassage(" \n ")).toBe("");
   });
 });
 

@@ -7,17 +7,25 @@ import {
   skipRequestSchema,
   type CreateStoryResponse,
   type JoinResponse,
+  type SuggestionsResponse,
 } from "../../shared/api";
-import { afterContribution, newStoryState, onJoin, skip } from "../../shared/turnOrder";
+import {
+  afterContribution,
+  newStoryState,
+  onJoin,
+  resolveTurn,
+  skip,
+} from "../../shared/turnOrder";
 import {
   displayNameKey,
   normaliseStoryId,
   validateDisplayName,
   validatePassage,
 } from "../../shared/validation";
-import { STORY_ID_ATTEMPTS } from "../config";
+import { STORY_ID_ATTEMPTS, SUGGESTION_LIMIT, SUGGESTION_WINDOW_MS } from "../config";
 import { hashBrowserToken, readBrowserToken, readOrIssueBrowserToken } from "../cookies";
 import type { ParticipantRow } from "../db/rows";
+import { releaseSuggestion, reserveSuggestion } from "../db/suggestionRepo";
 import {
   addParticipant,
   appendContribution,
@@ -33,12 +41,15 @@ import { ApiError, parseJsonBody, requireSameOrigin, type AppContext } from "../
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
 import { buildStoryView } from "../storyView";
+import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
 
 export interface StoryDeps {
   /** The clock, in epoch milliseconds. Tests set it to control turn expiry. */
   now: () => number;
   /** A fresh story ID; called again after a collision. */
   newStoryId: () => string;
+  /** The provider for this request's bindings; throws when the AI config is invalid. */
+  suggestionProvider: (env: Env) => SuggestionProvider;
 }
 
 export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
@@ -190,6 +201,47 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.body(null, 204);
   });
 
+  // Reads the story and writes only the quota row: no text, no turn change, no version bump.
+  routes.post("/api/stories/:id/suggestions", async (c) => {
+    const storyId = parseStoryId(c.req.param("id"));
+    const found = await loadStoryWithContributions(c.env.DB, storyId);
+    if (found === null) {
+      throw new ApiError("not_found");
+    }
+    const me = await requireParticipant(c, found.loaded);
+
+    // The stored holder may have timed out; only the resolved turn says who holds it now.
+    const now = deps.now();
+    if (resolveTurn(found.loaded.state, now).state.currentPosition !== me.position) {
+      throw new ApiError("not_your_turn");
+    }
+
+    // Built before reserving, so a bad AI config fails the request without using up quota.
+    const provider = deps.suggestionProvider(c.env);
+    const request = { id: newId(), participantId: me.id, now };
+    const reserved = await reserveSuggestion(c.env.DB, {
+      ...request,
+      windowMs: SUGGESTION_WINDOW_MS,
+      limit: SUGGESTION_LIMIT,
+    });
+    if (!reserved) {
+      throw new ApiError("ai_rate_limited");
+    }
+
+    const storyText = found.contributions.map(({ text }) => text).join("\n\n");
+    const result = await askProvider(provider, storyText);
+    if (!result.ok) {
+      // Only an outage refunds: bad output and a timeout may already have been billed.
+      if (result.failure === "model_error") {
+        await releaseQuietly(c.env.DB, request.id);
+      }
+      throw new ApiError("ai_unavailable");
+    }
+    const response: SuggestionsResponse = { suggestions: result.suggestions };
+
+    return c.json(response);
+  });
+
   // Same checks as reading the story, so a socket never hears about a story its browser can't read.
   routes.get("/api/stories/:id/live", async (c) => {
     if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") {
@@ -205,6 +257,28 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
   });
 
   return routes;
+}
+
+// A provider that throws breaks its contract; the quota slot still gets settled.
+async function askProvider(
+  provider: SuggestionProvider,
+  storyText: string,
+): Promise<SuggestionResult> {
+  try {
+    return await provider.suggest(storyText);
+  } catch (error) {
+    console.error("Suggestion provider threw", error);
+    return { ok: false, failure: "model_error" };
+  }
+}
+
+// If the refund itself fails the participant loses one slot for an hour; the 503 still goes out.
+async function releaseQuietly(db: Db, id: string): Promise<void> {
+  try {
+    await releaseSuggestion(db, id);
+  } catch (error) {
+    console.error("Releasing a suggestion slot failed", error);
+  }
 }
 
 // Retries with a new ID on a collision, one attempt at a time.

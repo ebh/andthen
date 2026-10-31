@@ -111,26 +111,48 @@ describe("the participant cap", () => {
     expect(view.turn.holderId).toBe(view.participants[1]?.id);
   });
 
+  // The turn_version guard already makes the second join lose, so this pins the route-level result
+  // of that loss: the batch writes nothing, the re-read says story_full, and the room hears once.
   it("lets only one of two joins at 49 take the last place; the other gets story_full", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS - 1);
-    const gate = { env: { DB: gateLoads(testEnv.env.DB, 2) } };
+    const before = await readStory(ana, storyId);
+    const notified: number[] = [];
+    const STORY_ROOM = {
+      getByName: () => ({
+        notify: (message: { version: number }) => {
+          notified.push(message.version);
+          return Promise.resolve();
+        },
+      }),
+    };
+    const gate = { env: { DB: gateLoads(testEnv.env.DB, 2), STORY_ROOM } };
+    const names = ["Zed", "Zoe"];
+    const browsers = names.map(() => newBrowser());
 
     const responses = await Promise.all(
-      ["Zed", "Zoe"].map((displayName) =>
-        newBrowser().post(joinPath(storyId), { displayName }, gate),
+      names.map((displayName, index) =>
+        (browsers[index] ?? newBrowser()).post(joinPath(storyId), { displayName }, gate),
       ),
     );
 
     expect(responses.map((response) => response.status).toSorted((a, b) => a - b)).toEqual([
       201, 409,
     ]);
-    const loser = responses.find((response) => response.status === 409);
-    expect(loser === undefined ? "" : await readError(loser)).toBe("story_full");
-    expect((await readStory(ana, storyId)).participants).toHaveLength(MAX_PARTICIPANTS);
+    const winnerIndex = responses.findIndex((response) => response.status === 201);
+    const loserIndex = 1 - winnerIndex;
+    expect(await readError(responses[loserIndex] ?? new Response())).toBe("story_full");
+    const after = await readStory(ana, storyId);
+    expect(after.participants).toHaveLength(MAX_PARTICIPANTS);
+    expect(after.participants[MAX_PARTICIPANTS - 1]?.displayName).toBe(names[winnerIndex]);
+    expect(after.participants.map((p) => p.displayName)).not.toContain(names[loserIndex]);
+    expect(after.turn.version).toBe(before.turn.version + 1);
+    expect(notified).toEqual([after.turn.version]);
+    expect(browsers[loserIndex]?.backgroundWork).toEqual([]);
   });
 
   describe("addParticipant", () => {
-    // The route checks the count first, so only the repo call reaches the SQL guard.
+    // The route checks the count first, and the version here is current, so only the SQL count
+    // guard stands between this call and a 51st participant. Deleting it fails this test.
     it("refuses a 51st participant and leaves the turn untouched", async () => {
       const { storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
       const loaded = await loadStory(testEnv.env.DB, storyId);

@@ -240,8 +240,9 @@ function selectParticipants(db: Db, storyId: string): D1PreparedStatement {
     .bind(storyId);
 }
 
-// Inserts only while the story is still at `loadedVersion` and has room. The count is part of the
-// statement, so two joins can't both take the last place.
+// Inserts only while the story is still at `loadedVersion` and has room. The version guard already
+// serialises joins (each bumps it); the count is a second defence that holds even for a caller
+// with a current version.
 function insertParticipant(
   db: Db,
   storyId: string,

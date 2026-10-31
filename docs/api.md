@@ -46,7 +46,8 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
 A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone with the link can join and each joiner can hold the turn for 24 hours. A join to a full story is 409 `story_full`. Creating a story and reading it are not affected.
 
 - **Which error wins:** `already_joined`, then `name_taken`, then `story_full`. A duplicate name or a repeat join on a full story keeps its own code. Only a join that would otherwise succeed gets `story_full`.
-- **The guard is in the write.** The join `INSERT` also needs `(SELECT COUNT(*) FROM participants WHERE story_id = ?) < MAX_PARTICIPANTS`, and the turn `UPDATE` needs the new participant row to exist, so a refused insert never moves the turn.
+- **The version guard already serialises joins.** Every join bumps `turn_version`, so of two joins racing at 49 only one passes the `turn_version` guard (see "Writes and races").
+- **The count guard is a second defence in the write.** The join `INSERT` also needs `(SELECT COUNT(*) FROM participants WHERE story_id = ?) < MAX_PARTICIPANTS`, so a call with a current version still can't add a 51st. The turn `UPDATE` needs the new participant row to exist, so a refused insert never moves the turn.
 - **A refused write is explained by a re-read.** When `addParticipant` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
 - A refused join writes nothing, bumps no `turnVersion` and sends no live message.
 

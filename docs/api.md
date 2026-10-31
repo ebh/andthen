@@ -76,7 +76,7 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
   - The `endsAt` timer re-arms every 5 seconds until `endsAt` changes, because a client clock ahead of the server's would otherwise fire early and never try again.
   - Reconnects back off from 0.5 s to 30 s. The backoff restarts only after a socket stays open 10 s or delivers a live message, so a server that accepts and drops the socket is retried ever more slowly.
   - A `ping` every 25 s; no `pong` within 10 s marks the socket dead and reconnects.
-  - The hook isn't used by any page yet (Phase 6).
+  - `StoryBoard` (`src/client/components/StoryBoard.tsx`) mounts the hook, so only joined participants open a socket (a non-participant's upgrade is a 403).
 - **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
 - **A cookie is read at the upgrade only.** An open socket is not rechecked, which is fine while nobody can leave a story.
 
@@ -98,7 +98,3 @@ Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEM
 - `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It reads `wrangler.jsonc` and drops `assets` (which needs a built `dist/`). `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
 - `test/support/gatedDb.ts`: `gateLoads(db, n)` holds `n` concurrent requests at their story load until all have loaded, so they race on one stored version. Pass it as `{ env: { DB: gateLoads(...) } }` in the request options.
 - A route that touches no D1 can be tested with a stand-in `DB`: repo functions take `Db`, a `Pick<D1Database, "prepare" | "batch">`.
-
-## Left for later phases
-
-- **Phase 6:** the client must keep composer text on 409 `stale_turn`.

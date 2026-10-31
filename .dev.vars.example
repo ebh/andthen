@@ -1,8 +1,11 @@
 # Copy to .dev.vars for local overrides. Never commit .dev.vars.
 # Values here override the top-level `vars` in wrangler.jsonc during `pnpm dev`.
 
-# Which SuggestionProvider serves suggestions: "fake" (no Cloudflare login) or "workers-ai"
-# (needs `wrangler login`; the AI binding may incur usage charges even in local dev).
+# Which SuggestionProvider serves suggestions: "fake" or "workers-ai".
+# "workers-ai" only works if dev is started with remote bindings, after `wrangler login`:
+#   AI_REMOTE=1 pnpm dev
+# AI_REMOTE is a shell variable (vite.config.ts reads it), so it can't go in this file. Real
+# calls may incur usage charges. This route is untried; see docs/spike-findings.md.
 AI_PROVIDER=fake
 
 # The Workers AI model, used only when AI_PROVIDER=workers-ai. It must support JSON-schema output.

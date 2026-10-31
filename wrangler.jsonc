@@ -21,8 +21,8 @@
     "bindings": [{ "name": "STORY_ROOM", "class_name": "StoryRoom" }],
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StoryRoom"] }],
-  // Always remote: `pnpm dev` leaves it unreachable (`remoteBindings: false`), so local runs
-  // use the fake provider unless you opt in to the real one after `wrangler login`.
+  // Always remote. `vite.config.ts` turns remote bindings off unless `AI_REMOTE=1`, so local runs
+  // use the fake provider unless you start dev with `AI_REMOTE=1` after `wrangler login`.
   "ai": { "binding": "AI" },
   "vars": { "AI_PROVIDER": "fake" },
   "env": {

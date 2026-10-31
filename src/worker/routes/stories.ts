@@ -18,6 +18,7 @@ import {
 } from "../../shared/turnOrder";
 import {
   displayNameKey,
+  MAX_PARTICIPANTS,
   normaliseStoryId,
   validateDisplayName,
   validatePassage,
@@ -116,6 +117,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     if (loaded.participants.some((p) => p.displayNameKey === key)) {
       throw new ApiError("name_taken");
     }
+    if (loaded.participants.length >= MAX_PARTICIPANTS) {
+      throw new ApiError("story_full");
+    }
 
     const now = deps.now();
     const joined = onJoin(loaded.state, now);
@@ -134,7 +138,11 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       joinedAt: now,
     });
     if (!saved) {
-      throw new ApiError("stale_turn");
+      // The write can't say why it was refused. A join that won the race may have taken the last place.
+      const current = await requireStory(c, storyId);
+      throw new ApiError(
+        current.participants.length >= MAX_PARTICIPANTS ? "story_full" : "stale_turn",
+      );
     }
 
     notifyRoom(c, storyId, joined.state.turnVersion);

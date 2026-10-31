@@ -23,7 +23,7 @@ One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorC
 - **400:** `bad_request`, `invalid_passage`, `invalid_display_name`.
 - **403:** `forbidden_origin`, `not_participant`, `not_your_turn`, `cannot_skip_self`.
 - **404:** `not_found`. An ID that can't be a story ID is also 404, with no database call. An unknown `/api/*` path is a JSON 404 too.
-- **409:** `stale_turn`, `name_taken`, `already_joined`, `no_one_to_skip_to`.
+- **409:** `stale_turn`, `name_taken`, `already_joined`, `story_full`, `no_one_to_skip_to`.
 - **429:** `ai_rate_limited`. **503:** `ai_unavailable`. Both come from the suggestions route.
 - **413:** `payload_too_large`, a body over `MAX_BODY_BYTES` (8 KB), refused before it is parsed.
 - **500:** `internal_error`, anything unexpected, logged with `console.error`.
@@ -40,6 +40,15 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
 - **A rejected join still sets the cookie.** A browser with no cookie gets one before the join is checked, and keeps it after a `name_taken` or `stale_turn`. It is harmless: the token belongs to no participant until a join succeeds, and a retry with another name reuses it.
 - **A waiting story answers contribute and skip differently.** A contribution is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
 - **Plain cookie only on `http://localhost`.** `127.0.0.1` and LAN hosts get the `__Host-` Secure cookie, which browsers drop over plain HTTP, so dev must use `localhost`.
+
+## Participant cap
+
+A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone with the link can join and each joiner can hold the turn for 24 hours. A join to a full story is 409 `story_full`. Creating a story and reading it are not affected.
+
+- **Which error wins:** `already_joined`, then `name_taken`, then `story_full`. A duplicate name or a repeat join on a full story keeps its own code. Only a join that would otherwise succeed gets `story_full`.
+- **The guard is in the write.** The join `INSERT` also needs `(SELECT COUNT(*) FROM participants WHERE story_id = ?) < MAX_PARTICIPANTS`, and the turn `UPDATE` needs the new participant row to exist, so a refused insert never moves the turn.
+- **A refused write is explained by a re-read.** When `addParticipant` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
+- A refused join writes nothing, bumps no `turnVersion` and sends no live message.
 
 ## Guards on every mutating request
 

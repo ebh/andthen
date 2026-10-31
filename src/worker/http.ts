@@ -47,16 +47,23 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Same-origin check on every mutating request, and `application/json` on every body. */
 export async function guardMutation(c: AppContext, next: Next): Promise<void> {
   if (!SAFE_METHODS.has(c.req.method)) {
-    // A missing Origin fails too: browsers always send one on a POST.
-    if (c.req.header("Origin") !== new URL(c.req.url).origin) {
-      throw new ApiError("forbidden_origin");
-    }
+    requireSameOrigin(c);
     if (!isJson(c.req.header("Content-Type"))) {
       throw new ApiError("bad_request");
     }
   }
 
   await next();
+}
+
+/**
+ * Throws `forbidden_origin` unless the Origin header is the request's own origin. A missing
+ * Origin fails too: browsers always send one on a POST and on a WebSocket handshake.
+ */
+export function requireSameOrigin(c: AppContext): void {
+  if (c.req.header("Origin") !== new URL(c.req.url).origin) {
+    throw new ApiError("forbidden_origin");
+  }
 }
 
 /** Refuses a body over MAX_BODY_BYTES (413) before a route reads it. */

@@ -29,8 +29,9 @@ import {
   type Db,
   type LoadedStory,
 } from "../db/storyRepo";
-import { ApiError, parseJsonBody, type AppContext } from "../http";
+import { ApiError, parseJsonBody, requireSameOrigin, type AppContext } from "../http";
 import { newId } from "../ids";
+import { notifyRoom } from "../live";
 import { buildStoryView } from "../storyView";
 
 export interface StoryDeps {
@@ -125,6 +126,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("stale_turn");
     }
 
+    notifyRoom(c, storyId, joined.state.turnVersion);
+
     const response: JoinResponse = { participantId: participant.id };
     return c.json(response, 201);
   });
@@ -158,6 +161,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("stale_turn");
     }
 
+    notifyRoom(c, storyId, result.state.turnVersion);
+
     return c.body(null, 204);
   });
 
@@ -180,7 +185,23 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("stale_turn");
     }
 
+    notifyRoom(c, storyId, result.state.turnVersion);
+
     return c.body(null, 204);
+  });
+
+  // Same checks as reading the story, so a socket never hears about a story its browser can't read.
+  routes.get("/api/stories/:id/live", async (c) => {
+    if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") {
+      return c.text("Expected a WebSocket upgrade", 426);
+    }
+    requireSameOrigin(c);
+
+    const storyId = parseStoryId(c.req.param("id"));
+    const loaded = await requireStory(c, storyId);
+    await requireParticipant(c, loaded);
+
+    return c.env.STORY_ROOM.getByName(storyId).fetch(c.req.raw);
   });
 
   return routes;

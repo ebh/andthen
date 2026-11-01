@@ -6,6 +6,8 @@ export type ValidationFailure = "empty" | "too_long";
 
 export const MAX_PASSAGE_LENGTH = 280;
 export const MAX_DISPLAY_NAME_LENGTH = 40;
+/** Creator included. Anyone with the link can join, and each joiner can hold the turn for a day. */
+export const MAX_PARTICIPANTS = 50;
 export const TURN_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Checked before lowercasing: toLowerCase maps some non-ASCII letters (e.g. U+212A KELVIN SIGN)

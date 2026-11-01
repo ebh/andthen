@@ -89,6 +89,7 @@ export const errorCodeSchema = z.enum([
   "cannot_skip_self",
   "no_one_to_skip_to",
   "name_taken",
+  "story_full", // the story already has MAX_PARTICIPANTS; a join is refused
   "invalid_passage",
   "invalid_display_name",
   "ai_unavailable",

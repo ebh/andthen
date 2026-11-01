@@ -4,7 +4,7 @@
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "vitest": {
-    "configFile": "vitest.stryker.config.ts"
+    "configFile": "vitest.config.ts"
   },
   "checkers": [],
   "mutate": [

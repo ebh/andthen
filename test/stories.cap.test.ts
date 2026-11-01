@@ -7,7 +7,6 @@ import {
   createBrowser,
   createStory,
   createTestApp,
-  joinStory,
   readError,
   readStory,
   T0,
@@ -32,14 +31,40 @@ describe("the participant cap", () => {
 
   const newBrowser = () => createBrowser(app, testEnv.env);
 
-  // Ana creates the story; joiners "P1", "P2", ... follow until it holds `count` participants.
+  // Ana creates the story; joiners "P1", "P2", ... are written straight to D1 (one batch, as if
+  // each had joined in turn) until it holds `count` participants. Fifty HTTP joins per test made
+  // every mutant run in Stryker slow.
   async function storyWithParticipants(count: number): Promise<{ ana: Browser; storyId: string }> {
     clock.now = T0;
     const ana = newBrowser();
     const storyId = await createStory(ana);
-    for (let index = 1; index < count; index += 1) {
-      await joinStory(newBrowser(), storyId, `P${String(index)}`);
-    }
+    const db = testEnv.env.DB;
+    const joiners = Array.from({ length: count - 1 }, (_, index) => index + 1);
+    await db.batch([
+      ...joiners.map((position) =>
+        db
+          .prepare(
+            `INSERT INTO participants (id, story_id, display_name, display_name_key, position,
+               browser_token_hash, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            `${storyId}-${String(position)}`,
+            storyId,
+            `P${String(position)}`,
+            `p${String(position)}`,
+            position,
+            `seed-${String(position)}`,
+            T0,
+          ),
+      ),
+      // The first joiner took the turn and every join bumped the version.
+      db
+        .prepare(
+          `UPDATE stories SET current_position = 1, turn_started_at = ?, turn_version = ?
+           WHERE id = ? AND ? > 1`,
+        )
+        .bind(T0, count - 1, storyId, count),
+    ]);
 
     return { ana, storyId };
   }

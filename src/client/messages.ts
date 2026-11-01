@@ -1,7 +1,8 @@
-import type { ApiFailure, ClientErrorCode } from "./api";
+import type { ErrorCode } from "../shared/api";
+import type { ApiFailure } from "./api";
 
 /** Messages for specific error codes in one place; anything not listed gets a generic one. */
-export type MessagesByCode = { [code in ClientErrorCode]?: string };
+export type MessagesByCode = { [code in ErrorCode]?: string };
 
 /** Plain-language text for a failed call. `byCode` holds the wording for codes this screen expects. */
 export function describeFailure(failure: ApiFailure, byCode: MessagesByCode = {}): string {

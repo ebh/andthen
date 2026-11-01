@@ -3,7 +3,11 @@ import { useId, useState } from "react";
 
 import { joinStory } from "../api";
 import { describeFailure } from "../messages";
-import { MAX_DISPLAY_NAME_LENGTH, validateDisplayName } from "../../shared/validation";
+import {
+  MAX_DISPLAY_NAME_LENGTH,
+  MAX_PARTICIPANTS,
+  validateDisplayName,
+} from "../../shared/validation";
 
 interface JoinFormProps {
   storyId: string;
@@ -82,7 +86,7 @@ const NAME_PROBLEM = {
 };
 
 const FAILURE_MESSAGES = {
-  story_full: "This story is full (50 writers).",
+  story_full: `This story is full (${MAX_PARTICIPANTS.toString()} writers).`,
   name_taken: "Someone in this story already uses that name. Pick another.",
   invalid_display_name: NAME_PROBLEM.too_long,
 };

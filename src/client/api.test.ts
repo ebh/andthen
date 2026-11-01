@@ -26,7 +26,7 @@ describe("error mapping", () => {
     });
   });
 
-  it("accepts story_full even though the shared schema may not list it", async () => {
+  it("maps a 409 story_full to its code", async () => {
     stubFetch(jsonResponse(409, { error: "story_full" }));
 
     expect(await joinStory("abc12", { displayName: "Sam" })).toEqual({

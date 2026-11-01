@@ -2,30 +2,25 @@ import { z } from "zod";
 
 import {
   createStoryResponseSchema,
-  errorCodeSchema,
+  errorBodySchema,
   joinResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
   type CreateStoryRequest,
   type CreateStoryResponse,
+  type ErrorCode,
   type JoinRequest,
   type JoinResponse,
   type StoryView,
   type SuggestionsResponse,
 } from "../shared/api";
 
-// `story_full` (joining a full story) comes from a server change that may land before the shared
-// schema lists it. Accepting it here keeps that error from reading as "unreadable" meanwhile.
-const clientErrorCodeSchema = z.union([errorCodeSchema, z.literal("story_full")]);
-const errorBodySchema = z.object({ error: clientErrorCodeSchema });
-export type ClientErrorCode = z.infer<typeof clientErrorCodeSchema>;
-
 export type ApiFailure =
   | { type: "network" }
   // A success status whose body isn't the documented shape, or an error status whose body isn't
   // an error code (a proxy's HTML page, say).
   | { type: "unreadable"; status: number }
-  | { type: "rejected"; status: number; code: ClientErrorCode };
+  | { type: "rejected"; status: number; code: ErrorCode };
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; failure: ApiFailure };
 

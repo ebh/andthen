@@ -44,9 +44,6 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Mutation test
-        run: pnpm stryker
-
       # Builds each deployed environment and validates its config without credentials.
       - name: Build and dry-run deploy (preview)
         run: pnpm build && pnpm wrangler deploy --dry-run
@@ -57,3 +54,44 @@ jobs:
         run: pnpm build && pnpm wrangler deploy --dry-run
         env:
           CLOUDFLARE_ENV: production
+
+  # Runs beside `check` so a slow mutation run doesn't hold up the fast checks.
+  mutation:
+    runs-on: ubuntu-latest
+    # Sized for a full run: the first run on a branch with no cache, and every push to main.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Stryker's diff only sees mutated and test files. The hash makes a change to its config,
+      # the Vitest config or a dependency start from no cache, so stale results are never reused.
+      # Keys can't be overwritten, so each run saves under a unique key and restores by prefix.
+      - name: Restore the incremental file
+        uses: actions/cache/restore@v4
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-${{ hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml') }}-${{ github.run_id }}
+          restore-keys: |
+            stryker-${{ hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml') }}-
+
+      # Pull requests reuse results for code and tests they didn't touch. A push to main reruns
+      # every mutant, which also catches a changed helper under an unchanged test.
+      - name: Mutation test
+        run: pnpm stryker --incremental ${{ github.event_name == 'push' && '--force' || '' }}
+
+      # Stryker writes a partial file when interrupted, so a cancelled or timed-out run still saves progress.
+      - name: Save the incremental file
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: reports/stryker-incremental.json
+          key: stryker-${{ hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml') }}-${{ github.run_id }}

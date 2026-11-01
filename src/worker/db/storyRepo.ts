@@ -8,6 +8,7 @@
 import { z } from "zod";
 
 import type { TurnState } from "../../shared/turnOrder";
+import { MAX_PARTICIPANTS } from "../../shared/validation";
 import {
   contributionRowSchema,
   participantRowSchema,
@@ -188,13 +189,17 @@ export async function saveTurn(
   return result.meta.changes === 1;
 }
 
-/** Adds a participant and saves the turn state their join produced. False when the story moved on. */
+/**
+ * Adds a participant and saves the turn state their join produced. False when the story moved on
+ * or already has MAX_PARTICIPANTS; nothing is written then, so the route tells the two apart.
+ */
 export async function addParticipant(db: Db, input: AddParticipantInput): Promise<boolean> {
   const { storyId, loadedVersion, next, participant, joinedAt } = input;
 
   const results = await db.batch([
     insertParticipant(db, storyId, loadedVersion, participant, joinedAt),
-    updateTurn(db, storyId, loadedVersion, next),
+    // The insert can refuse alone (a full story), and the turn must not move without a joiner.
+    updateTurn(db, storyId, loadedVersion, next, participant.id),
   ]);
 
   return changesAt(results, 1) === 1;
@@ -235,7 +240,9 @@ function selectParticipants(db: Db, storyId: string): D1PreparedStatement {
     .bind(storyId);
 }
 
-// Inserts only while the story is still at `loadedVersion`.
+// Inserts only while the story is still at `loadedVersion` and has room. The version guard already
+// serialises joins (each bumps it); the count is a second defence that holds even for a caller
+// with a current version.
 function insertParticipant(
   db: Db,
   storyId: string,
@@ -248,7 +255,8 @@ function insertParticipant(
       `INSERT INTO participants (id, story_id, display_name, display_name_key, position,
          browser_token_hash, joined_at)
        SELECT ?, ?, ?, ?, ?, ?, ?
-       WHERE EXISTS (SELECT 1 FROM stories WHERE id = ? AND turn_version = ?)`,
+       WHERE EXISTS (SELECT 1 FROM stories WHERE id = ? AND turn_version = ?)
+         AND (SELECT COUNT(*) FROM participants WHERE story_id = ?) < ?`,
     )
     .bind(
       participant.id,
@@ -260,20 +268,25 @@ function insertParticipant(
       joinedAt,
       storyId,
       loadedVersion,
+      storyId,
+      MAX_PARTICIPANTS,
     );
 }
 
+// With `requiredParticipantId`, saves only if that participant row exists.
 function updateTurn(
   db: Db,
   storyId: string,
   loadedVersion: number,
   next: TurnState,
+  requiredParticipantId = "",
 ): D1PreparedStatement {
   return db
     .prepare(
       `UPDATE stories SET current_position = ?, turn_started_at = ?, turn_version = ?,
          last_contributor_position = ?
-       WHERE id = ? AND turn_version = ?`,
+       WHERE id = ? AND turn_version = ?
+         AND (? = '' OR EXISTS (SELECT 1 FROM participants WHERE id = ?))`,
     )
     .bind(
       next.currentPosition,
@@ -282,6 +295,8 @@ function updateTurn(
       next.lastContributorPosition,
       storyId,
       loadedVersion,
+      requiredParticipantId,
+      requiredParticipantId,
     );
 }
 

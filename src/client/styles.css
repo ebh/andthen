@@ -1,12 +1,17 @@
 @import "tailwindcss";
-@import "@fontsource-variable/literata/wght.css";
+@import "@fontsource-variable/source-serif-4/wght.css";
+@import "@fontsource-variable/inter/wght.css";
 @plugin "daisyui" {
   themes: false;
 }
 
-/* The serif face for anything a person writes or reads as prose: the story, the composer, suggestions. */
+/*
+ * Two typefaces: a serif for prose (the story, the composer, suggestions, page headings) and
+ * Inter for the interface around it.
+ */
 @theme {
-  --font-story: "Literata Variable", ui-serif, Georgia, serif;
+  --font-story: "Source Serif 4 Variable", ui-serif, Georgia, serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Plain links (the wordmark) get the same visible focus ring daisyUI gives buttons and fields. */
@@ -20,24 +25,25 @@
 /*
  * Colours come from these two themes only; components use the semantic classes (bg-base-200,
  * text-primary, ...). Every text/background pair below is at least 4.5:1. Muted text is
- * text-base-content/70, which measures at least 5.3:1 on base-100 and base-200 in both themes.
+ * text-base-content/70, which measures at least 5.1:1 on base-100, base-200 and base-300 in
+ * both themes. base-200 is the tinted panel; base-300 is for rules and borders.
  */
 @plugin "daisyui/theme" {
   name: "paper";
   default: true;
   color-scheme: light;
-  --color-base-100: #faf6ee;
-  --color-base-200: #f1ebdd;
-  --color-base-300: #e4dcc8;
-  --color-base-content: #2b2118;
-  --color-primary: #7a3b1d;
-  --color-primary-content: #fdf8ef;
-  --color-secondary: #3f5a4a;
-  --color-secondary-content: #f4f8f5;
-  --color-accent: #7a3b1d;
-  --color-accent-content: #fdf8ef;
-  --color-neutral: #2b2118;
-  --color-neutral-content: #faf6ee;
+  --color-base-100: #f6f1e7;
+  --color-base-200: #ebe3d0;
+  --color-base-300: #d9cfba;
+  --color-base-content: #1e1b16;
+  --color-primary: #1f5c4d;
+  --color-primary-content: #f6f1e7;
+  --color-secondary: #ddd3bd;
+  --color-secondary-content: #1e1b16;
+  --color-accent: #1f5c4d;
+  --color-accent-content: #f6f1e7;
+  --color-neutral: #1e1b16;
+  --color-neutral-content: #f6f1e7;
   --color-info: #1f5f8b;
   --color-info-content: #f2f8fc;
   --color-success: #2f6b3f;
@@ -60,18 +66,18 @@
   name: "ink";
   prefersdark: true;
   color-scheme: dark;
-  --color-base-100: #1c1814;
-  --color-base-200: #26211c;
-  --color-base-300: #332c25;
-  --color-base-content: #ece3d3;
-  --color-primary: #e0a36f;
-  --color-primary-content: #1c1814;
-  --color-secondary: #9bc4a8;
-  --color-secondary-content: #14201a;
-  --color-accent: #e0a36f;
-  --color-accent-content: #1c1814;
-  --color-neutral: #ece3d3;
-  --color-neutral-content: #1c1814;
+  --color-base-100: #171a18;
+  --color-base-200: #1f2421;
+  --color-base-300: #2c332f;
+  --color-base-content: #ece6d6;
+  --color-primary: #7fc4a8;
+  --color-primary-content: #0f1a15;
+  --color-secondary: #2c332f;
+  --color-secondary-content: #ece6d6;
+  --color-accent: #7fc4a8;
+  --color-accent-content: #0f1a15;
+  --color-neutral: #ece6d6;
+  --color-neutral-content: #171a18;
   --color-info: #8cc3e8;
   --color-info-content: #0e1d2a;
   --color-success: #8fcf9f;

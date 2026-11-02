@@ -36,7 +36,7 @@ Run `wrangler` steps from a checkout, with `pnpm wrangler …`.
    - Zone, DNS, Edit (wrangler creates the DNS record for the custom domain)
    - Zone, Zone, Read
    - Account resources: your account only. Zone resources: `andthen.page` only.
-   - The apex redirect rule is a one-time step in the dashboard, so CI needs no rule permission. Add Zone, Single Redirect (or Zone Rulesets), Edit only if you create the rule through the API below with this same token.
+   - The apex redirect rule is a one-time step in the dashboard, so CI needs no rule permission.
 3. **Databases.** Log in once on your laptop (`pnpm wrangler login`), then:
    ```sh
    pnpm wrangler d1 create andthen-preview
@@ -64,38 +64,14 @@ A redirect rule only runs for traffic that goes through Cloudflare's proxy, and 
 
 Dashboard steps:
 
-1. `andthen.page`, DNS, Records, Add record: type `A`, name `@`, IPv4 `192.0.2.1`, proxy status **Proxied** (orange cloud). `192.0.2.1` is a reserved address that is never contacted, because the rule answers first. `www` also needs a proxied record, a `CNAME` named `www` pointing to `andthen.page`, for the rule to catch it.
-2. Rules, Redirect Rules, Create rule, "Custom filter expression":
+1. `andthen.page`, DNS, Records, Add record: type `A`, name `@`, IPv4 `192.0.2.1`, proxy status **Proxied** (orange cloud). `192.0.2.1` is a reserved address that is never contacted, because the rule answers first.
+2. Rules, Redirect Rules, Create rule, wildcard pattern:
    - Rule name: `apex to app`
-   - When incoming requests match: field Hostname, operator is in, values `andthen.page` and `www.andthen.page` (expression `http.host in {"andthen.page" "www.andthen.page"}`)
-   - Then: type **Dynamic**, expression `concat("https://app.andthen.page", http.request.uri.path)`, status code **301**, and tick **Preserve query string**
+   - Request URL: `https://andthen.page/*`
+   - Target URL: `https://app.andthen.page/${1}`
+   - Status code **301**, and tick **Preserve query string**
    - Deploy.
-3. Check: `curl -sI "https://andthen.page/abc12?x=1"` returns `301` with `location: https://app.andthen.page/abc12?x=1`.
-
-Optional, the same through the API (needs the extra token permission from step 2 of the setup; the token is read from your shell, never committed):
-
-```sh
-ZONE_ID=…   # dashboard, andthen.page overview, right side
-curl -sS -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_request_dynamic_redirect/entrypoint" \
-  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  --data '{
-    "rules": [{
-      "description": "apex to app",
-      "expression": "http.host in {\"andthen.page\" \"www.andthen.page\"}",
-      "action": "redirect",
-      "action_parameters": {
-        "from_value": {
-          "status_code": 301,
-          "preserve_query_string": true,
-          "target_url": { "expression": "concat(\"https://app.andthen.page\", http.request.uri.path)" }
-        }
-      }
-    }]
-  }'
-```
-
-This replaces the zone's whole redirect ruleset, so use the dashboard if you already have other redirect rules.
+3. Check: `curl -sI "https://andthen.page/abc12?x=1"` returns `301` with `location: https://app.andthen.page/abc12?x=1`. A freshly created record can take a few minutes to resolve on your machine. To check against Cloudflare's resolver meanwhile, use `dig @1.1.1.1 andthen.page`, or `curl --resolve` with an address that `dig` returned.
 
 ## First deploy, in order
 

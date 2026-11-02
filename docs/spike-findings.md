@@ -1,4 +1,4 @@
-# Spike findings (Phase 0)
+# Toolchain spike findings
 
 Checked on 2026-10-30 by running each item, not just reading docs.
 
@@ -6,8 +6,8 @@ Checked on 2026-10-30 by running each item, not just reading docs.
 
 | Tool                                            | Version                    | Why this one                                                                                                                                        |
 | ----------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node                                            | 26.13.0 (`.node-version`)  | Plan.                                                                                                                                               |
-| pnpm                                            | 12.16.1 (`packageManager`) | Plan.                                                                                                                                               |
+| Node                                            | 26.13.0 (`.node-version`)  | Pinned up front.                                                                                                                                    |
+| pnpm                                            | 12.16.1 (`packageManager`) | Pinned up front.                                                                                                                                    |
 | TypeScript                                      | 6.0.3                      | `typescript-eslint` 8.72 needs `<6.1`. TS 7 (Go) is out. oxlint's type-aware mode ships its own typescript-go, so it isn't held back.               |
 | wrangler                                        | 4.154.0                    | Matches the version `@cloudflare/vite-plugin` 1.66.0 depends on, so one `workerd` is installed. 4.156.0 is younger than pnpm's minimum release age. |
 | `@cloudflare/vite-plugin`                       | 1.66.0                     |                                                                                                                                                     |
@@ -26,7 +26,7 @@ pnpm 12 blocks dependency build scripts. `pnpm-workspace.yaml` `allowBuilds` all
 - Integration tests run in Vitest's Node pool. `test/support/testEnv.ts` gets bindings from wrangler's `getPlatformProxy` (Miniflare underneath), in memory, with every `migrations/*.sql` applied in one batch.
 - The Hono app runs in the test process (`app.request(path, init, env)`), so Stryker instruments it. With `coverageAnalysis: "perTest"`, Miniflare-backed tests killed mutants in `src/worker/app.ts` (19 of 20).
 - **Limit:** `getPlatformProxy` cannot run a Durable Object class defined in the Worker itself. A request that reaches `STORY_ROOM` fails with 500. `StoryRoom` also imports `cloudflare:workers`, which Node can't load.
-  - So `src/worker/storyRoom.ts` and `src/worker/index.ts` are out of the mutate set. Testing `StoryRoom` (Phase 4) needs the built Worker in workerd, e.g. wrangler's `createTestHarness` or `unstable_startWorker`. Code there won't be mutated.
+  - So `src/worker/storyRoom.ts` and `src/worker/index.ts` are out of the mutate set. Testing `StoryRoom` needs the built Worker in workerd, e.g. wrangler's `createTestHarness` or `unstable_startWorker`. Code there won't be mutated.
   - Keep route and repo code in modules that never import `cloudflare:*`, so they stay mutable. That is why the Hono app lives in `src/worker/app.ts` and `index.ts` only re-exports.
 - Miniflare 5 (a beta, pulled in by wrangler 4.15x) changed the `new Miniflare()` options shape. Use `getPlatformProxy` rather than Miniflare directly.
 - Stryker needs `"plugins": ["@stryker-mutator/vitest-runner"]` under pnpm, or it finds no test runner.
@@ -50,8 +50,8 @@ pnpm 12 blocks dependency build scripts. `pnpm-workspace.yaml` `allowBuilds` all
 
 - An `ai` binding is always remote. With it in the top-level config, `pnpm dev` **fails to start** without Cloudflare credentials ("Failed to start the remote proxy session… set a CLOUDFLARE_API_TOKEN").
 - With `cloudflare({ remoteBindings: false })` in `vite.config.ts`, dev starts and `env.AI.run()` throws `Binding AI needs to be run remotely`. Wrangler warns that AI bindings "may incur usage charges even in local dev".
-- **Decided (Phase 5 implements):** local dev uses `AI_PROVIDER=fake` with `remoteBindings: false` by default. The real model is opt-in: `AI_REMOTE=1 pnpm dev` (a shell variable that `vite.config.ts` reads to turn remote bindings on) with `AI_PROVIDER=workers-ai`, after a Cloudflare login. That path has not been run. Tests pass `remoteBindings: false` (the harness already does). Preview and production set `AI_PROVIDER=workers-ai`.
-- JSON-schema output (`response_format: { type: "json_schema", json_schema }`) is supported by `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, the plan's default, among others ([JSON mode docs](https://developers.cloudflare.com/workers-ai/features/json-mode/)). Output is not guaranteed to match: handle the "JSON Mode couldn't be met" error. No streaming in JSON mode.
+- **Decided:** local dev uses `AI_PROVIDER=fake` with `remoteBindings: false` by default. The real model is opt-in: `AI_REMOTE=1 pnpm dev` (a shell variable that `vite.config.ts` reads to turn remote bindings on) with `AI_PROVIDER=workers-ai`, after a Cloudflare login. That path has not been run. Tests pass `remoteBindings: false` (the harness already does). Preview and production set `AI_PROVIDER=workers-ai`.
+- JSON-schema output (`response_format: { type: "json_schema", json_schema }`) is supported by `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, the default model, among others ([JSON mode docs](https://developers.cloudflare.com/workers-ai/features/json-mode/)). Output is not guaranteed to match: handle the "JSON Mode couldn't be met" error. No streaming in JSON mode.
 - No remote AI call was made.
 
 ## `as const` passes `consistent-type-assertions` with `assertionStyle: 'never'`: yes
@@ -78,7 +78,7 @@ Checked with Playwright 1.64.1 against a plain HTTP server on `localhost` and `1
 
 WebKit accepts `Secure` on localhost but rejects the `__Host-` prefix over HTTP.
 
-**Decided (Phase 3 implements):** the cookie is `__Host-andthen_bt` (Secure, HttpOnly, SameSite=Lax) in preview and production. On `http://localhost` only, it is plain `andthen_bt` without `Secure`.
+**Decided:** the cookie is `__Host-andthen_bt` (Secure, HttpOnly, SameSite=Lax) in preview and production. On `http://localhost` only, it is plain `andthen_bt` without `Secure`.
 
 ## Known gaps to review before production
 

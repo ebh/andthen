@@ -19,7 +19,6 @@
 
 Each contribution, skip, expired window and join adds one to `turn_version`. A join to a waiting story also starts the turn, but the version still goes up once. So any action that loaded the participant list before a join fails the guard. That includes a contribution the holder was typing, so the composer must keep its text when it gets a 409.
 
-## Left for later phases
+## Out of scope
 
-- **Phase 3:** cap the request body size before validation runs.
-- **Out of scope:** passages and names made only of zero-width or filler characters (e.g. U+200B, U+3164) pass validation. `trim()` doesn't remove them, and each counts as a grapheme.
+- **Invisible text:** passages and names made only of zero-width or filler characters (e.g. U+200B, U+3164) pass validation. `trim()` doesn't remove them, and each counts as a grapheme.

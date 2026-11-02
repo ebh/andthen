@@ -14,7 +14,7 @@ The app exists to be read. Every visual decision serves the story text first.
 - Authors exist for accountability: tracing who wrote something offensive, and crediting a good contribution. They are never part of the reading, so they stay findable and quiet.
   - On wide screens (`md` and up) each author sits in a margin beside their passage, under a hairline rule.
   - On narrow screens there is no room for a margin, so authors are hidden behind a "Show authors" toggle, off by default. Show less where there is less space.
-  - Nothing depends on hover. Phones have none.
+  - Laptops and phones may differ. Hover can add to the wide-screen view; the phone view gets its own touch equivalent, such as tap.
 - Passages sit bare on the page, separated by space alone, so they read as one continuous text.
 
 ## Layout

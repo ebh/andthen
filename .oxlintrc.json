@@ -20,7 +20,9 @@
     "dist/**",
     "reports/**",
     ".stryker-tmp/**",
-    ".wrangler/**"
+    ".wrangler/**",
+    "test-results/**",
+    "playwright-report/**"
   ],
   "overrides": [
     {

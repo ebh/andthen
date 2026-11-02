@@ -8,6 +8,11 @@ import { defineConfig } from "vite";
 // This must be a shell variable: `.dev.vars` is read by the Worker, not by this file.
 const remoteBindings = process.env["AI_REMOTE"] === "1";
 
+// The e2e run keeps its local D1 in its own folder (see `e2e/prepare.ts`), so it never touches the
+// data of a `pnpm dev` session. Unset, the plugin uses its default `.wrangler/state`.
+const e2eStateDir = process.env["E2E_STATE_DIR"];
+const persistState = e2eStateDir === undefined ? true : { path: e2eStateDir };
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), cloudflare({ remoteBindings })],
+  plugins: [react(), tailwindcss(), cloudflare({ remoteBindings, persistState })],
 });

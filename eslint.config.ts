@@ -10,6 +10,8 @@ export default defineConfig(
     "reports/**",
     ".stryker-tmp/**",
     ".wrangler/**",
+    "test-results/**",
+    "playwright-report/**",
     "worker-configuration.d.ts",
   ]),
   tseslint.configs.strictTypeChecked,

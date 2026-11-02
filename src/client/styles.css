@@ -9,6 +9,14 @@
   --font-story: "Literata Variable", ui-serif, Georgia, serif;
 }
 
+/* Plain links (the wordmark) get the same visible focus ring daisyUI gives buttons and fields. */
+@layer base {
+  a:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 4px;
+  }
+}
+
 /*
  * Colours come from these two themes only; components use the semantic classes (bg-base-200,
  * text-primary, ...). Every text/background pair below is at least 4.5:1. Muted text is

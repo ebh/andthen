@@ -58,6 +58,7 @@ export function NewStory() {
 
   return (
     <div className="flex flex-col gap-4">
+      <h2 className="font-story text-2xl font-semibold">A new story</h2>
       <p>Start a story, then invite others to carry it on, one passage each.</p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <label htmlFor={nameId} className="font-semibold">
@@ -65,7 +66,7 @@ export function NewStory() {
         </label>
         <input
           id={nameId}
-          className="input input-bordered w-full"
+          className="input h-11 w-full"
           value={name}
           autoComplete="nickname"
           aria-describedby={error === null ? undefined : errorId}

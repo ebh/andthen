@@ -9,16 +9,18 @@ export function App() {
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-4">
       <header>
-        <a
-          href="/"
-          className="text-3xl font-bold"
-          onClick={(event) => {
-            event.preventDefault();
-            navigate("/");
-          }}
-        >
-          And then…
-        </a>
+        <h1>
+          <a
+            href="/"
+            className="font-story text-2xl font-semibold"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate("/");
+            }}
+          >
+            And then…
+          </a>
+        </h1>
       </header>
       <main className="flex flex-col gap-4">{page(route)}</main>
     </div>

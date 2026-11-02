@@ -29,7 +29,7 @@ export function InviteLink({ url }: InviteLinkProps) {
       <div className="join w-full">
         <input
           id={fieldId}
-          className="input input-bordered join-item w-full"
+          className="input join-item h-11 w-full"
           readOnly
           value={url}
           onFocus={(event) => {
@@ -38,7 +38,7 @@ export function InviteLink({ url }: InviteLinkProps) {
         />
         <button
           type="button"
-          className="btn join-item"
+          className="btn join-item h-11"
           onClick={() => {
             void copy();
           }}

@@ -53,14 +53,14 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
   return (
     <form onSubmit={handleSubmit} className="card card-border bg-base-200">
       <div className="card-body gap-3">
-        <h2 className="card-title">Join this story</h2>
+        <h2 className="card-title font-story text-2xl font-semibold">Join this story</h2>
         <p>Pick a name. Others will see it next to your passages.</p>
         <label htmlFor={nameId} className="font-semibold">
           Your name
         </label>
         <input
           id={nameId}
-          className="input input-bordered w-full"
+          className="input h-11 w-full"
           value={name}
           autoComplete="nickname"
           aria-describedby={error === null ? undefined : errorId}
@@ -72,7 +72,7 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
         <p id={errorId} role="alert" className="min-h-6 text-error">
           {error}
         </p>
-        <button type="submit" className="btn btn-primary" disabled={submitting || full}>
+        <button type="submit" className="btn btn-primary min-h-11" disabled={submitting || full}>
           {submitting ? "Joining…" : "Join"}
         </button>
       </div>

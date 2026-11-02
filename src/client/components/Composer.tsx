@@ -1,4 +1,4 @@
-import type { Ref, SubmitEvent } from "react";
+import type { ReactNode, Ref, SubmitEvent } from "react";
 import { useId } from "react";
 
 import { MAX_PASSAGE_LENGTH, passageLength, validatePassage } from "../../shared/validation";
@@ -14,6 +14,8 @@ interface ComposerProps {
   fieldRef?: Ref<HTMLTextAreaElement>;
   /** Shows the "New paragraph" checkbox. Left out, the passage is not a choice of the writer's. */
   newParagraph?: { checked: boolean; onChange: (checked: boolean) => void };
+  /** A secondary action, placed to the left of the submit button. */
+  extraAction?: ReactNode;
 }
 
 /** A passage editor with a live grapheme counter. The parent owns the text so it survives a failed submit. */
@@ -26,6 +28,7 @@ export function Composer({
   submitLabel,
   fieldRef,
   newParagraph,
+  extraAction,
 }: ComposerProps) {
   const fieldId = useId();
   const counterId = useId();
@@ -70,7 +73,7 @@ export function Composer({
           New paragraph
         </label>
       )}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span
           id={counterId}
           className={`text-sm ${tooLong ? "text-error" : "text-base-content/70"}`}
@@ -78,9 +81,16 @@ export function Composer({
           {length} / {MAX_PASSAGE_LENGTH}
           {tooLong ? " (too long)" : ""}
         </span>
-        <button type="submit" className="btn btn-primary min-h-11" disabled={!canSubmit}>
-          {submitting ? "Sending…" : submitLabel}
-        </button>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {extraAction}
+          <button
+            type="submit"
+            className="btn btn-primary min-h-11 grow sm:grow-0"
+            disabled={!canSubmit}
+          >
+            {submitting ? "Sending…" : submitLabel}
+          </button>
+        </div>
       </div>
     </form>
   );

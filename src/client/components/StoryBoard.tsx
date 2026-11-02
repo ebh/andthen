@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { useRef, useState } from "react";
 
 import type { StoryView } from "../../shared/api";
@@ -9,7 +10,7 @@ import { useStoryLive } from "../useStoryLive";
 import { Composer } from "./Composer";
 import { InviteLink } from "./InviteLink";
 import { StoryText } from "./StoryText";
-import { Suggestions } from "./Suggestions";
+import { SuggestButton, SuggestionList, useSuggestions } from "./Suggestions";
 import { TurnBanner } from "./TurnBanner";
 import { Wordmark } from "./Wordmark";
 
@@ -119,27 +120,20 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           </div>
           <StoryText contributions={view.contributions} />
           {isMyTurn(view) && (
-            <div className="flex flex-col gap-4 md:w-[38.75rem] md:max-w-full">
-              <Composer
-                label="Your passage"
-                value={draft}
-                onChange={edit}
-                onSubmit={send}
-                submitting={sending}
-                submitLabel="Add to the story"
-                fieldRef={composerField}
-                newParagraph={{ checked: startsParagraph, onChange: setStartsParagraph }}
-              />
-              {replacedDraft !== null && (
-                <p className="flex items-center gap-2 text-sm">
-                  Your draft was replaced by the suggestion.
-                  <button type="button" className="btn min-h-11" onClick={undoSuggestion}>
-                    Undo
-                  </button>
-                </p>
-              )}
-              <Suggestions storyId={storyId} onUse={applySuggestion} onTurnLost={refetch} />
-            </div>
+            <YourTurn
+              storyId={storyId}
+              draft={draft}
+              onEdit={edit}
+              onSubmit={send}
+              sending={sending}
+              fieldRef={composerField}
+              startsParagraph={startsParagraph}
+              onStartsParagraphChange={setStartsParagraph}
+              replacedDraft={replacedDraft}
+              onUndo={undoSuggestion}
+              onUseSuggestion={applySuggestion}
+              onTurnLost={refetch}
+            />
           )}
           {view.turn.holderId === null && (
             <div className="alert alert-info alert-vertical sm:alert-horizontal">
@@ -152,6 +146,51 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
       <div className="p-5 md:col-start-1 md:row-start-2 md:flex md:flex-col md:justify-end md:border-r md:border-base-300 md:p-8">
         <InviteLink url={`${window.location.origin}/${storyId}`} />
       </div>
+    </div>
+  );
+}
+
+interface YourTurnProps {
+  storyId: string;
+  draft: string;
+  onEdit: (text: string) => void;
+  onSubmit: () => void;
+  sending: boolean;
+  fieldRef: Ref<HTMLTextAreaElement>;
+  startsParagraph: boolean;
+  onStartsParagraphChange: (startsParagraph: boolean) => void;
+  replacedDraft: string | null;
+  onUndo: () => void;
+  onUseSuggestion: (text: string) => void;
+  onTurnLost: () => void;
+}
+
+// Mounted only while it is the reader's turn, so suggestions asked for in one turn are gone by the next.
+function YourTurn(props: YourTurnProps) {
+  const suggestions = useSuggestions(props.storyId, props.onTurnLost);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Composer
+        label="Your passage"
+        value={props.draft}
+        onChange={props.onEdit}
+        onSubmit={props.onSubmit}
+        submitting={props.sending}
+        submitLabel="Add to the story"
+        fieldRef={props.fieldRef}
+        newParagraph={{ checked: props.startsParagraph, onChange: props.onStartsParagraphChange }}
+        extraAction={<SuggestButton control={suggestions} />}
+      />
+      {props.replacedDraft !== null && (
+        <p className="flex items-center gap-2 text-sm">
+          Your draft was replaced by the suggestion.
+          <button type="button" className="btn btn-sm" onClick={props.onUndo}>
+            Undo
+          </button>
+        </p>
+      )}
+      <SuggestionList control={suggestions} onUse={props.onUseSuggestion} />
     </div>
   );
 }

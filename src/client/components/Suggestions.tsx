@@ -3,22 +3,23 @@ import { useState } from "react";
 import { requestSuggestions } from "../api";
 import { describeFailure } from "../messages";
 
-interface SuggestionsProps {
-  storyId: string;
-  /** Receives the chosen text. The parent puts it in the composer; nothing is submitted. */
-  onUse: (text: string) => void;
-  /** Called when the server says the turn is no longer ours, so the page can reload. */
-  onTurnLost: () => void;
-}
-
 type SuggestionsState =
   | { type: "idle" }
   | { type: "loading" }
   | { type: "shown"; suggestions: readonly string[] }
   | { type: "failed"; message: string };
 
-/** Holder-only. Asks the server for three continuations on an explicit click, never automatically. */
-export function Suggestions({ storyId, onUse, onTurnLost }: SuggestionsProps) {
+interface SuggestionsControl {
+  state: SuggestionsState;
+  ask: () => void;
+}
+
+/**
+ * Holder-only. Asks the server for three continuations, only when `ask` is called, never
+ * automatically. The button and the list are separate components so the page can place them apart;
+ * both take the one control this returns.
+ */
+export function useSuggestions(storyId: string, onTurnLost: () => void): SuggestionsControl {
   const [state, setState] = useState<SuggestionsState>({ type: "idle" });
 
   const ask = (): void => {
@@ -36,16 +37,33 @@ export function Suggestions({ storyId, onUse, onTurnLost }: SuggestionsProps) {
     })();
   };
 
+  return { state, ask };
+}
+
+export function SuggestButton({ control }: { control: SuggestionsControl }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-secondary min-h-11 grow sm:grow-0"
+      disabled={control.state.type === "loading"}
+      onClick={control.ask}
+    >
+      {control.state.type === "loading" ? "Thinking…" : "Suggest continuations"}
+    </button>
+  );
+}
+
+interface SuggestionListProps {
+  control: SuggestionsControl;
+  /** Receives the chosen text. The parent puts it in the composer; nothing is submitted. */
+  onUse: (text: string) => void;
+}
+
+export function SuggestionList({ control, onUse }: SuggestionListProps) {
+  const { state } = control;
+
   return (
     <section aria-label="Suggestions" className="flex flex-col gap-2">
-      <button
-        type="button"
-        className="btn btn-outline min-h-11 self-start"
-        disabled={state.type === "loading"}
-        onClick={ask}
-      >
-        {state.type === "loading" ? "Thinking…" : "Suggest continuations"}
-      </button>
       <div role="status" aria-live="polite">
         {state.type === "failed" && <p className="text-warning">{state.message}</p>}
       </div>
@@ -55,7 +73,7 @@ export function Suggestions({ storyId, onUse, onTurnLost }: SuggestionsProps) {
             <li key={`${index.toString()}:${suggestion}`}>
               <button
                 type="button"
-                className="btn btn-soft h-auto w-full justify-start py-3 text-left font-story font-normal whitespace-pre-wrap normal-case"
+                className="btn btn-outline h-auto min-h-11 w-full justify-start py-2 text-left font-normal whitespace-pre-wrap normal-case"
                 onClick={() => {
                   onUse(suggestion);
                 }}

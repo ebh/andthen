@@ -72,8 +72,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Stryker's diff only sees mutated and test files. The hash makes a change to its config,
-      # the Vitest config or a dependency start from no cache, so stale results are never reused.
+      # Stryker's diff only sees mutated and test files, so a change to its config, the Vitest config
+      # or a dependency can leave stale results. The hash keeps those out of the exact-match restore.
+      # The bare `stryker-` fallback still restores the newest file from main after such a change, so
+      # a pull request is never cold; the next push to main reruns every mutant and corrects it.
       # Keys can't be overwritten, so each run saves under a unique key and restores by prefix.
       - name: Restore the incremental file
         uses: actions/cache/restore@v4
@@ -82,6 +84,7 @@ jobs:
           key: stryker-${{ hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml') }}-${{ github.run_id }}
           restore-keys: |
             stryker-${{ hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml') }}-
+            stryker-
 
       # Pull requests reuse results for code and tests they didn't touch. A push to main reruns
       # every mutant, which also catches a changed helper under an unchanged test.

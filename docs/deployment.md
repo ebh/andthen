@@ -42,7 +42,7 @@ Run `wrangler` steps from a checkout, with `pnpm wrangler …`.
    pnpm wrangler d1 create andthen-preview
    pnpm wrangler d1 create andthen-prod
    ```
-   Each prints a `database_id`. Paste them into `wrangler.jsonc`, replacing `00000000-0000-0000-0000-000000000001` (preview) and `00000000-0000-0000-0000-000000000002` (production). Database IDs are identifiers, not secrets, so they are committed. Leave the top-level `00000000-…0000` alone: local dev never reads it.
+   Each prints a `database_id`, which belongs in `env.preview` and `env.production` in `wrangler.jsonc`. Database IDs are identifiers, not secrets: without an API token they grant nothing, so they are committed. A fork that deploys for itself replaces them with its own. The top-level ID (all zeros) is a stand-in for local development, which never reads it.
 4. **GitHub secrets and environments.** In the repository settings:
    - Environments: create `preview` and `production`. Add protection rules where you want them. A required reviewer on `production` makes every deploy wait for you; restricting `production` to the `main` branch is a good minimum.
    - Secrets: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as secrets on each environment (or once as repository secrets). Nothing else is needed, and no secret belongs in the repo.
@@ -97,7 +97,7 @@ This replaces the zone's whole redirect ruleset, so use the dashboard if you alr
 
 ## First deploy, in order
 
-1. Do the setup above, with real database IDs in `wrangler.jsonc`. Commit that change in the pull request.
+1. Do the setup above: the databases, the API token, the GitHub environments and secrets.
 2. Open the pull request. `deploy.yml` applies the migrations to `andthen-preview` and deploys `andthen-preview`. Its log prints the `workers.dev` URL.
 3. Run the preview smoke test below.
 4. Merge. CI runs on `main`; when it passes, `deploy.yml` migrates `andthen-prod` and deploys `andthen`, which also creates `app.andthen.page`. If you set a required reviewer on `production`, approve the deployment in the Actions run.

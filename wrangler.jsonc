@@ -33,8 +33,7 @@
         {
           "binding": "DB",
           "database_name": "andthen-preview",
-          // Placeholder: fill in from `wrangler d1 create andthen-preview`.
-          "database_id": "00000000-0000-0000-0000-000000000001",
+          "database_id": "c297d0f0-f7da-49eb-be95-e18d615690bb",
           "migrations_dir": "migrations",
         },
       ],
@@ -53,8 +52,7 @@
         {
           "binding": "DB",
           "database_name": "andthen-prod",
-          // Placeholder: fill in from `wrangler d1 create andthen-prod`.
-          "database_id": "00000000-0000-0000-0000-000000000002",
+          "database_id": "41d147d3-60ae-4b44-93c5-a0e047249ec6",
           "migrations_dir": "migrations",
         },
       ],

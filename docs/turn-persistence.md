@@ -22,5 +22,4 @@ Each contribution, skip, expired window and join adds one to `turn_version`. A j
 ## Left for later phases
 
 - **Phase 3:** cap the request body size before validation runs.
-- **Phase 6:** hide the skip button when a skip would return `cannot_skip_self` (you hold the turn) or `no_one_to_skip_to` (two participants, and you wrote last).
 - **Out of scope:** passages and names made only of zero-width or filler characters (e.g. U+200B, U+3164) pass validation. `trim()` doesn't remove them, and each counts as a grapheme.

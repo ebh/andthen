@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   afterContribution,
+  canSkip,
   newStoryState,
   onJoin,
   resolveTurn,
@@ -429,6 +430,34 @@ describe("onJoin", () => {
         turnStartedAt: T0,
       },
       joinerPosition: 1,
+    });
+  });
+});
+
+describe("canSkip", () => {
+  it("is true in a 3-person story, including when the last writer is the next candidate", () => {
+    // C holds, A wrote last: the next candidate after C is A, who is passed over for B.
+    expect(canSkip(bHolds({ currentPosition: C }))).toBe(true);
+    // A holds, B wrote last: the next candidate after A is B, who is passed over for C.
+    expect(canSkip(bHolds({ currentPosition: A, lastContributorPosition: B }))).toBe(true);
+    // B holds, A wrote last: C is next and eligible.
+    expect(canSkip(bHolds())).toBe(true);
+  });
+
+  it("is false with two people, where the turn would return to the holder", () => {
+    expect(canSkip(bHolds({ participantPositions: [A, B] }))).toBe(false);
+  });
+
+  it("is false while the story waits", () => {
+    expect(canSkip(waiting())).toBe(false);
+  });
+
+  it("matches skip: no_one_to_skip_to exactly when canSkip is false", () => {
+    const twoPeople = bHolds({ participantPositions: [A, B] });
+
+    expect(skip(twoPeople, T0, { skipperPosition: A, turnVersion: 5 })).toEqual({
+      ok: false,
+      reason: "no_one_to_skip_to",
     });
   });
 });

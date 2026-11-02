@@ -8,5 +8,6 @@
     "types": ["vite/client"]
   },
   "include": ["src/client", "src/shared"],
-  "exclude": ["**/*.test.ts", "**/*.test.tsx"]
+  // live.test.ts belongs to tsconfig.test.json, which types it without the DOM.
+  "exclude": ["src/client/live.test.ts"]
 }

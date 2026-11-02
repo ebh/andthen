@@ -13,6 +13,7 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 ## Where things live
 
 - `src/shared/`: validation, turn rules, API schemas. `src/worker/`: Hono app, `StoryRoom`, D1 access. `src/client/`: React SPA.
+- Client layout: `api.ts` is the only code that calls `fetch` (Zod-parsed, failures as values); `pages/` has one file per route (`router.ts` is a small `pushState` router); `components/` holds the pieces, with `StoryBoard` as the joined participant's page; `storyRules.ts` decides what the UI offers (e.g. whether to show skip, mirroring `skip` in `turnOrder.ts`). Component tests (`*.test.tsx`) start with `// @vitest-environment jsdom`; mock `../useStoryLive` in them, since jsdom would open a real WebSocket.
 - Unit tests sit beside the code (`*.test.ts`). Integration tests are in `test/`; `test/support/testEnv.ts` gives a Miniflare `env` with a fresh in-memory D1 and all migrations applied.
 - Lint is oxlint first (owns every rule it implements, type-aware), then ESLint for what oxlint lacks. Add a rule to `.oxlintrc.json` if oxlint has it, else to `eslint.config.ts`.
 

@@ -28,6 +28,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   useStoryLive({ storyId, endsAt: view.turn.endsAt, refetch });
   const now = useNow(CLOCK_TICK_MS);
   const [draft, setDraft] = useState("");
+  const [startsParagraph, setStartsParagraph] = useState(false);
   // The draft a suggestion replaced, until the next edit.
   const [replacedDraft, setReplacedDraft] = useState<string | null>(null);
   // A notice belongs to the turn version it was raised on: once the story moves on it is stale.
@@ -67,11 +68,12 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
       const result = await contribute(storyId, {
         text: draft,
         turnVersion: view.turn.version,
-        startsParagraph: true,
+        startsParagraph,
       });
       setSending(false);
       if (result.ok) {
         edit("");
+        setStartsParagraph(false);
         refetch();
         return;
       }
@@ -126,6 +128,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
                 submitting={sending}
                 submitLabel="Add to the story"
                 fieldRef={composerField}
+                newParagraph={{ checked: startsParagraph, onChange: setStartsParagraph }}
               />
               {replacedDraft !== null && (
                 <p className="flex items-center gap-2 text-sm">

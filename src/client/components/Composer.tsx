@@ -12,6 +12,8 @@ interface ComposerProps {
   submitLabel: string;
   /** Lets the parent move focus into the field, e.g. after filling it. */
   fieldRef?: Ref<HTMLTextAreaElement>;
+  /** Shows the "New paragraph" checkbox. Left out, the passage is not a choice of the writer's. */
+  newParagraph?: { checked: boolean; onChange: (checked: boolean) => void };
 }
 
 /** A passage editor with a live grapheme counter. The parent owns the text so it survives a failed submit. */
@@ -23,6 +25,7 @@ export function Composer({
   submitting,
   submitLabel,
   fieldRef,
+  newParagraph,
 }: ComposerProps) {
   const fieldId = useId();
   const counterId = useId();
@@ -54,6 +57,19 @@ export function Composer({
         aria-describedby={counterId}
         aria-invalid={tooLong}
       />
+      {newParagraph && (
+        <label className="flex min-h-11 items-center gap-3 self-start text-sm">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm checkbox-primary"
+            checked={newParagraph.checked}
+            onChange={(event) => {
+              newParagraph.onChange(event.target.checked);
+            }}
+          />
+          New paragraph
+        </label>
+      )}
       <div className="flex items-center justify-between gap-2">
         <span
           id={counterId}

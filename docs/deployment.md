@@ -149,6 +149,8 @@ AI_REMOTE=1 pnpm dev
 
 `AI_REMOTE` must be a shell variable: `vite.config.ts` reads it to turn remote bindings on, and `.dev.vars` is read only by the Worker. Without it, the `AI` binding is never started and the Worker throws on `env.AI.run`. See `.dev.vars.example`.
 
+This path has not been run against the real model. The Workers AI call is covered only by tests with a stand-in; see "Proven only locally" below.
+
 ## Accepted risks
 
 These were chosen for the first release. None has a mitigation in the code.

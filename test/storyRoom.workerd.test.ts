@@ -102,7 +102,7 @@ describe("StoryRoom in workerd", () => {
 
       const written = await post(
         `/api/stories/${ana.storyId}/contributions`,
-        { text: "And then.", turnVersion: turn.version },
+        { text: "And then.", turnVersion: turn.version, startsParagraph: false },
         ben.cookie,
       );
 
@@ -140,7 +140,7 @@ describe("StoryRoom in workerd", () => {
       const { turn: zedsTurn } = await readStory(zed.storyId, yan.cookie);
       const written = await post(
         `/api/stories/${zed.storyId}/contributions`,
-        { text: "Zed's story moves on.", turnVersion: zedsTurn.version },
+        { text: "Zed's story moves on.", turnVersion: zedsTurn.version, startsParagraph: false },
         yan.cookie,
       );
       expect(written.status).toBe(204);
@@ -157,7 +157,7 @@ describe("StoryRoom in workerd", () => {
 
       const written = await post(
         `/api/stories/${ana.storyId}/contributions`,
-        { text: "Nobody listening.", turnVersion: turn.version },
+        { text: "Nobody listening.", turnVersion: turn.version, startsParagraph: false },
         ben.cookie,
       );
 

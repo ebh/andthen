@@ -41,8 +41,15 @@ export async function joinStory(page: Page, inviteLink: string, name: string): P
   await expect(turnBanner(page)).toContainText(`${name} (you)`);
 }
 
-export async function addPassage(page: Page, text: string): Promise<void> {
+export async function addPassage(
+  page: Page,
+  text: string,
+  { newParagraph = false }: { newParagraph?: boolean } = {},
+): Promise<void> {
   await page.getByLabel("Your passage").fill(text);
+  if (newParagraph) {
+    await page.getByLabel("New paragraph").check();
+  }
   await page.getByRole("button", { name: "Add to the story" }).click();
 
   await expect(storyText(page)).toContainText(text);

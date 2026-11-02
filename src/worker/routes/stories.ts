@@ -9,6 +9,7 @@ import {
   type JoinResponse,
   type SuggestionsResponse,
 } from "../../shared/api";
+import { groupParagraphs } from "../../shared/paragraphs";
 import {
   afterContribution,
   newStoryState,
@@ -174,7 +175,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       storyId,
       loadedVersion: loaded.state.turnVersion,
       next: result.state,
-      contribution: { id: newId(), participantId: me.id, text: passage.value, createdAt: now },
+      contribution: {
+        id: newId(),
+        participantId: me.id,
+        text: passage.value,
+        startsParagraph: body.startsParagraph,
+        createdAt: now,
+      },
     });
     if (!saved) {
       throw new ApiError("stale_turn");
@@ -236,7 +243,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("ai_rate_limited");
     }
 
-    const storyText = found.contributions.map(({ text }) => text).join("\n\n");
+    const storyText = groupParagraphs(found.contributions)
+      .map((paragraph) => paragraph.map(({ text }) => text).join(" "))
+      .join("\n\n");
     const result = await askProvider(provider, storyText);
     if (!result.ok) {
       // Only an outage refunds: bad output and a timeout may already have been billed.

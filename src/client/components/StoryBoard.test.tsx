@@ -60,9 +60,52 @@ describe("composer", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/stories/abc12/contributions",
-      expect.objectContaining({ body: JSON.stringify({ text: "And then.", turnVersion: 3 }) }),
+      expect.objectContaining({
+        body: JSON.stringify({ text: "And then.", turnVersion: 3, startsParagraph: false }),
+      }),
     );
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("sends startsParagraph when New paragraph is ticked, then unticks it after sending", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    renderBoard();
+    const user = userEvent.setup();
+    const box = screen.getByRole("checkbox", { name: "New paragraph" });
+
+    await user.click(box);
+    await user.type(screen.getByLabelText("Your passage"), "A fresh start.");
+    await user.click(screen.getByRole("button", { name: "Add to the story" }));
+
+    await waitFor(() => {
+      expect(box).not.toBeChecked();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/stories/abc12/contributions",
+      expect.objectContaining({
+        body: JSON.stringify({ text: "A fresh start.", turnVersion: 3, startsParagraph: true }),
+      }),
+    );
+  });
+
+  it("keeps New paragraph ticked when the send fails", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
+    renderBoard();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("checkbox", { name: "New paragraph" }));
+    await user.type(screen.getByLabelText("Your passage"), "Precious words");
+    await user.click(screen.getByRole("button", { name: "Add to the story" }));
+
+    expect(await screen.findByText(/The story changed while you were writing/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "New paragraph" })).toBeChecked();
+  });
+
+  it("offers no New paragraph box when it is not your turn", () => {
+    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
+
+    expect(screen.queryByRole("checkbox", { name: "New paragraph" })).not.toBeInTheDocument();
   });
 
   it("keeps the text and refetches on a 409 stale_turn", async () => {

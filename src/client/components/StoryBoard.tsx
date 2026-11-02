@@ -29,6 +29,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   useStoryLive({ storyId, endsAt: view.turn.endsAt, refetch });
   const now = useNow(CLOCK_TICK_MS);
   const [draft, setDraft] = useState("");
+  const [startsParagraph, setStartsParagraph] = useState(false);
   // The draft a suggestion replaced, until the next edit.
   const [replacedDraft, setReplacedDraft] = useState<string | null>(null);
   // A notice belongs to the turn version it was raised on: once the story moves on it is stale.
@@ -65,10 +66,15 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     setSending(true);
     setNotice(null);
     void (async () => {
-      const result = await contribute(storyId, { text: draft, turnVersion: view.turn.version });
+      const result = await contribute(storyId, {
+        text: draft,
+        turnVersion: view.turn.version,
+        startsParagraph,
+      });
       setSending(false);
       if (result.ok) {
         edit("");
+        setStartsParagraph(false);
         refetch();
         return;
       }
@@ -121,6 +127,8 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
               onSubmit={send}
               sending={sending}
               fieldRef={composerField}
+              startsParagraph={startsParagraph}
+              onStartsParagraphChange={setStartsParagraph}
               replacedDraft={replacedDraft}
               onUndo={undoSuggestion}
               onUseSuggestion={applySuggestion}
@@ -149,6 +157,8 @@ interface YourTurnProps {
   onSubmit: () => void;
   sending: boolean;
   fieldRef: Ref<HTMLTextAreaElement>;
+  startsParagraph: boolean;
+  onStartsParagraphChange: (startsParagraph: boolean) => void;
   replacedDraft: string | null;
   onUndo: () => void;
   onUseSuggestion: (text: string) => void;
@@ -169,6 +179,7 @@ function YourTurn(props: YourTurnProps) {
         submitting={props.sending}
         submitLabel="Add to the story"
         fieldRef={props.fieldRef}
+        newParagraph={{ checked: props.startsParagraph, onChange: props.onStartsParagraphChange }}
         extraAction={<SuggestButton control={suggestions} />}
       />
       {props.replacedDraft !== null && (

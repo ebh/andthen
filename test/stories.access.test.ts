@@ -164,6 +164,7 @@ describe("story access", () => {
       const response = await newBrowser().post(`/api/stories/${storyId}/contributions`, {
         text: "Hi.",
         turnVersion: 1,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(403);
@@ -176,6 +177,7 @@ describe("story access", () => {
       const response = await ana.post(`/api/stories/${storyId}/contributions`, {
         text: "Hi.",
         turnVersion: 1,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(403);
@@ -188,6 +190,7 @@ describe("story access", () => {
       const response = await ben.post(`/api/stories/${storyId}/contributions`, {
         text: "Hi.",
         turnVersion: 0,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(409);
@@ -202,6 +205,7 @@ describe("story access", () => {
         const response = await ben.post(`/api/stories/${storyId}/contributions`, {
           text,
           turnVersion: 1,
+          startsParagraph: false,
         });
 
         expect(response.status).toBe(400);
@@ -215,6 +219,7 @@ describe("story access", () => {
       const response = await ben.post(`/api/stories/${storyId}/contributions`, {
         text: "x".repeat(280),
         turnVersion: 1,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(204);
@@ -224,6 +229,7 @@ describe("story access", () => {
       const response = await newBrowser().post("/api/stories/zzzzz/contributions", {
         text: "Hi.",
         turnVersion: 0,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(404);
@@ -236,6 +242,7 @@ describe("story access", () => {
       const response = await ben.post(`/api/stories/${storyId}/contributions`, {
         text: "Late.",
         turnVersion: 1,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(409);
@@ -273,7 +280,11 @@ describe("story access", () => {
 
     it("answers 409 no_one_to_skip_to when the skip would come straight back", async () => {
       const { ben, storyId } = await twoPersonStory();
-      await ben.post(`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1 });
+      await ben.post(`/api/stories/${storyId}/contributions`, {
+        text: "Hi.",
+        turnVersion: 1,
+        startsParagraph: false,
+      });
       // Ana holds at version 2, and Ben (the last writer) is the only other person.
 
       const response = await ben.post(`/api/stories/${storyId}/skip`, { turnVersion: 2 });
@@ -300,7 +311,10 @@ describe("story access", () => {
       const routes: [string, unknown][] = [
         ["/api/stories", { displayName: "Zed", opening: "Hi." }],
         [`/api/stories/${storyId}/participants`, { displayName: "Zed" }],
-        [`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1 }],
+        [
+          `/api/stories/${storyId}/contributions`,
+          { text: "Hi.", turnVersion: 1, startsParagraph: false },
+        ],
         [`/api/stories/${storyId}/skip`, { turnVersion: 1 }],
       ];
 
@@ -393,9 +407,27 @@ describe("story access", () => {
         ["/api/stories", { displayName: "Zed" }, undefined],
         ["/api/stories", { displayName: 1, opening: "Hi." }, undefined],
         ["/api/stories", [], undefined],
-        [`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: "1" }, undefined],
-        [`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: -1 }, undefined],
-        [`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1.5 }, undefined],
+        [`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1 }, undefined],
+        [
+          `/api/stories/${storyId}/contributions`,
+          { text: "Hi.", turnVersion: 1, startsParagraph: "yes" },
+          undefined,
+        ],
+        [
+          `/api/stories/${storyId}/contributions`,
+          { text: "Hi.", turnVersion: "1", startsParagraph: false },
+          undefined,
+        ],
+        [
+          `/api/stories/${storyId}/contributions`,
+          { text: "Hi.", turnVersion: -1, startsParagraph: false },
+          undefined,
+        ],
+        [
+          `/api/stories/${storyId}/contributions`,
+          { text: "Hi.", turnVersion: 1.5, startsParagraph: false },
+          undefined,
+        ],
         [`/api/stories/${storyId}/skip`, {}, undefined],
         [`/api/stories/${storyId}/participants`, {}, undefined],
       ];
@@ -470,7 +502,11 @@ describe("story access", () => {
         await newBrowser().get(`/api/stories/${storyId}`),
         await newBrowser().post(`/api/stories/${storyId}/participants`, { displayName: "Cat" }),
         await newBrowser().post("/api/stories", { displayName: "Zed", opening: "Hi." }),
-        await ben.post(`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1 }),
+        await ben.post(`/api/stories/${storyId}/contributions`, {
+          text: "Hi.",
+          turnVersion: 1,
+          startsParagraph: false,
+        }),
         await ben.post(`/api/stories/${storyId}/skip`, { turnVersion: 9 }),
         await newBrowser().get("/api/nope"),
         await newBrowser().post("/api/stories", {}, { origin: null }),

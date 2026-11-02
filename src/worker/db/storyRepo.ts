@@ -50,7 +50,13 @@ export interface AppendContributionInput {
   storyId: string;
   loadedVersion: number;
   next: TurnState;
-  contribution: { id: string; participantId: string; text: string; createdAt: number };
+  contribution: {
+    id: string;
+    participantId: string;
+    text: string;
+    startsParagraph: boolean;
+    createdAt: number;
+  };
 }
 
 export interface AddParticipantInput {
@@ -89,7 +95,7 @@ export async function loadStoryWithContributions(
     db
       .prepare(
         `SELECT c.id, c.participant_id AS authorId, p.display_name AS authorName, c.text,
-           c.created_at AS createdAt
+           c.starts_paragraph AS startsParagraph, c.created_at AS createdAt
          FROM contributions c JOIN participants p ON p.id = c.participant_id
          WHERE c.story_id = ? ORDER BY c.seq`,
       )
@@ -131,8 +137,8 @@ export async function createStory(db: Db, input: CreateStoryInput): Promise<bool
       insertParticipant(db, storyId, state.turnVersion, creator, now),
       db
         .prepare(
-          `INSERT INTO contributions (id, story_id, participant_id, seq, text, created_at)
-           VALUES (?, ?, ?, 1, ?, ?)`,
+          `INSERT INTO contributions (id, story_id, participant_id, seq, text, starts_paragraph,
+             created_at) VALUES (?, ?, ?, 1, ?, 1, ?)`,
         )
         .bind(opening.id, storyId, creator.id, opening.text, now),
     ]);
@@ -156,9 +162,10 @@ export async function appendContribution(db: Db, input: AppendContributionInput)
   const results = await db.batch([
     db
       .prepare(
-        `INSERT INTO contributions (id, story_id, participant_id, seq, text, created_at)
+        `INSERT INTO contributions (id, story_id, participant_id, seq, text, starts_paragraph,
+           created_at)
          SELECT ?, ?, ?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM contributions WHERE story_id = ?),
-           ?, ?
+           ?, ?, ?
          WHERE EXISTS (SELECT 1 FROM stories WHERE id = ? AND turn_version = ?)`,
       )
       .bind(
@@ -167,6 +174,7 @@ export async function appendContribution(db: Db, input: AppendContributionInput)
         contribution.participantId,
         storyId,
         contribution.text,
+        contribution.startsParagraph ? 1 : 0,
         contribution.createdAt,
         storyId,
         loadedVersion,

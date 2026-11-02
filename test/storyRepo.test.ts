@@ -33,7 +33,13 @@ describe("storyRepo", () => {
         storyId: "abc12",
         loadedVersion: 0,
         next: newStoryState(),
-        contribution: { id: "c", participantId: "p", text: "Hi.", createdAt: 0 },
+        contribution: {
+          id: "c",
+          participantId: "p",
+          text: "Hi.",
+          startsParagraph: false,
+          createdAt: 0,
+        },
       }),
     ).rejects.toThrow("D1 batch returned no result at index 1");
   });

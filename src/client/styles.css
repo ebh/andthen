@@ -1,6 +1,83 @@
 @import "tailwindcss";
+@import "@fontsource-variable/literata/wght.css";
 @plugin "daisyui" {
-  themes:
-    light --default,
-    dark --prefersdark;
+  themes: false;
+}
+
+/* The serif face for anything a person writes or reads as prose: the story, the composer, suggestions. */
+@theme {
+  --font-story: "Literata Variable", ui-serif, Georgia, serif;
+}
+
+/*
+ * Colours come from these two themes only; components use the semantic classes (bg-base-200,
+ * text-primary, ...). Every text/background pair below is at least 4.5:1. Muted text is
+ * text-base-content/70, which measures at least 5.3:1 on base-100 and base-200 in both themes.
+ */
+@plugin "daisyui/theme" {
+  name: "paper";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #faf6ee;
+  --color-base-200: #f1ebdd;
+  --color-base-300: #e4dcc8;
+  --color-base-content: #2b2118;
+  --color-primary: #7a3b1d;
+  --color-primary-content: #fdf8ef;
+  --color-secondary: #3f5a4a;
+  --color-secondary-content: #f4f8f5;
+  --color-accent: #7a3b1d;
+  --color-accent-content: #fdf8ef;
+  --color-neutral: #2b2118;
+  --color-neutral-content: #faf6ee;
+  --color-info: #1f5f8b;
+  --color-info-content: #f2f8fc;
+  --color-success: #2f6b3f;
+  --color-success-content: #f3faf5;
+  --color-warning: #7a5200;
+  --color-warning-content: #fff8e6;
+  --color-error: #9b2226;
+  --color-error-content: #fff5f3;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "ink";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #1c1814;
+  --color-base-200: #26211c;
+  --color-base-300: #332c25;
+  --color-base-content: #ece3d3;
+  --color-primary: #e0a36f;
+  --color-primary-content: #1c1814;
+  --color-secondary: #9bc4a8;
+  --color-secondary-content: #14201a;
+  --color-accent: #e0a36f;
+  --color-accent-content: #1c1814;
+  --color-neutral: #ece3d3;
+  --color-neutral-content: #1c1814;
+  --color-info: #8cc3e8;
+  --color-info-content: #0e1d2a;
+  --color-success: #8fcf9f;
+  --color-success-content: #0f2015;
+  --color-warning: #e8b84a;
+  --color-warning-content: #2a1f05;
+  --color-error: #f08a8a;
+  --color-error-content: #2a0f0f;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }

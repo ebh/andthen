@@ -14,7 +14,7 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 
 - `src/shared/`: validation, turn rules, API schemas. `src/worker/`: Hono app, `StoryRoom`, D1 access. `src/client/`: React SPA.
 - Client layout: `api.ts` is the only code that calls `fetch` (Zod-parsed, failures as values); `pages/` has one file per route (`router.ts` is a small `pushState` router); `components/` holds the pieces, with `StoryBoard` as the joined participant's page; `storyRules.ts` decides what the UI offers (e.g. whether to show skip, mirroring `skip` in `turnOrder.ts`). Component tests (`*.test.tsx`) start with `// @vitest-environment jsdom`; mock `../useStoryLive` in them, since jsdom would open a real WebSocket.
-- Unit tests sit beside the code (`*.test.ts`). Integration tests are in `test/`; `test/support/testEnv.ts` gives a Miniflare `env` with a fresh in-memory D1 and all migrations applied.
+- Unit tests sit beside the code (`*.test.ts`). Integration tests are in `test/`; Playwright e2e tests are in `e2e/` (`pnpm e2e`, run once `pnpm e2e:install`; CI runs them in their own job); `test/support/testEnv.ts` gives a Miniflare `env` with a fresh in-memory D1 and all migrations applied.
 - Lint is oxlint first (owns every rule it implements, type-aware), then ESLint for what oxlint lacks. Add a rule to `.oxlintrc.json` if oxlint has it, else to `eslint.config.ts`.
 
 ## Before you push
@@ -24,4 +24,5 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 ## Background
 
 - `docs/api.md`: the story routes, error statuses, request guards, cookie, write guards and test helpers (`createApp`, `createBrowser`, `gateLoads`). Read it before adding a route or changing how writes are guarded.
+- `docs/deployment.md`: local vs preview vs production, first-time Cloudflare setup, the domain, smoke tests, accepted risks, and what is proven only locally. Read it before changing `wrangler.jsonc`, `deploy.yml` or how an environment is built.
 - `docs/spike-findings.md`: tool versions and what was proven about Stryker, the Vite plugin, Workers AI locally, lint coverage and the `__Host-` cookie. Read it before changing the toolchain, test harness or cookie handling.

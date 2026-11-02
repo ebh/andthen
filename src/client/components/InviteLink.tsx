@@ -26,10 +26,10 @@ export function InviteLink({ url }: InviteLinkProps) {
       <label htmlFor={fieldId} className="font-semibold">
         Invite link
       </label>
-      <div className="join w-full">
+      <div className="flex flex-col gap-2">
         <input
           id={fieldId}
-          className="input input-bordered join-item w-full"
+          className="input h-11 w-full"
           readOnly
           value={url}
           onFocus={(event) => {
@@ -38,7 +38,7 @@ export function InviteLink({ url }: InviteLinkProps) {
         />
         <button
           type="button"
-          className="btn join-item"
+          className="btn btn-outline min-h-11"
           onClick={() => {
             void copy();
           }}

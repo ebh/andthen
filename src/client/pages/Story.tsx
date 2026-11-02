@@ -1,5 +1,6 @@
 import { StoryBoard } from "../components/StoryBoard";
 import { JoinForm } from "../components/JoinForm";
+import { SimplePage } from "../components/SimplePage";
 import { describeFailure } from "../messages";
 import { useStory } from "../useStory";
 import { NotFound } from "./NotFound";
@@ -14,26 +15,34 @@ export function Story({ storyId }: StoryProps) {
 
   if (load.type === "loading") {
     return (
-      <p role="status" className="flex items-center gap-2">
-        <span className="loading loading-spinner" aria-hidden="true" />
-        Loading the story…
-      </p>
+      <SimplePage>
+        <p role="status" className="flex items-center gap-2">
+          <span className="loading loading-spinner" aria-hidden="true" />
+          Loading the story…
+        </p>
+      </SimplePage>
     );
   }
   if (load.type === "not_found") {
     return <NotFound message="That story doesn't exist. Check the link and try again." />;
   }
   if (load.type === "not_joined") {
-    return <JoinForm storyId={storyId} onJoined={refetch} />;
+    return (
+      <SimplePage>
+        <JoinForm storyId={storyId} onJoined={refetch} />
+      </SimplePage>
+    );
   }
   if (load.type === "failed") {
     return (
-      <div role="alert" className="alert alert-error alert-vertical sm:alert-horizontal">
-        {describeFailure(load.failure)}
-        <button type="button" className="btn btn-sm" onClick={refetch}>
-          Try again
-        </button>
-      </div>
+      <SimplePage>
+        <div role="alert" className="alert alert-error alert-vertical sm:alert-horizontal">
+          {describeFailure(load.failure)}
+          <button type="button" className="btn min-h-11" onClick={refetch}>
+            Try again
+          </button>
+        </div>
+      </SimplePage>
     );
   }
 

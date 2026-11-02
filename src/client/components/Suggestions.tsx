@@ -40,7 +40,7 @@ export function Suggestions({ storyId, onUse, onTurnLost }: SuggestionsProps) {
     <section aria-label="Suggestions" className="flex flex-col gap-2">
       <button
         type="button"
-        className="btn btn-secondary btn-sm self-start"
+        className="btn btn-outline min-h-11 self-start"
         disabled={state.type === "loading"}
         onClick={ask}
       >
@@ -55,7 +55,7 @@ export function Suggestions({ storyId, onUse, onTurnLost }: SuggestionsProps) {
             <li key={`${index.toString()}:${suggestion}`}>
               <button
                 type="button"
-                className="btn btn-outline h-auto w-full justify-start py-2 text-left font-normal whitespace-pre-wrap normal-case"
+                className="btn btn-soft h-auto w-full justify-start py-3 text-left font-story font-normal whitespace-pre-wrap normal-case"
                 onClick={() => {
                   onUse(suggestion);
                 }}

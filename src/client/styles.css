@@ -1,6 +1,97 @@
 @import "tailwindcss";
+@import "@fontsource-variable/source-serif-4/wght.css";
+@import "@fontsource-variable/inter/wght.css";
 @plugin "daisyui" {
-  themes:
-    light --default,
-    dark --prefersdark;
+  themes: false;
+}
+
+/*
+ * Two typefaces: a serif for prose (the story, the composer, suggestions, page headings) and
+ * Inter for the interface around it.
+ */
+@theme {
+  --font-story: "Source Serif 4 Variable", ui-serif, Georgia, serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Plain links (the wordmark) get the same visible focus ring daisyUI gives buttons and fields. */
+@layer base {
+  a:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 4px;
+  }
+}
+
+/*
+ * Colours come from these two themes only; components use the semantic classes (bg-base-200,
+ * text-primary, ...). Every text/background pair below is at least 4.5:1. Muted text is
+ * text-base-content/70, which measures at least 5.1:1 on base-100, base-200 and base-300 in
+ * both themes. base-200 is the tinted panel; base-300 is for rules and borders.
+ */
+@plugin "daisyui/theme" {
+  name: "paper";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #f6f1e7;
+  --color-base-200: #ebe3d0;
+  --color-base-300: #d9cfba;
+  --color-base-content: #1e1b16;
+  --color-primary: #1f5c4d;
+  --color-primary-content: #f6f1e7;
+  --color-secondary: #ddd3bd;
+  --color-secondary-content: #1e1b16;
+  --color-accent: #1f5c4d;
+  --color-accent-content: #f6f1e7;
+  --color-neutral: #1e1b16;
+  --color-neutral-content: #f6f1e7;
+  --color-info: #1f5f8b;
+  --color-info-content: #f2f8fc;
+  --color-success: #2f6b3f;
+  --color-success-content: #f3faf5;
+  --color-warning: #7a5200;
+  --color-warning-content: #fff8e6;
+  --color-error: #9b2226;
+  --color-error-content: #fff5f3;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "ink";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #171a18;
+  --color-base-200: #1f2421;
+  --color-base-300: #2c332f;
+  --color-base-content: #ece6d6;
+  --color-primary: #7fc4a8;
+  --color-primary-content: #0f1a15;
+  --color-secondary: #2c332f;
+  --color-secondary-content: #ece6d6;
+  --color-accent: #7fc4a8;
+  --color-accent-content: #0f1a15;
+  --color-neutral: #ece6d6;
+  --color-neutral-content: #171a18;
+  --color-info: #8cc3e8;
+  --color-info-content: #0e1d2a;
+  --color-success: #8fcf9f;
+  --color-success-content: #0f2015;
+  --color-warning: #e8b84a;
+  --color-warning-content: #2a1f05;
+  --color-error: #f08a8a;
+  --color-error-content: #2a0f0f;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }

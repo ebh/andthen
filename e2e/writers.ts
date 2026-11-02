@@ -1,12 +1,20 @@
 import type { Browser, Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
+interface Viewport {
+  width: number;
+  height: number;
+}
+
+/** A phone-sized screen, below the width where the story page gains its authors margin. */
+export const PHONE: Viewport = { width: 375, height: 800 };
+
 /**
  * A writer is a page in its own browser context, so it has its own cookie jar: one context is one
  * participant. Each test starts its own story, so tests never share state.
  */
-export async function newWriter(browser: Browser): Promise<Page> {
-  const context = await browser.newContext();
+export async function newWriter(browser: Browser, viewport?: Viewport): Promise<Page> {
+  const context = await browser.newContext(viewport === undefined ? {} : { viewport });
 
   return context.newPage();
 }

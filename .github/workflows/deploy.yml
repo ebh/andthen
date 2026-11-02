@@ -1,0 +1,108 @@
+name: Deploy
+
+# A pull request deploys to the preview environment. A green CI run on main deploys to production.
+# Each job uses the GitHub Environment of its name, so protection rules and secrets can sit there.
+on:
+  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One deploy per environment at a time. Never cancel: a deploy stopped between the migrations and
+# the Worker upload leaves them out of step. A third run replaces a waiting second one, which is
+# fine because the latest commit is the one worth deploying.
+concurrency:
+  group: deploy-${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    # A fork's pull request gets no secrets, so it must not try to deploy.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: preview
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Makes the build bake in the preview config; `wrangler deploy` then reads the built config.
+      CLOUDFLARE_ENV: preview
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Before the build: the build leaves a redirect that points wrangler at its own output.
+      - name: Apply D1 migrations (preview)
+        run: pnpm wrangler d1 migrations apply DB --env preview --remote
+
+      - name: Build
+        run: pnpm build
+
+      - name: Deploy (preview)
+        run: pnpm wrangler deploy
+
+  production:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ENV: production
+    steps:
+      # The commit CI passed on, not whatever main is by now.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      # Runs can queue, so an older green commit must not overwrite a newer deploy.
+      - name: Skip if main has moved on
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$main_sha" = "$DEPLOY_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "main is at $main_sha, not $DEPLOY_SHA: a newer run deploys it"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.latest.outputs.current == 'true'
+
+      - uses: actions/setup-node@v5
+        if: steps.latest.outputs.current == 'true'
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.latest.outputs.current == 'true'
+
+      - name: Apply D1 migrations (production)
+        if: steps.latest.outputs.current == 'true'
+        run: pnpm wrangler d1 migrations apply DB --env production --remote
+
+      - name: Build
+        if: steps.latest.outputs.current == 'true'
+        run: pnpm build
+
+      - name: Deploy (production)
+        if: steps.latest.outputs.current == 'true'
+        run: pnpm wrangler deploy

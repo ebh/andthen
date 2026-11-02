@@ -23,7 +23,16 @@ const turnRejections = {
 } satisfies Record<TurnRejection, true>;
 
 const storyView = {
-  contributions: [{ id: "c1", authorId: "p1", authorName: "Ana", text: "Once.", createdAt: 1 }],
+  contributions: [
+    {
+      id: "c1",
+      authorId: "p1",
+      authorName: "Ana",
+      text: "Once.",
+      startsParagraph: true,
+      createdAt: 1,
+    },
+  ],
   participants: [
     { id: "p1", displayName: "Ana" },
     { id: "p2", displayName: "Ben" },
@@ -38,7 +47,10 @@ describe("request schemas", () => {
       createStoryRequestSchema.safeParse({ displayName: "Ana", opening: "Once." }).success,
     ).toBe(true);
     expect(joinRequestSchema.safeParse({ displayName: "Ben" }).success).toBe(true);
-    expect(contributeRequestSchema.safeParse({ text: "Then.", turnVersion: 0 }).success).toBe(true);
+    expect(
+      contributeRequestSchema.safeParse({ text: "Then.", turnVersion: 0, startsParagraph: false })
+        .success,
+    ).toBe(true);
     expect(skipRequestSchema.safeParse({ turnVersion: 3 }).success).toBe(true);
   });
 
@@ -46,8 +58,26 @@ describe("request schemas", () => {
     ["create without an opening", createStoryRequestSchema, { displayName: "Ana" }],
     ["create without a name", createStoryRequestSchema, { opening: "Once." }],
     ["join with a number name", joinRequestSchema, { displayName: 1 }],
-    ["contribute without a version", contributeRequestSchema, { text: "Then." }],
-    ["contribute without text", contributeRequestSchema, { turnVersion: 1 }],
+    [
+      "contribute without a version",
+      contributeRequestSchema,
+      { text: "Then.", startsParagraph: false },
+    ],
+    [
+      "contribute without text",
+      contributeRequestSchema,
+      { turnVersion: 1, startsParagraph: false },
+    ],
+    [
+      "contribute without startsParagraph",
+      contributeRequestSchema,
+      { text: "Then.", turnVersion: 1 },
+    ],
+    [
+      "contribute with a string startsParagraph",
+      contributeRequestSchema,
+      { text: "Then.", turnVersion: 1, startsParagraph: "yes" },
+    ],
     ["skip with a string version", skipRequestSchema, { turnVersion: "1" }],
     ["skip with a negative version", skipRequestSchema, { turnVersion: -1 }],
     ["skip with a fractional version", skipRequestSchema, { turnVersion: 1.5 }],
@@ -102,20 +132,50 @@ describe("storyViewSchema", () => {
     ["an empty me", { ...storyView, me: "" }],
     [
       "a contribution without an author name",
-      { ...storyView, contributions: [{ id: "c1", authorId: "p1", text: "x", createdAt: 1 }] },
+      {
+        ...storyView,
+        contributions: [
+          { id: "c1", authorId: "p1", text: "x", startsParagraph: true, createdAt: 1 },
+        ],
+      },
     ],
     [
       "a contribution with an empty author ID",
       {
         ...storyView,
-        contributions: [{ id: "c1", authorId: "", authorName: "Ana", text: "x", createdAt: 1 }],
+        contributions: [
+          {
+            id: "c1",
+            authorId: "",
+            authorName: "Ana",
+            text: "x",
+            startsParagraph: true,
+            createdAt: 1,
+          },
+        ],
+      },
+    ],
+    [
+      "a contribution without startsParagraph",
+      {
+        ...storyView,
+        contributions: [{ id: "c1", authorId: "p1", authorName: "Ana", text: "x", createdAt: 1 }],
       },
     ],
     [
       "a contribution with a fractional time",
       {
         ...storyView,
-        contributions: [{ id: "c1", authorId: "p1", authorName: "Ana", text: "x", createdAt: 1.5 }],
+        contributions: [
+          {
+            id: "c1",
+            authorId: "p1",
+            authorName: "Ana",
+            text: "x",
+            startsParagraph: true,
+            createdAt: 1.5,
+          },
+        ],
       },
     ],
     ["a participant without a name", { ...storyView, participants: [{ id: "p1" }] }],

@@ -29,6 +29,7 @@ export function storyView({
       authorId: lastWriterId,
       authorName: NAMES[lastWriterId] ?? "?",
       text: "Once upon a time.",
+      startsParagraph: true,
       createdAt: 1,
     },
   ];

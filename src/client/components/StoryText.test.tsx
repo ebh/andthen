@@ -7,8 +7,22 @@ import type { ContributionView } from "../../shared/api";
 import { StoryText } from "./StoryText";
 
 const contributions: readonly ContributionView[] = [
-  { id: "c1", authorId: "p1", authorName: "Ana", text: "A fox found a key.", createdAt: 1 },
-  { id: "c2", authorId: "p2", authorName: "Ben", text: "It opened nothing.", createdAt: 2 },
+  {
+    id: "c1",
+    authorId: "p1",
+    authorName: "Ana",
+    text: "A fox found a key.",
+    startsParagraph: true,
+    createdAt: 1,
+  },
+  {
+    id: "c2",
+    authorId: "p2",
+    authorName: "Ben",
+    text: "It opened nothing.",
+    startsParagraph: true,
+    createdAt: 2,
+  },
 ];
 
 describe("StoryText", () => {
@@ -24,7 +38,14 @@ describe("StoryText", () => {
     render(
       <StoryText
         contributions={[
-          { id: "c1", authorId: "p1", authorName: "Ana", text: hostile, createdAt: 1 },
+          {
+            id: "c1",
+            authorId: "p1",
+            authorName: "Ana",
+            text: hostile,
+            startsParagraph: true,
+            createdAt: 1,
+          },
         ]}
       />,
     );

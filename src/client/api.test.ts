@@ -20,10 +20,12 @@ describe("error mapping", () => {
   it("maps a documented error body to its code and status", async () => {
     stubFetch(jsonResponse(409, { error: "stale_turn" }));
 
-    expect(await contribute("abc12", { text: "x", turnVersion: 1 })).toEqual({
-      ok: false,
-      failure: { type: "rejected", status: 409, code: "stale_turn" },
-    });
+    expect(await contribute("abc12", { text: "x", turnVersion: 1, startsParagraph: true })).toEqual(
+      {
+        ok: false,
+        failure: { type: "rejected", status: 409, code: "stale_turn" },
+      },
+    );
   });
 
   it("maps a 409 story_full to its code", async () => {
@@ -79,15 +81,17 @@ describe("success", () => {
   it("accepts a 204 with no body for a contribution", async () => {
     const fetchMock = stubFetch(noContentResponse());
 
-    expect(await contribute("abc12", { text: "x", turnVersion: 2 })).toEqual({
-      ok: true,
-      value: null,
-    });
+    expect(await contribute("abc12", { text: "x", turnVersion: 2, startsParagraph: true })).toEqual(
+      {
+        ok: true,
+        value: null,
+      },
+    );
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/stories/abc12/contributions",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ text: "x", turnVersion: 2 }),
+        body: JSON.stringify({ text: "x", turnVersion: 2, startsParagraph: true }),
       }),
     );
   });

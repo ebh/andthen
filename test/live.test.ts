@@ -188,7 +188,7 @@ describe("GET /api/stories/:id/live", () => {
       const version = (await readStory(ben, storyId)).turn.version;
       await ben.post(
         `/api/stories/${storyId}/contributions`,
-        { text: "Then.", turnVersion: version },
+        { text: "Then.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
       const afterWrite = (await readStory(ana, storyId)).turn.version;
@@ -214,7 +214,7 @@ describe("GET /api/stories/:id/live", () => {
 
       const response = await ben.post(
         `/api/stories/${storyId}/contributions`,
-        { text: "Too late.", turnVersion: 99 },
+        { text: "Too late.", turnVersion: 99, startsParagraph: false },
         { env: rooms.env },
       );
 
@@ -269,7 +269,7 @@ describe("GET /api/stories/:id/live", () => {
 
       const response = await ben.post(
         `/api/stories/${storyId}/contributions`,
-        { text: "Still saved.", turnVersion: version },
+        { text: "Still saved.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
       await Promise.all(ben.backgroundWork);
@@ -290,7 +290,7 @@ describe("GET /api/stories/:id/live", () => {
 
       const response = await ben.post(
         `/api/stories/${storyId}/contributions`,
-        { text: "Still saved.", turnVersion: version },
+        { text: "Still saved.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
       await Promise.all(ben.backgroundWork);
@@ -307,7 +307,7 @@ describe("GET /api/stories/:id/live", () => {
 
       const response = await ben.post(
         `/api/stories/${storyId}/contributions`,
-        { text: "Saved anyway.", turnVersion: version },
+        { text: "Saved anyway.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
 

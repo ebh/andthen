@@ -64,7 +64,11 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     setSending(true);
     setNotice(null);
     void (async () => {
-      const result = await contribute(storyId, { text: draft, turnVersion: view.turn.version });
+      const result = await contribute(storyId, {
+        text: draft,
+        turnVersion: view.turn.version,
+        startsParagraph: true,
+      });
       setSending(false);
       if (result.ok) {
         edit("");

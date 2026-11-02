@@ -44,6 +44,7 @@ describe("story journeys", () => {
       authorId: view.me,
       authorName: "Ana",
       text: "Once upon a time.",
+      startsParagraph: true,
       createdAt: T0,
     });
     expect(opening?.id).not.toBe("");
@@ -68,19 +69,39 @@ describe("story journeys", () => {
     const written = await ben.post(`/api/stories/${storyId}/contributions`, {
       text: " And then Ben wrote. ",
       turnVersion: 1,
+      startsParagraph: false,
     });
 
     expect(written.status).toBe(204);
     const after = await readStory(ana, storyId);
-    expect(after.contributions.map((c) => [c.authorName, c.text, c.createdAt])).toEqual([
-      ["Ana", "Once upon a time.", T0],
-      ["Ben", "And then Ben wrote.", T0 + 1000],
+    expect(
+      after.contributions.map((c) => [c.authorName, c.text, c.startsParagraph, c.createdAt]),
+    ).toEqual([
+      ["Ana", "Once upon a time.", true, T0],
+      ["Ben", "And then Ben wrote.", false, T0 + 1000],
     ]);
     expect(after.turn).toEqual({
       holderId: after.participants[0]?.id,
       endsAt: T0 + 1000 + TURN_WINDOW_MS,
       version: 2,
     });
+  });
+
+  it("keeps a passage's startsParagraph as the author sent it", async () => {
+    clock.now = T0;
+    const ana = newBrowser();
+    const ben = newBrowser();
+    const storyId = await createStory(ana);
+    await joinStory(ben, storyId, "Ben");
+
+    await ben.post(`/api/stories/${storyId}/contributions`, {
+      text: "A new beginning.",
+      turnVersion: 1,
+      startsParagraph: true,
+    });
+
+    const view = await readStory(ana, storyId);
+    expect(view.contributions.map((c) => c.startsParagraph)).toEqual([true, true]);
   });
 
   it("lets a third person skip the holder, and the turn passes over the last writer", async () => {
@@ -91,6 +112,7 @@ describe("story journeys", () => {
     await ben.post(`/api/stories/${storyId}/contributions`, {
       text: "Ben's turn.",
       turnVersion: 1,
+      startsParagraph: false,
     });
     const catId = await joinStory(cat, storyId, "Cat");
     expect((await readStory(cat, storyId)).turn.version).toBe(3);
@@ -144,10 +166,12 @@ describe("story journeys", () => {
     const stale = await ben.post(`/api/stories/${storyId}/contributions`, {
       text: "Too late.",
       turnVersion: 2,
+      startsParagraph: false,
     });
     const late = await cat.post(`/api/stories/${storyId}/contributions`, {
       text: "Cat takes over.",
       turnVersion: 3,
+      startsParagraph: false,
     });
 
     expect(stale.status).toBe(409);

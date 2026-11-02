@@ -82,7 +82,11 @@ describe("concurrent writes to one story", () => {
     const ben = as("Ben");
     const gate = gated(4);
     const send = () =>
-      ben.post(`/api/stories/${storyId}/contributions`, { text: "Mine.", turnVersion: 1 }, gate);
+      ben.post(
+        `/api/stories/${storyId}/contributions`,
+        { text: "Mine.", turnVersion: 1, startsParagraph: false },
+        gate,
+      );
 
     const { statuses, errors } = await raced([send, send, send, send]);
 
@@ -98,7 +102,11 @@ describe("concurrent writes to one story", () => {
 
     const { statuses, errors } = await raced([
       () =>
-        ben.post(`/api/stories/${storyId}/contributions`, { text: "Ben.", turnVersion: 2 }, gate),
+        ben.post(
+          `/api/stories/${storyId}/contributions`,
+          { text: "Ben.", turnVersion: 2, startsParagraph: false },
+          gate,
+        ),
       () => cat.post(`/api/stories/${storyId}/skip`, { turnVersion: 2 }, gate),
     ]);
 
@@ -153,7 +161,11 @@ describe("concurrent writes to one story", () => {
 
     const { statuses } = await raced([
       () =>
-        ben.post(`/api/stories/${storyId}/contributions`, { text: "Ben.", turnVersion: 1 }, gate),
+        ben.post(
+          `/api/stories/${storyId}/contributions`,
+          { text: "Ben.", turnVersion: 1, startsParagraph: false },
+          gate,
+        ),
       () => cat.post(`/api/stories/${storyId}/participants`, { displayName: "Cat" }, gate),
     ]);
 

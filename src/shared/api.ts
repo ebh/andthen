@@ -28,10 +28,14 @@ export type JoinRequest = z.infer<typeof joinRequestSchema>;
 export const joinResponseSchema = z.object({ participantId: idSchema });
 export type JoinResponse = z.infer<typeof joinResponseSchema>;
 
-/** `turnVersion` is the version the page showed; a stale one gets 409 `stale_turn`. */
+/**
+ * `turnVersion` is the version the page showed; a stale one gets 409 `stale_turn`.
+ * `startsParagraph` is true when the passage opens a new paragraph rather than continuing one.
+ */
 export const contributeRequestSchema = z.object({
   text: z.string(),
   turnVersion: turnVersionSchema,
+  startsParagraph: z.boolean(),
 });
 export type ContributeRequest = z.infer<typeof contributeRequestSchema>;
 
@@ -53,6 +57,7 @@ export const contributionViewSchema = z.object({
   authorId: idSchema,
   authorName: z.string(),
   text: z.string(),
+  startsParagraph: z.boolean(),
   createdAt: timestampSchema,
 });
 export type ContributionView = z.infer<typeof contributionViewSchema>;

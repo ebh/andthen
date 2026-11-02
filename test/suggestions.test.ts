@@ -157,6 +157,7 @@ describe("POST /api/stories/:id/suggestions", () => {
       await ben.post(`/api/stories/${storyId}/contributions`, {
         text: "Ben adds this.",
         turnVersion: 1,
+        startsParagraph: false,
       });
 
       await ask(ana, storyId);
@@ -182,6 +183,7 @@ describe("POST /api/stories/:id/suggestions", () => {
       const response = await ben.post(`/api/stories/${storyId}/contributions`, {
         text: "Mine.",
         turnVersion: turn.version,
+        startsParagraph: false,
       });
 
       expect(response.status).toBe(204);
@@ -301,7 +303,11 @@ describe("POST /api/stories/:id/suggestions", () => {
       for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
         await ask(ben, storyId);
       }
-      await ben.post(`/api/stories/${storyId}/contributions`, { text: "Mine.", turnVersion: 1 });
+      await ben.post(`/api/stories/${storyId}/contributions`, {
+        text: "Mine.",
+        turnVersion: 1,
+        startsParagraph: false,
+      });
 
       expect((await ask(ana, storyId)).status).toBe(200);
     });

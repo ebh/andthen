@@ -36,6 +36,7 @@ export const contributionRowSchema = z.object({
   authorId: z.string().min(1),
   authorName: z.string(),
   text: z.string(),
+  startsParagraph: z.union([z.literal(0), z.literal(1)]).transform((flag) => flag === 1),
   createdAt: countSchema,
 });
 export type ContributionRow = z.infer<typeof contributionRowSchema>;

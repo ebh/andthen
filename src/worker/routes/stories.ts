@@ -174,7 +174,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       storyId,
       loadedVersion: loaded.state.turnVersion,
       next: result.state,
-      contribution: { id: newId(), participantId: me.id, text: passage.value, createdAt: now },
+      contribution: {
+        id: newId(),
+        participantId: me.id,
+        text: passage.value,
+        startsParagraph: body.startsParagraph,
+        createdAt: now,
+      },
     });
     if (!saved) {
       throw new ApiError("stale_turn");

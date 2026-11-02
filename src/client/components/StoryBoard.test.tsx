@@ -60,7 +60,9 @@ describe("composer", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/stories/abc12/contributions",
-      expect.objectContaining({ body: JSON.stringify({ text: "And then.", turnVersion: 3 }) }),
+      expect.objectContaining({
+        body: JSON.stringify({ text: "And then.", turnVersion: 3, startsParagraph: true }),
+      }),
     );
     expect(refetch).toHaveBeenCalled();
   });

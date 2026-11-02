@@ -9,7 +9,7 @@ Routes live in `src/worker/routes/stories.ts`, SQL in `src/worker/db/storyRepo.t
 | `POST /api/stories`                   | 201 `{storyId}`                | Sets the cookie if the browser has none. A browser may start many stories under one cookie. |
 | `GET /api/stories/:id`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant`. Turn comes from `resolveTurn(state, now)`.      |
 | `POST /api/stories/:id/participants`  | 201 `{participantId}`          | Sets the cookie if the browser has none.                                                    |
-| `POST /api/stories/:id/contributions` | 204                            | Body `{text, turnVersion}`.                                                                 |
+| `POST /api/stories/:id/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph. |
 | `POST /api/stories/:id/skip`          | 204                            | Body `{turnVersion}`.                                                                       |
 | `POST /api/stories/:id/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                        |
 | `GET /api/stories/:id/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                      |

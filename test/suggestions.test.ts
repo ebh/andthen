@@ -151,7 +151,7 @@ describe("POST /api/stories/:id/suggestions", () => {
       );
     });
 
-    it("shows the provider the whole story, passages in order", async () => {
+    it("shows the provider the story as paragraphs, passages in order", async () => {
       const { storyId, ana, ben } = await twoPersonStory();
       expect((await readStory(ben, storyId)).turn.version).toBe(1);
       await ben.post(`/api/stories/${storyId}/contributions`, {
@@ -162,7 +162,21 @@ describe("POST /api/stories/:id/suggestions", () => {
 
       await ask(ana, storyId);
 
-      expect(seen).toEqual(["Opening line.\n\nBen adds this."]);
+      expect(seen).toEqual(["Opening line. Ben adds this."]);
+    });
+
+    it("separates paragraphs with a blank line in what the provider sees", async () => {
+      const { storyId, ana, ben } = await twoPersonStory();
+      expect((await readStory(ben, storyId)).turn.version).toBe(1);
+      await ben.post(`/api/stories/${storyId}/contributions`, {
+        text: "Ben starts a new one.",
+        turnVersion: 1,
+        startsParagraph: true,
+      });
+
+      await ask(ana, storyId);
+
+      expect(seen).toEqual(["Opening line.\n\nBen starts a new one."]);
     });
 
     it("changes nothing in the story and does not touch the turn", async () => {

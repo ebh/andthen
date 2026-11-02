@@ -99,7 +99,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
         {refreshFailed && (
           <div className="alert alert-warning">
             Couldn't refresh the story. What you see may be out of date.
-            <button type="button" className="btn btn-sm" onClick={refetch}>
+            <button type="button" className="btn min-h-11" onClick={refetch}>
               Retry
             </button>
           </div>
@@ -120,7 +120,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           {replacedDraft !== null && (
             <p className="flex items-center gap-2 text-sm">
               Your draft was replaced by the suggestion.
-              <button type="button" className="btn btn-sm" onClick={undoSuggestion}>
+              <button type="button" className="btn min-h-11" onClick={undoSuggestion}>
                 Undo
               </button>
             </p>

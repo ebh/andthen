@@ -45,7 +45,7 @@ export function Composer({
       <textarea
         id={fieldId}
         ref={fieldRef}
-        className={`textarea textarea-bordered w-full ${tooLong ? "textarea-error" : ""}`}
+        className={`textarea w-full font-story text-lg leading-relaxed sm:text-xl ${tooLong ? "textarea-error" : ""}`}
         rows={4}
         value={value}
         onChange={(event) => {
@@ -55,11 +55,14 @@ export function Composer({
         aria-invalid={tooLong}
       />
       <div className="flex items-center justify-between gap-2">
-        <span id={counterId} className={tooLong ? "text-error" : "opacity-70"}>
+        <span
+          id={counterId}
+          className={`text-sm ${tooLong ? "text-error" : "text-base-content/70"}`}
+        >
           {length} / {MAX_PASSAGE_LENGTH}
           {tooLong ? " (too long)" : ""}
         </span>
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
+        <button type="submit" className="btn btn-primary min-h-11" disabled={!canSubmit}>
           {submitting ? "Sending…" : submitLabel}
         </button>
       </div>

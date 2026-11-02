@@ -14,35 +14,35 @@ export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
   const holder = turnHolder(view);
 
   return (
-    <section aria-label="Turn" className="card card-border bg-base-200">
-      <div className="card-body gap-3 p-4">
-        {/* The only live region: it changes when the turn moves, not every minute. */}
-        <p role="status" aria-live="polite" className="text-lg font-semibold">
-          {headline(view, holder?.displayName ?? null)}
-        </p>
-        {view.turn.endsAt !== null && <p>{describeTimeLeft(view.turn.endsAt, now)}</p>}
-        <ol aria-label="Turn order" className="flex flex-wrap gap-2">
-          {view.participants.map((participant) => (
-            <li
-              key={participant.id}
-              className={`badge ${participant.id === view.turn.holderId ? "badge-primary" : "badge-outline"}`}
-            >
-              {participant.displayName}
-              {participant.id === view.me ? " (you)" : ""}
-            </li>
-          ))}
-        </ol>
-        {canSkipTurn(view) && (
-          <button
-            type="button"
-            className="btn btn-outline btn-sm self-start"
-            disabled={skipping}
-            onClick={onSkip}
+    <section aria-label="Turn" className="flex flex-col gap-2 border-b border-base-300 pb-4">
+      {/* The only live region: it changes when the turn moves, not every minute. */}
+      <p role="status" aria-live="polite" className="font-semibold">
+        {headline(view, holder?.displayName ?? null)}
+      </p>
+      {view.turn.endsAt !== null && (
+        <p className="text-sm text-base-content/70">{describeTimeLeft(view.turn.endsAt, now)}</p>
+      )}
+      <ol aria-label="Turn order" className="flex flex-wrap gap-2">
+        {view.participants.map((participant) => (
+          <li
+            key={participant.id}
+            className={`badge ${participant.id === view.turn.holderId ? "badge-primary" : "badge-outline"}`}
           >
-            {skipping ? "Skipping…" : `Skip ${holder?.displayName ?? "this turn"}`}
-          </button>
-        )}
-      </div>
+            {participant.displayName}
+            {participant.id === view.me ? " (you)" : ""}
+          </li>
+        ))}
+      </ol>
+      {canSkipTurn(view) && (
+        <button
+          type="button"
+          className="btn btn-outline min-h-11 self-start"
+          disabled={skipping}
+          onClick={onSkip}
+        >
+          {skipping ? "Skipping…" : `Skip ${holder?.displayName ?? "this turn"}`}
+        </button>
+      )}
     </section>
   );
 }

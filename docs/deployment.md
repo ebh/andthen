@@ -4,15 +4,15 @@ The app is one Cloudflare Worker with static assets, a D1 database, a `StoryRoom
 
 ## Local, preview, production
 
-|                  | Local                           | Preview                             | Production                             |
-| ---------------- | ------------------------------- | ----------------------------------- | -------------------------------------- |
-| `wrangler.jsonc` | top level                       | `env.preview`                       | `env.production`                       |
-| Worker name      | `andthen-dev`                   | `andthen-preview`                   | `andthen`                              |
-| Address          | `http://localhost:5173`         | `andthen-preview.<you>.workers.dev` | `https://app.andthen.page`             |
-| D1               | local file in `.wrangler/state` | `andthen-preview`                   | `andthen-prod`                         |
-| Suggestions      | `AI_PROVIDER=fake`              | `workers-ai`                        | `workers-ai`                           |
-| Cookie           | `andthen_bt`, no `Secure`       | `__Host-andthen_bt`                 | `__Host-andthen_bt`                    |
-| Deployed by      | nobody                          | `deploy.yml` on a pull request      | `deploy.yml` after CI passes on `main` |
+|                  | Local                           | Preview                                           | Production                             |
+| ---------------- | ------------------------------- | ------------------------------------------------- | -------------------------------------- |
+| `wrangler.jsonc` | top level                       | `env.preview`                                     | `env.production`                       |
+| Worker name      | `andthen-dev`                   | `andthen-preview`                                 | `andthen`                              |
+| Address          | `http://localhost:5173`         | `andthen-preview.<account-subdomain>.workers.dev` | `https://app.andthen.page`             |
+| D1               | local file in `.wrangler/state` | `andthen-preview`                                 | `andthen-prod`                         |
+| Suggestions      | `AI_PROVIDER=fake`              | `workers-ai`                                      | `workers-ai`                           |
+| Cookie           | `andthen_bt`, no `Secure`       | `__Host-andthen_bt`                               | `__Host-andthen_bt`                    |
+| Deployed by      | nobody                          | `deploy.yml` on a pull request                    | `deploy.yml` after CI passes on `main` |
 
 - **The environment is chosen when you build**, not when you deploy. `CLOUDFLARE_ENV=preview pnpm build` bakes the preview config into `dist/andthen_dev/wrangler.json`, and `wrangler deploy` reads that file. A `--env` flag on `deploy` is accepted but changes nothing, so always set `CLOUDFLARE_ENV` for the build.
 - **Migrations read `wrangler.jsonc` itself**, so they do take `--env`. Run them before building: the build leaves a redirect file (`.wrangler/deploy/config.json`) that points wrangler at the built config.
@@ -45,9 +45,11 @@ Run `wrangler` steps from a checkout, with `pnpm wrangler …`.
    Each prints a `database_id`, which belongs in `env.preview` and `env.production` in `wrangler.jsonc`. Database IDs are identifiers, not secrets: without an API token they grant nothing, so they are committed. A fork that deploys for itself replaces them with its own. The top-level ID (all zeros) is a stand-in for local development, which never reads it.
 4. **GitHub secrets and environments.** In the repository settings:
    - Environments: create `preview` and `production`. Add protection rules where you want them. A required reviewer on `production` makes every deploy wait for you; restricting `production` to the `main` branch is a good minimum.
-   - Secrets: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as secrets on each environment (or once as repository secrets). Nothing else is needed, and no secret belongs in the repo.
+   - Secrets: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as secrets of each environment, never as repository secrets. The `preview` job builds and runs code from a pull request while it holds the token, and the permissions above also cover the production database and Worker. An environment secret reaches only jobs that name that environment, so `preview` jobs never see the production one. Nothing else is needed, and no secret belongs in the repo.
+   - Hardening, optional: give `preview` its own narrower token (for example without the zone permissions, which only production's custom domain needs), and add a deployment branch rule on `production` that allows only `main`.
    - Settings, Actions, General, Fork pull request workflows: leave "Require approval" on. `deploy.yml` also refuses to run for a fork, and forks never receive secrets.
-5. **Workers AI budget.** Dashboard, Manage Account, Notifications, Add: pick the Workers AI usage (or billing) alert and set a threshold you are comfortable with. Suggestions are the only paid call, and nothing in the app stops someone from using up the quota (see "Accepted risks").
+5. **workers.dev subdomain.** The first preview deploy needs the account to have a `workers.dev` subdomain: dashboard, Workers & Pages, Subdomain. Preview is then served at `andthen-preview.<account-subdomain>.workers.dev`.
+6. **Workers AI budget.** Dashboard, Manage Account, Notifications, Add: pick the Workers AI usage (or billing) alert and set a threshold you are comfortable with. Suggestions are the only paid call, and nothing in the app stops someone from using up the quota (see "Accepted risks").
 
 ## The domain
 
@@ -62,10 +64,10 @@ A redirect rule only runs for traffic that goes through Cloudflare's proxy, and 
 
 Dashboard steps:
 
-1. `andthen.page`, DNS, Records, Add record: type `A`, name `@`, IPv4 `192.0.2.1`, proxy status **Proxied** (orange cloud). `192.0.2.1` is a reserved address that is never contacted, because the rule answers first. If you also want `www`, add a proxied `CNAME` `www` to `andthen.page`.
+1. `andthen.page`, DNS, Records, Add record: type `A`, name `@`, IPv4 `192.0.2.1`, proxy status **Proxied** (orange cloud). `192.0.2.1` is a reserved address that is never contacted, because the rule answers first. `www` also needs a proxied record, a `CNAME` named `www` pointing to `andthen.page`, for the rule to catch it.
 2. Rules, Redirect Rules, Create rule, "Custom filter expression":
    - Rule name: `apex to app`
-   - When incoming requests match: field Hostname, operator equals, value `andthen.page` (expression `http.host eq "andthen.page"`)
+   - When incoming requests match: field Hostname, operator is in, values `andthen.page` and `www.andthen.page` (expression `http.host in {"andthen.page" "www.andthen.page"}`)
    - Then: type **Dynamic**, expression `concat("https://app.andthen.page", http.request.uri.path)`, status code **301**, and tick **Preserve query string**
    - Deploy.
 3. Check: `curl -sI "https://andthen.page/abc12?x=1"` returns `301` with `location: https://app.andthen.page/abc12?x=1`.
@@ -80,7 +82,7 @@ curl -sS -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/ph
   --data '{
     "rules": [{
       "description": "apex to app",
-      "expression": "http.host eq \"andthen.page\"",
+      "expression": "http.host in {\"andthen.page\" \"www.andthen.page\"}",
       "action": "redirect",
       "action_parameters": {
         "from_value": {
@@ -151,6 +153,8 @@ AI_REMOTE=1 pnpm dev
 
 These were chosen for the first release. None has a mitigation in the code.
 
+- **The preview Worker is public and uses real Workers AI.** Anyone who finds its `workers.dev` address can use it, and its suggestions are billed like production's. It has its own database, so it cannot touch production stories.
+- **Pull request code runs with the preview token.** A same-repo pull request can change `deploy.yml` or the build and so use the `preview` environment's secrets. That is why they must be environment secrets, and why the preview token should be narrow. Only people with write access can open such a pull request.
 - **Story IDs are guessable.** 5 characters from `[a-z0-9]` is about 60 million values, and the link is the only secret. A guessed ID can be joined, and a 403 versus a 404 tells a prober whether a story exists.
 - **No rate limit on creating or joining stories.** Anyone can create stories or join them as fast as D1 allows, and every new cookie is a new participant. A Cloudflare rate-limiting rule on `POST /api/stories*` is the fix when it matters.
 - **The suggestion quota is per cookie.** Someone who clears cookies and joins again gets 3 fresh requests. The Workers AI budget alert is the backstop.

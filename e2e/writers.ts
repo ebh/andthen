@@ -29,7 +29,8 @@ export async function joinStory(page: Page, inviteLink: string, name: string): P
   await page.getByLabel("Your name").fill(name);
   await page.getByRole("button", { name: "Join" }).click();
 
-  await expect(turnBanner(page)).toContainText(name);
+  // The turn order lists the joiner as "<name> (you)" only once the join has gone through.
+  await expect(turnBanner(page)).toContainText(`${name} (you)`);
 }
 
 export async function addPassage(page: Page, text: string): Promise<void> {

@@ -67,7 +67,9 @@ test("with three writers, someone else can skip the writer whose turn it is", as
   await joinStory(cy, inviteLink, "Cy");
   await expect(turnBanner(cy)).toContainText("It's Ben's turn");
 
-  // The writer holding the turn gets no skip button.
+  // The writer holding the turn gets no skip button. Wait until Ben's page shows it is his turn,
+  // so the button is absent because of the rule and not because the page hasn't loaded.
+  await expect(turnBanner(ben)).toContainText("It's your turn");
   await expect(ben.getByRole("button", { name: /^Skip/ })).toHaveCount(0);
 
   await cy.getByRole("button", { name: "Skip Ben" }).click();
@@ -97,6 +99,9 @@ test("a suggestion fills the composer but sends nothing", async ({ browser }) =>
   await suggestion.click();
 
   await expect(ben.getByLabel("Your passage")).toHaveValue(suggestionText);
+  // Both pages have loaded the story, so a missing suggestion means it was not sent.
+  await expect(storyText(ben)).toContainText("The door had no handle.");
+  await expect(storyText(ana)).toContainText("The door had no handle.");
   await expect(storyText(ben)).not.toContainText(suggestionText);
   await expect(storyText(ana)).not.toContainText(suggestionText);
   await expect(turnBanner(ben)).toContainText("It's your turn");

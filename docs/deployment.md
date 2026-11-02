@@ -49,7 +49,7 @@ Run `wrangler` steps from a checkout, with `pnpm wrangler …`.
    - Hardening, optional: give `preview` its own narrower token (for example without the zone permissions, which only production's custom domain needs), and add a deployment branch rule on `production` that allows only `main`.
    - Settings, Actions, General, Fork pull request workflows: leave "Require approval" on. `deploy.yml` also refuses to run for a fork, and forks never receive secrets.
 5. **workers.dev subdomain.** The first preview deploy needs the account to have a `workers.dev` subdomain: dashboard, Workers & Pages, Subdomain. Preview is then served at `andthen-preview.<account-subdomain>.workers.dev`.
-6. **Workers AI budget.** Dashboard, Manage Account, Notifications, Add: pick the Workers AI usage (or billing) alert and set a threshold you are comfortable with. Suggestions are the only paid call, and nothing in the app stops someone from using up the quota (see "Accepted risks").
+6. **Workers AI budget.** Not needed on the Free plan; set one if you upgrade (see "Accepted risks"). Dashboard, Manage Account, Notifications, Add: pick the Workers AI usage (or billing) alert and set a threshold you are comfortable with.
 
 ## The domain
 
@@ -111,7 +111,7 @@ Production, on `https://app.andthen.page`: repeat the list above, and also:
 
 - [ ] `curl -sI https://andthen.page/abc12?x=1` is a 301 to `https://app.andthen.page/abc12?x=1`.
 - [ ] `curl -sI http://app.andthen.page` ends on HTTPS.
-- [ ] Look at the Workers AI usage page after the suggestions test, and check the budget alert exists.
+- [ ] Look at the Workers AI usage page after the suggestions test. If the account is on a paid plan, check the budget alert exists; on the Free plan it is not needed.
 
 ## Trying the real model locally
 
@@ -136,6 +136,7 @@ These were chosen for the first release. None has a mitigation in the code.
 - **Story IDs are guessable.** 5 characters from `[a-z0-9]` is about 60 million values, and the link is the only secret. A guessed ID can be joined, and a 403 versus a 404 tells a prober whether a story exists.
 - **No rate limit on creating or joining stories.** Anyone can create stories or join them as fast as D1 allows, and every new cookie is a new participant. A Cloudflare rate-limiting rule on `POST /api/stories*` is the fix when it matters.
 - **The suggestion quota is per cookie.** Someone who clears cookies and joins again gets 3 fresh requests. The Workers AI budget alert is the backstop.
+- **Cost exposure depends on the Cloudflare plan.** The account runs on the Free plan (check the plan under Workers & Pages, Plans in the dashboard). Past the daily or monthly allowances of Workers, D1, Durable Objects and Workers AI, requests fail instead of being billed, so the app can stop working but cannot produce a bill. A failed suggestion shows "suggestions unavailable". Cloudflare offers no hard spending cap on paid plans, only notifications, so moving to a paid plan removes this protection. Before doing so, add a global daily cap on suggestion requests, because the per-participant limit (3 per hour) can be bypassed by clearing cookies.
 - **A story holds at most 50 participants** (`MAX_PARTICIPANTS`), so a link that leaks cannot grow a story without bound, but it can still fill one.
 - **`suggestion_requests` rows are never deleted.** The table grows by one row per suggestion request. Each is small, and D1's free storage is large, but it needs a cleanup job before heavy use.
 

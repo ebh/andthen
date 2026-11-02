@@ -13,6 +13,8 @@
     "lint": "oxlint && eslint",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
+    "e2e:install": "playwright install chromium",
     "stryker": "stryker run"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.66.0",
+    "@playwright/test": "1.64.1",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
     "@tailwindcss/vite": "4.3.3",

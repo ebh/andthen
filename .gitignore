@@ -10,3 +10,5 @@ coverage/
 CLAUDE.local.md
 .DS_Store
 .claude/worktrees/
+test-results/
+playwright-report/

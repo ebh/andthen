@@ -12,10 +12,10 @@ The app exists to be read. Every visual decision serves the story text first.
 
 - On a story page the story text is the largest, highest-contrast thing. Status, buttons and the invite link stay quieter than the prose.
 - Authors exist for accountability: tracing who wrote something offensive, and crediting a good contribution. They are never part of the reading, so they stay findable and quiet.
-  - On wide screens (`md` and up) each author sits in a margin beside their passage, under a hairline rule.
-  - On narrow screens there is no room for a margin, so authors are hidden behind a "Show authors" toggle, off by default. Show less where there is less space.
+  - On wide screens (`md` and up) each paragraph's authors sit in a margin beside it, under a hairline rule, one name per author. Hovering a name, or focusing it by keyboard, highlights that author's turns in the paragraph.
+  - On narrow screens there is no room for a margin, so authors are hidden behind a "Show authors" toggle, off by default. Show less where there is less space. With the toggle on, tapping a name highlights that author's turns until the next tap.
   - Laptops and phones may differ. Hover can add to the wide-screen view; the phone view gets its own touch equivalent, such as tap.
-- Passages sit bare on the page, separated by space alone, so they read as one continuous text.
+- Paragraphs sit bare on the page, separated by space alone, so they read as one continuous text. A turn continues the previous paragraph unless its author ticked "New paragraph".
 
 ## Layout
 
@@ -54,7 +54,8 @@ Tests find elements by accessible name, label, role and visible text. Classes ch
 - `aria-label`s on sections
 - `role="status"` and `role="alert"`, including the single `status` in `TurnBanner`
 - the list, item, button structure in `Suggestions`
-- the "Show authors" checkbox in `StoryText`
+- the "Show authors" checkbox and the author buttons (`aria-pressed`) in `StoryText`
+- the "New paragraph" checkbox in `Composer`
 
 ## Done
 

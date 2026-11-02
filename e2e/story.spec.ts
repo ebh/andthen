@@ -102,6 +102,34 @@ test("authors sit in a margin on wide screens and behind a toggle on phones", as
   await expect(authorOnPhone).toBeHidden();
 });
 
+test("turns share a paragraph until a writer starts a new one, and authors highlight their turns", async ({
+  browser,
+}) => {
+  const ana = await newWriter(browser);
+  const ben = await newWriter(browser, PHONE);
+  const inviteLink = await startStory(ana, "Ana", "The bridge hummed at dusk.");
+  await joinStory(ben, inviteLink, "Ben");
+
+  await addPassage(ben, "The lamps came on.");
+  await addPassage(ana, "Morning came at last.", { newParagraph: true });
+
+  const paragraphs = storyText(ana).getByRole("paragraph");
+  await expect(paragraphs).toHaveText([
+    "The bridge hummed at dusk. The lamps came on.",
+    "Morning came at last.",
+  ]);
+
+  await storyText(ana).getByRole("button", { name: "Ben" }).hover();
+  await expect(storyText(ana).locator("mark")).toHaveText("The lamps came on.");
+  await ana.mouse.move(0, 0);
+  await expect(storyText(ana).locator("mark")).toHaveCount(0);
+
+  await expect(storyText(ben)).toContainText("Morning came at last.");
+  await ben.getByLabel("Show authors").check();
+  await storyText(ben).getByRole("button", { name: "Ana" }).first().click();
+  await expect(storyText(ben).locator("mark")).toHaveText("The bridge hummed at dusk.");
+});
+
 test("a suggestion fills the composer but sends nothing", async ({ browser }) => {
   const ana = await newWriter(browser);
   const ben = await newWriter(browser);

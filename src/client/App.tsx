@@ -1,4 +1,4 @@
-import { navigate, useRoute } from "./router";
+import { useRoute } from "./router";
 import { NewStory } from "./pages/NewStory";
 import { NotFound } from "./pages/NotFound";
 import { Story } from "./pages/Story";
@@ -6,25 +6,7 @@ import { Story } from "./pages/Story";
 export function App() {
   const route = useRoute();
 
-  return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-4">
-      <header>
-        <h1>
-          <a
-            href="/"
-            className="font-story text-2xl font-semibold"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate("/");
-            }}
-          >
-            And then…
-          </a>
-        </h1>
-      </header>
-      <main className="flex flex-col gap-4">{page(route)}</main>
-    </div>
-  );
+  return page(route);
 }
 
 function page(route: ReturnType<typeof useRoute>) {

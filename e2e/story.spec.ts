@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  PHONE,
   addPassage,
   expectPageNotReloaded,
   joinStory,
@@ -77,6 +78,28 @@ test("with three writers, someone else can skip the writer whose turn it is", as
   await expect(turnBanner(cy)).toContainText("It's your turn");
   await expect(turnBanner(ben)).toContainText("It's Cy's turn");
   await expect(turnBanner(ana)).toContainText("It's Cy's turn");
+});
+
+test("authors sit in a margin on wide screens and behind a toggle on phones", async ({
+  browser,
+}) => {
+  const ana = await newWriter(browser);
+  const ben = await newWriter(browser, PHONE);
+
+  const inviteLink = await startStory(ana, "Ana", "The bridge hummed at dusk.");
+  await joinStory(ben, inviteLink, "Ben");
+
+  await expect(storyText(ana).getByText("Ana", { exact: true })).toBeVisible();
+
+  const authorOnPhone = storyText(ben).getByText("Ana", { exact: true });
+  await expect(storyText(ben)).toContainText("The bridge hummed at dusk.");
+  await expect(authorOnPhone).toBeHidden();
+
+  await ben.getByLabel("Show authors").check();
+  await expect(authorOnPhone).toBeVisible();
+
+  await ben.getByLabel("Show authors").uncheck();
+  await expect(authorOnPhone).toBeHidden();
 });
 
 test("a suggestion fills the composer but sends nothing", async ({ browser }) => {

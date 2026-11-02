@@ -11,6 +11,7 @@ import { InviteLink } from "./InviteLink";
 import { StoryText } from "./StoryText";
 import { Suggestions } from "./Suggestions";
 import { TurnBanner } from "./TurnBanner";
+import { Wordmark } from "./Wordmark";
 
 interface StoryBoardProps {
   storyId: string;
@@ -92,49 +93,58 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
-      <div role="status" aria-live="polite">
-        {notice !== null && <div className="alert alert-warning">{notice}</div>}
-        {refreshFailed && (
-          <div className="alert alert-warning">
-            Couldn't refresh the story. What you see may be out of date.
-            <button type="button" className="btn min-h-11" onClick={refetch}>
-              Retry
-            </button>
+    <div className="min-h-screen md:grid md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr]">
+      <aside className="flex flex-col gap-5 border-b border-base-300 p-5 md:col-start-1 md:row-start-1 md:gap-14 md:border-r md:border-b-0 md:p-8">
+        <Wordmark />
+        <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
+      </aside>
+      <main className="p-5 md:col-start-2 md:row-span-2 md:row-start-1 md:px-16 md:py-14">
+        <div className="flex w-full max-w-[49.75rem] flex-col gap-8">
+          <div role="status" aria-live="polite" className="empty:hidden">
+            {notice !== null && <div className="alert alert-warning">{notice}</div>}
+            {refreshFailed && (
+              <div className="alert alert-warning">
+                Couldn't refresh the story. What you see may be out of date.
+                <button type="button" className="btn min-h-11" onClick={refetch}>
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <StoryText contributions={view.contributions} />
-      {isMyTurn(view) && (
-        <div className="flex flex-col gap-4">
-          <Composer
-            label="Your passage"
-            value={draft}
-            onChange={edit}
-            onSubmit={send}
-            submitting={sending}
-            submitLabel="Add to the story"
-            fieldRef={composerField}
-          />
-          {replacedDraft !== null && (
-            <p className="flex items-center gap-2 text-sm">
-              Your draft was replaced by the suggestion.
-              <button type="button" className="btn min-h-11" onClick={undoSuggestion}>
-                Undo
-              </button>
-            </p>
+          <StoryText contributions={view.contributions} />
+          {isMyTurn(view) && (
+            <div className="flex flex-col gap-4 md:w-[38.75rem] md:max-w-full">
+              <Composer
+                label="Your passage"
+                value={draft}
+                onChange={edit}
+                onSubmit={send}
+                submitting={sending}
+                submitLabel="Add to the story"
+                fieldRef={composerField}
+              />
+              {replacedDraft !== null && (
+                <p className="flex items-center gap-2 text-sm">
+                  Your draft was replaced by the suggestion.
+                  <button type="button" className="btn min-h-11" onClick={undoSuggestion}>
+                    Undo
+                  </button>
+                </p>
+              )}
+              <Suggestions storyId={storyId} onUse={applySuggestion} onTurnLost={refetch} />
+            </div>
           )}
-          <Suggestions storyId={storyId} onUse={applySuggestion} onTurnLost={refetch} />
+          {view.turn.holderId === null && (
+            <div className="alert alert-info alert-vertical sm:alert-horizontal">
+              Nobody else has joined yet. Send them this link; the first person to join gets the
+              next turn.
+            </div>
+          )}
         </div>
-      )}
-      {view.turn.holderId === null && (
-        <div className="alert alert-info alert-vertical sm:alert-horizontal">
-          Nobody else has joined yet. Send them this link; the first person to join gets the next
-          turn.
-        </div>
-      )}
-      <InviteLink url={`${window.location.origin}/${storyId}`} />
+      </main>
+      <div className="p-5 md:col-start-1 md:row-start-2 md:flex md:flex-col md:justify-end md:border-r md:border-base-300 md:p-8">
+        <InviteLink url={`${window.location.origin}/${storyId}`} />
+      </div>
     </div>
   );
 }

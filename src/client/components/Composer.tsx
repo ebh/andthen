@@ -39,14 +39,14 @@ export function Composer({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <label htmlFor={fieldId} className="font-semibold">
+      <label htmlFor={fieldId} className="text-sm font-semibold">
         {label}
       </label>
       <textarea
         id={fieldId}
         ref={fieldRef}
-        className={`textarea w-full font-story text-lg leading-relaxed sm:text-xl ${tooLong ? "textarea-error" : ""}`}
-        rows={4}
+        className={`textarea w-full rounded-lg border-2 px-4 py-3.5 font-story text-xl leading-relaxed md:text-[1.5625rem] md:leading-relaxed ${tooLong ? "textarea-error border-error" : "border-primary"}`}
+        rows={3}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);

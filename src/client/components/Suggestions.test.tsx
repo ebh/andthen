@@ -4,11 +4,27 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { jsonResponse } from "../testFixtures";
-import { Suggestions } from "./Suggestions";
+import { SuggestButton, SuggestionList, useSuggestions } from "./Suggestions";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+interface SuggestionsProps {
+  storyId: string;
+  onUse: (text: string) => void;
+  onTurnLost: () => void;
+}
+
+function Suggestions({ storyId, onUse, onTurnLost }: SuggestionsProps) {
+  const control = useSuggestions(storyId, onTurnLost);
+  return (
+    <>
+      <SuggestButton control={control} />
+      <SuggestionList control={control} onUse={onUse} />
+    </>
+  );
+}
 
 const ASK = { name: "Suggest continuations" };
 

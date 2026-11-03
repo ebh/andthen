@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { TurnAfterLeaving } from "../storyRules";
@@ -37,6 +38,27 @@ describe("LeaveDialog", () => {
     expect(dialog).toHaveTextContent("Your passages stay in the story under your name.");
     expect(dialog).toHaveTextContent("You can rejoin from the invite link.");
     expect(dialog).not.toHaveTextContent("your turn now");
+  });
+
+  it("stays open under StrictMode, which runs its effect, cleans up and runs it again", async () => {
+    const onCancel = vi.fn<() => void>();
+    render(
+      <StrictMode>
+        <LeaveDialog
+          turnAfterLeaving={{ type: "unchanged" }}
+          leaving={false}
+          error={null}
+          onCancel={onCancel}
+          onConfirm={vi.fn<() => void>()}
+        />
+      </StrictMode>,
+    );
+
+    // A browser queues the `close` event of the cleanup's close() as a task.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Leave this story?" })).toHaveAttribute("open");
   });
 
   it("says who gets the turn when the writer holds it", () => {

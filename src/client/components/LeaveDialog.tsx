@@ -27,13 +27,11 @@ export function LeaveDialog({
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
 
+  // No cleanup: close() queues a `close` event, which would call onCancel. StrictMode runs the
+  // effect, its cleanup and the effect again, so that would shut the dialog as it opens.
+  // Unmounting removes the dialog anyway.
   useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-
-    return () => {
-      element?.close();
-    };
+    dialog.current?.showModal();
   }, []);
 
   return (

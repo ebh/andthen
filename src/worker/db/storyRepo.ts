@@ -300,19 +300,26 @@ function toLoadedStory(stories: StoryRow[], participants: ParticipantRow[]): Loa
   }
 
   const activeParticipants = participants.filter((participant) => participant.leftAt === null);
-  const base = {
-    turnVersion: story.turnVersion,
-    lastContributorPosition: story.lastContributorPosition,
-    participantPositions: activeParticipants.map((participant) => participant.position),
-  };
-  const state: TurnState =
-    story.currentPosition === null
-      ? { ...base, currentPosition: null, turnStartedAt: null }
-      : { ...base, currentPosition: story.currentPosition, turnStartedAt: story.turnStartedAt };
-
+  const state = toTurnState(
+    story,
+    activeParticipants.map((participant) => participant.position),
+  );
   const nextPosition = Math.max(...participants.map((participant) => participant.position)) + 1;
 
   return { story, participants, activeParticipants, nextPosition, state };
+}
+
+/** The stored turn state of a story whose writers, the ones who have not left, hold `activePositions`. */
+export function toTurnState(story: StoryRow, activePositions: readonly number[]): TurnState {
+  const base = {
+    turnVersion: story.turnVersion,
+    lastContributorPosition: story.lastContributorPosition,
+    participantPositions: activePositions,
+  };
+
+  return story.currentPosition === null
+    ? { ...base, currentPosition: null, turnStartedAt: null }
+    : { ...base, currentPosition: story.currentPosition, turnStartedAt: story.turnStartedAt };
 }
 
 async function storyExists(db: Db, storyId: string): Promise<boolean> {

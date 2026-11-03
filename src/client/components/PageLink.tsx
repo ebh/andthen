@@ -9,13 +9,26 @@ interface PageLinkProps {
   children: ReactNode;
 }
 
-/** A link to another page of the app that changes the page without reloading it. */
+/**
+ * A link to another page of the app that changes the page without reloading it. A click with a
+ * modifier key, or a middle click, is left to the browser, so "open in a new tab" still works.
+ */
 export function PageLink({ to, className, children }: PageLinkProps) {
   return (
     <a
       href={to}
       className={className}
       onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+
         event.preventDefault();
         navigate(to);
       }}

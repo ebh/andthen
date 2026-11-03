@@ -97,6 +97,19 @@ describe("the participant cap", () => {
     expect((await readStory(ana, storyId)).participants).toHaveLength(MAX_PARTICIPANTS);
   });
 
+  it("refuses a rejoin to a full story with 409 story_full, and changes nothing", async () => {
+    const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
+    await ana.post(`/api/stories/${storyId}/leave`, {});
+    await newBrowser().post(joinPath(storyId), { displayName: "Newcomer" });
+
+    const response = await ana.post(`/api/stories/${storyId}/rejoin`, {});
+
+    expect(response.status).toBe(409);
+    expect(await readError(response)).toBe("story_full");
+    const stillLeft = await ana.get(`/api/stories/${storyId}`);
+    expect(await readError(stillLeft)).toBe("left_story");
+  });
+
   it("changes nothing when a join is refused: no participant, no version bump, no notification", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
     const before = await readStory(ana, storyId);

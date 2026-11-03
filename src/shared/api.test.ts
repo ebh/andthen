@@ -4,8 +4,10 @@ import {
   contributeRequestSchema,
   createStoryRequestSchema,
   createStoryResponseSchema,
+  emptyRequestSchema,
   errorBodySchema,
   errorCodeSchema,
+  plainErrorCodeSchema,
   joinRequestSchema,
   liveMessageSchema,
   skipRequestSchema,
@@ -204,8 +206,15 @@ describe("liveMessageSchema", () => {
   });
 });
 
+describe("emptyRequestSchema", () => {
+  it("accepts an empty object and refuses anything in it", () => {
+    expect(emptyRequestSchema.safeParse({}).success).toBe(true);
+    expect(emptyRequestSchema.safeParse({ turnVersion: 1 }).success).toBe(false);
+  });
+});
+
 describe("errorBodySchema", () => {
-  it.each(errorCodeSchema.options)("accepts %s", (code) => {
+  it.each(plainErrorCodeSchema.options)("accepts %s", (code) => {
     expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
   });
 
@@ -233,6 +242,17 @@ describe("errorBodySchema", () => {
     "ai_rate_limited",
   ])("accepts the route code %s", (code) => {
     expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
+  });
+
+  it("carries the name and the opening with left_story", () => {
+    const body = { error: "left_story", displayName: "Ana", opening: "Once." };
+
+    expect(errorBodySchema.parse(body)).toEqual(body);
+    expect(errorCodeSchema.options).toContain("left_story");
+  });
+
+  it("refuses left_story without them", () => {
+    expect(errorBodySchema.safeParse({ error: "left_story" }).success).toBe(false);
   });
 
   it("rejects an unknown code", () => {

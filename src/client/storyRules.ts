@@ -1,5 +1,5 @@
 import type { StoryView } from "../shared/api";
-import { canSkip } from "../shared/turnOrder";
+import { canSkip, type TurnState } from "../shared/turnOrder";
 
 /** The participant whose turn it is, or null while the story waits for a joiner. */
 export function turnHolder(view: StoryView): StoryView["participants"][number] | null {
@@ -21,14 +21,24 @@ export function canSkipTurn(view: StoryView): boolean {
     return false;
   }
 
+  return canSkip(
+    rotationState(
+      view,
+      view.participants.findIndex(({ id }) => id === holderId),
+    ),
+  );
+}
+
+// The view's turn as the shared rules take it. Only the order matters to them, so the clock is 0.
+function rotationState(view: StoryView, currentPosition: number): TurnState {
   const lastWriterId = view.contributions.at(-1)?.authorId;
   const lastWriterIndex = view.participants.findIndex(({ id }) => id === lastWriterId);
 
-  return canSkip({
+  return {
     turnVersion: view.turn.version,
     lastContributorPosition: lastWriterIndex === -1 ? null : lastWriterIndex,
     participantPositions: view.participants.map((_, index) => index),
-    currentPosition: view.participants.findIndex(({ id }) => id === holderId),
+    currentPosition,
     turnStartedAt: 0,
-  });
+  };
 }

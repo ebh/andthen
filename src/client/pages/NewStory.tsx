@@ -62,27 +62,7 @@ export function NewStory() {
     <div className="min-h-screen md:grid md:grid-cols-[1.1fr_1fr]">
       <div className="flex flex-col p-5 md:px-16 md:py-12">
         <Wordmark />
-        <div className="mt-10 md:mt-28">
-          <h2 className="font-story text-4xl leading-tight font-semibold tracking-tight md:text-6xl md:leading-[1.04]">
-            Write it together, one turn at a time.
-          </h2>
-          <p className="mt-5 max-w-md font-story text-lg text-base-content/70 md:text-xl">
-            One person starts a story. Everyone else adds a passage when it’s their turn.
-          </p>
-        </div>
-        <ol
-          aria-label="How it works"
-          className="mt-14 hidden border-t border-base-300 text-sm md:block"
-        >
-          {HOW_IT_WORKS.map((step, index) => (
-            <li key={step.name} className="flex gap-5 border-b border-base-300 py-3.5">
-              <span className="w-4 font-semibold text-primary">{index + 1}</span>
-              <span className="text-base-content/70">
-                <strong className="text-base-content">{step.name}</strong> {step.rest}
-              </span>
-            </li>
-          ))}
-        </ol>
+        <Pitch />
       </div>
       <div className="flex items-center justify-center bg-base-200 p-5 py-10 md:p-16">
         <div className="flex w-full max-w-md flex-col gap-4">
@@ -117,6 +97,34 @@ export function NewStory() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Pitch() {
+  return (
+    <>
+      <div className="mt-10 md:mt-28">
+        <h2 className="font-story text-4xl leading-tight font-semibold tracking-tight md:text-6xl md:leading-[1.04]">
+          Write it together, one turn at a time.
+        </h2>
+        <p className="mt-5 max-w-md font-story text-lg text-base-content/70 md:text-xl">
+          One person starts a story. Everyone else adds a passage when it’s their turn.
+        </p>
+      </div>
+      <ol
+        aria-label="How it works"
+        className="mt-14 hidden border-t border-base-300 text-sm md:block"
+      >
+        {HOW_IT_WORKS.map((step, index) => (
+          <li key={step.name} className="flex gap-5 border-b border-base-300 py-3.5">
+            <span className="w-4 font-semibold text-primary">{index + 1}</span>
+            <span className="text-base-content/70">
+              <strong className="text-base-content">{step.name}</strong> {step.rest}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 

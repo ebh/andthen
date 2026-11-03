@@ -1,19 +1,12 @@
-import { navigate } from "../router";
+import { PageLink } from "./PageLink";
 
 /** The app's name and the page's `h1`: a link home. */
 export function Wordmark() {
   return (
     <h1>
-      <a
-        href="/"
-        className="font-story text-2xl font-semibold tracking-tight"
-        onClick={(event) => {
-          event.preventDefault();
-          navigate("/");
-        }}
-      >
+      <PageLink to="/" className="font-story text-2xl font-semibold tracking-tight">
         And then…
-      </a>
+      </PageLink>
     </h1>
   );
 }

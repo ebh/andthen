@@ -8,6 +8,7 @@ import {
   skipRequestSchema,
   type CreateStoryResponse,
   type JoinResponse,
+  type MyStoriesResponse,
   type SuggestionsResponse,
 } from "../../shared/api";
 import { groupParagraphs } from "../../shared/paragraphs";
@@ -36,6 +37,7 @@ import {
   appendContribution,
   createStory,
   leaveStory,
+  loadMyStories,
   loadOpeningText,
   loadStory,
   loadStoryWithContributions,
@@ -55,6 +57,7 @@ import {
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
 import { buildStoryView } from "../storyView";
+import { summariseMyStories } from "../storySummaries";
 import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
 
 export interface StoryDeps {
@@ -99,6 +102,15 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const response: CreateStoryResponse = { storyId };
 
     return c.json(response, 201);
+  });
+
+  // Only reads: no cookie is issued, and a browser without one has no stories.
+  routes.get("/api/stories", async (c) => {
+    const hash = await hashBrowserToken(readBrowserToken(c));
+    const rows = await loadMyStories(c.env.DB, hash);
+    const response: MyStoriesResponse = { stories: summariseMyStories(rows, deps.now()) };
+
+    return c.json(response);
   });
 
   routes.get("/api/stories/:id", async (c) => {

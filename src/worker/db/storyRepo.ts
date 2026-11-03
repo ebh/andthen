@@ -11,11 +11,17 @@ import type { TurnState } from "../../shared/turnOrder";
 import { MAX_PARTICIPANTS } from "../../shared/validation";
 import {
   contributionRowSchema,
+  myStoryRowSchema,
   participantRowSchema,
+  storyPassageRowSchema,
   storyRowSchema,
+  storyWriterRowSchema,
   type ContributionRow,
+  type MyStoryRow,
   type ParticipantRow,
+  type StoryPassageRow,
   type StoryRow,
+  type StoryWriterRow,
 } from "./rows";
 
 /** The two D1 methods the repo uses, so a test can hand it a stand-in. */
@@ -31,6 +37,14 @@ export interface LoadedStory {
   nextPosition: number;
   /** The stored turn state; `resolveTurn(state, now)` applies any expiry. */
   state: TurnState;
+}
+
+/** What the list of one browser's stories is built from. */
+export interface MyStoryRows {
+  stories: MyStoryRow[];
+  /** The writers of those stories who have not left, in rotation order. */
+  writers: StoryWriterRow[];
+  passages: StoryPassageRow[];
 }
 
 export interface NewParticipant {
@@ -131,6 +145,47 @@ export async function loadStoryWithContributions(
   return loaded === null
     ? null
     : { loaded, contributions: rowsAt(results, 2, z.array(contributionRowSchema)) };
+}
+
+// The stories a browser is in: the ones where a participant row with its token hash has not left.
+const STORIES_OF_BROWSER = `SELECT story_id FROM participants
+  WHERE browser_token_hash = ? AND left_at IS NULL`;
+
+/** The stories a browser is in and has not left, from one snapshot, in no particular order. */
+export async function loadMyStories(db: Db, browserTokenHash: string): Promise<MyStoryRows> {
+  const results = await db.batch([
+    db
+      .prepare(
+        `SELECT ${STORY_COLUMNS},
+           (SELECT me.position FROM participants me
+            WHERE me.story_id = stories.id AND me.browser_token_hash = ? AND me.left_at IS NULL)
+             AS myPosition
+         FROM stories WHERE id IN (${STORIES_OF_BROWSER})`,
+      )
+      .bind(browserTokenHash, browserTokenHash),
+    db
+      .prepare(
+        `SELECT story_id AS storyId, display_name AS displayName, position FROM participants
+         WHERE left_at IS NULL AND story_id IN (${STORIES_OF_BROWSER})
+         ORDER BY story_id, position`,
+      )
+      .bind(browserTokenHash),
+    db
+      .prepare(
+        `SELECT c.story_id AS storyId, MAX(c.created_at) AS latestAt,
+           (SELECT o.text FROM contributions o WHERE o.story_id = c.story_id AND o.seq = 1)
+             AS opening
+         FROM contributions c WHERE c.story_id IN (${STORIES_OF_BROWSER})
+         GROUP BY c.story_id`,
+      )
+      .bind(browserTokenHash),
+  ]);
+
+  return {
+    stories: rowsAt(results, 0, z.array(myStoryRowSchema)),
+    writers: rowsAt(results, 1, z.array(storyWriterRowSchema)),
+    passages: rowsAt(results, 2, z.array(storyPassageRowSchema)),
+  };
 }
 
 /**

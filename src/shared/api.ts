@@ -74,6 +74,24 @@ export const storyViewSchema = z.object({
 });
 export type StoryView = z.infer<typeof storyViewSchema>;
 
+/**
+ * A story the caller is in, as the list of their stories shows it. `opening` is the first passage
+ * in full; the page decides how much of it to show. A waiting story has no holder and no end time.
+ */
+export const storySummarySchema = z.object({
+  id: storyIdSchema,
+  opening: z.string(),
+  holderName: z.string().nullable(),
+  isMyTurn: z.boolean(),
+  endsAt: timestampSchema.nullable(),
+  writerCount: z.number().int().positive(),
+});
+export type StorySummary = z.infer<typeof storySummarySchema>;
+
+/** The caller's stories that they have not left: the one they hold the turn in first, then newest passage first. */
+export const myStoriesResponseSchema = z.object({ stories: z.array(storySummarySchema) });
+export type MyStoriesResponse = z.infer<typeof myStoriesResponseSchema>;
+
 export const suggestionsResponseSchema = z.object({
   suggestions: z.tuple([z.string(), z.string(), z.string()]),
 });

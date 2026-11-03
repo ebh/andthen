@@ -10,6 +10,7 @@ import {
   plainErrorCodeSchema,
   joinRequestSchema,
   liveMessageSchema,
+  myStoriesResponseSchema,
   skipRequestSchema,
   storyIdSchema,
   storyViewSchema,
@@ -203,6 +204,32 @@ describe("liveMessageSchema", () => {
     expect(liveMessageSchema.parse({ version: 4 })).toEqual({ version: 4 });
     expect(liveMessageSchema.safeParse({ version: "4" }).success).toBe(false);
     expect(liveMessageSchema.safeParse("ping").success).toBe(false);
+  });
+});
+
+describe("myStoriesResponseSchema", () => {
+  const waiting = {
+    id: "abc12",
+    opening: "Once.",
+    holderName: null,
+    isMyTurn: false,
+    endsAt: null,
+    writerCount: 1,
+  };
+
+  it("accepts a waiting story and a running one", () => {
+    const running = { ...waiting, holderName: "Ben", isMyTurn: true, endsAt: 5 };
+
+    expect(myStoriesResponseSchema.parse({ stories: [waiting, running] }).stories).toHaveLength(2);
+  });
+
+  it("refuses a story with no writers or a malformed ID", () => {
+    expect(
+      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, writerCount: 0 }] }).success,
+    ).toBe(false);
+    expect(
+      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, id: "ABC12" }] }).success,
+    ).toBe(false);
   });
 });
 

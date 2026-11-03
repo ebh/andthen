@@ -47,7 +47,7 @@ export function Rejoin({ storyId, displayName, opening, onRejoined }: RejoinProp
         “{opening}”
       </blockquote>
       <p>Rejoin as {displayName}. You’ll take the last place in the turn order.</p>
-      <p role="alert" className="min-h-6 text-error">
+      <p role="alert" className="text-error empty:hidden">
         {error}
       </p>
       <div className="flex flex-wrap items-center gap-4">

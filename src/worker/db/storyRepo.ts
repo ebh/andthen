@@ -23,8 +23,10 @@ export type Db = Pick<D1Database, "prepare" | "batch">;
 
 export interface LoadedStory {
   story: StoryRow;
-  /** In rotation order. */
+  /** Everyone who ever joined, in rotation order. A leaver keeps their row, and their name stays taken. */
   participants: ParticipantRow[];
+  /** The participants who have not left, in rotation order. They hold the turn and fill the cap. */
+  activeParticipants: ParticipantRow[];
   /** The stored turn state; `resolveTurn(state, now)` applies any expiry. */
   state: TurnState;
 }
@@ -72,7 +74,7 @@ const STORY_COLUMNS = `id, created_at AS createdAt, current_position AS currentP
   last_contributor_position AS lastContributorPosition`;
 
 const PARTICIPANT_COLUMNS = `id, display_name AS displayName, display_name_key AS displayNameKey,
-  position, browser_token_hash AS browserTokenHash`;
+  position, browser_token_hash AS browserTokenHash, left_at AS leftAt`;
 
 /** The story and its participants from one snapshot, or null for an unknown ID. */
 export async function loadStory(db: Db, storyId: string): Promise<LoadedStory | null> {
@@ -219,17 +221,18 @@ function toLoadedStory(stories: StoryRow[], participants: ParticipantRow[]): Loa
     return null;
   }
 
+  const activeParticipants = participants.filter((participant) => participant.leftAt === null);
   const base = {
     turnVersion: story.turnVersion,
     lastContributorPosition: story.lastContributorPosition,
-    participantPositions: participants.map((participant) => participant.position),
+    participantPositions: activeParticipants.map((participant) => participant.position),
   };
   const state: TurnState =
     story.currentPosition === null
       ? { ...base, currentPosition: null, turnStartedAt: null }
       : { ...base, currentPosition: story.currentPosition, turnStartedAt: story.turnStartedAt };
 
-  return { story, participants, state };
+  return { story, participants, activeParticipants, state };
 }
 
 async function storyExists(db: Db, storyId: string): Promise<boolean> {
@@ -264,7 +267,7 @@ function insertParticipant(
          browser_token_hash, joined_at)
        SELECT ?, ?, ?, ?, ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM stories WHERE id = ? AND turn_version = ?)
-         AND (SELECT COUNT(*) FROM participants WHERE story_id = ?) < ?`,
+         AND (SELECT COUNT(*) FROM participants WHERE story_id = ? AND left_at IS NULL) < ?`,
     )
     .bind(
       participant.id,

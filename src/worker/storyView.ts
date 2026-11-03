@@ -15,7 +15,7 @@ export function buildStoryView(
 ): StoryView {
   return {
     contributions,
-    participants: loaded.participants.map(({ id, displayName }) => ({ id, displayName })),
+    participants: loaded.activeParticipants.map(({ id, displayName }) => ({ id, displayName })),
     turn: buildTurnView(loaded, now),
     me: me.id,
   };
@@ -29,7 +29,9 @@ function buildTurnView(loaded: LoadedStory, now: number): TurnView {
     return { holderId: null, endsAt: null, version: state.turnVersion };
   }
 
-  const holder = loaded.participants.find(({ position }) => position === state.currentPosition);
+  const holder = loaded.activeParticipants.find(
+    ({ position }) => position === state.currentPosition,
+  );
   if (holder === undefined) {
     throw new Error(
       `Story ${loaded.story.id} has no participant at position ${String(state.currentPosition)}`,

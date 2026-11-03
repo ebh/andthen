@@ -118,7 +118,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     if (loaded.participants.some((p) => p.displayNameKey === key)) {
       throw new ApiError("name_taken");
     }
-    if (loaded.participants.length >= MAX_PARTICIPANTS) {
+    if (loaded.activeParticipants.length >= MAX_PARTICIPANTS) {
       throw new ApiError("story_full");
     }
 
@@ -142,7 +142,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       // The write can't say why it was refused. A join that won the race may have taken the last place.
       const current = await requireStory(c, storyId);
       throw new ApiError(
-        current.participants.length >= MAX_PARTICIPANTS ? "story_full" : "stale_turn",
+        current.activeParticipants.length >= MAX_PARTICIPANTS ? "story_full" : "stale_turn",
       );
     }
 

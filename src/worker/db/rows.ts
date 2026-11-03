@@ -27,6 +27,8 @@ export const participantRowSchema = z.object({
   displayNameKey: z.string(),
   position: countSchema,
   browserTokenHash: z.string(),
+  /** Epoch ms when they left the story; null while they are in it. */
+  leftAt: countSchema.nullable(),
 });
 export type ParticipantRow = z.infer<typeof participantRowSchema>;
 

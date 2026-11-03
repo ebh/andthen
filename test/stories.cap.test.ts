@@ -85,6 +85,18 @@ describe("the participant cap", () => {
     expect((await readStory(ana, storyId)).participants).toHaveLength(MAX_PARTICIPANTS);
   });
 
+  it("does not count a participant who has left toward the cap", async () => {
+    const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
+    await testEnv.env.DB.prepare("UPDATE participants SET left_at = ? WHERE id = ?")
+      .bind(T0, `${storyId}-2`)
+      .run();
+
+    const response = await newBrowser().post(joinPath(storyId), { displayName: "Newcomer" });
+
+    expect(response.status).toBe(201);
+    expect((await readStory(ana, storyId)).participants).toHaveLength(MAX_PARTICIPANTS);
+  });
+
   it("changes nothing when a join is refused: no participant, no version bump, no notification", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
     const before = await readStory(ana, storyId);

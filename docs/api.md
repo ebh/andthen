@@ -6,11 +6,14 @@ Routes live in `src/worker/routes/stories.ts`, SQL in `src/worker/db/storyRepo.t
 
 | Route                                 | Success                        | Notes                                                                                       |
 | ------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
+| `GET /api/stories`                    | 200 `{stories: [...]}`         | The stories this browser is in and has not left. See "Your stories".                        |
 | `POST /api/stories`                   | 201 `{storyId}`                | Sets the cookie if the browser has none. A browser may start many stories under one cookie. |
-| `GET /api/stories/:id`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant`. Turn comes from `resolveTurn(state, now)`.      |
+| `GET /api/stories/:id`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.        |
 | `POST /api/stories/:id/participants`  | 201 `{participantId}`          | Sets the cookie if the browser has none.                                                    |
 | `POST /api/stories/:id/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph. |
 | `POST /api/stories/:id/skip`          | 204                            | Body `{turnVersion}`.                                                                       |
+| `POST /api/stories/:id/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                     |
+| `POST /api/stories/:id/rejoin`        | 204                            | Body `{}`. Only for a browser that left. See "Leaving and rejoining".                       |
 | `POST /api/stories/:id/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                        |
 | `GET /api/stories/:id/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                      |
 
@@ -21,16 +24,16 @@ Mutating routes send no body back, except suggestions, which is a read. Clients 
 One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorCode, …>`, so a new code can't be forgotten).
 
 - **400:** `bad_request`, `invalid_passage`, `invalid_display_name`.
-- **403:** `forbidden_origin`, `not_participant`, `not_your_turn`, `cannot_skip_self`.
+- **403:** `forbidden_origin`, `not_participant`, `left_story`, `not_your_turn`, `cannot_skip_self`.
 - **404:** `not_found`. An ID that can't be a story ID is also 404, with no database call. An unknown `/api/*` path is a JSON 404 too.
 - **409:** `stale_turn`, `name_taken`, `already_joined`, `story_full`, `no_one_to_skip_to`.
 - **429:** `ai_rate_limited`. **503:** `ai_unavailable`. Both come from the suggestions route.
 - **413:** `payload_too_large`, a body over `MAX_BODY_BYTES` (8 KB), refused before it is parsed.
 - **500:** `internal_error`, anything unexpected, logged with `console.error`.
 
-Every error body is JSON `{error: <code>}`, so a client can parse it with `errorBodySchema`. Every `/api/*` response carries `Cache-Control: no-store` (except a WebSocket upgrade).
+Every error body is JSON `{error: <code>}`, so a client can parse it with `errorBodySchema`. The one exception is `left_story`, whose body also carries `displayName` and `opening` (see "Leaving and rejoining"). Every `/api/*` response carries `Cache-Control: no-store` (except a WebSocket upgrade).
 
-Order of checks on a mutating route: Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403), content validation (400), turn rules (403/409), guarded write (409).
+Order of checks on a mutating route: Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409).
 
 ## Things a client or reviewer might not expect
 
@@ -41,14 +44,35 @@ Order of checks on a mutating route: Origin (403), Content-Type (400), body size
 - **A waiting story answers contribute and skip differently.** A contribution is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
 - **Plain cookie only on `http://localhost`.** `127.0.0.1` and LAN hosts get the `__Host-` Secure cookie, which browsers drop over plain HTTP, so dev must use `localhost`.
 
+## Your stories
+
+`GET /api/stories` lists the stories whose participant rows carry the cookie's token hash and have no `left_at`, using the `participants_by_browser` index. It only reads: no cookie is issued, and a browser with none gets `{stories: []}`.
+
+- **Entry:** `id`, `opening` (the first passage in full), `holderName` (null while the story waits), `isMyTurn`, `endsAt` (null while it waits) and `writerCount` (writers still in the story).
+- **Turn:** `resolveTurn(state, now)`, as in the story view, so an expired turn shows its new holder. Nothing is written.
+- **Order:** stories where the caller holds the turn first, then the newest passage first, then ID, so the order is stable between requests.
+- **One snapshot:** the story rows, their writers and their first passages come from one `db.batch()`.
+- **Not bounded:** nothing limits how many stories a browser can start, so nothing limits the list. See "Accepted risks" in `deployment.md`.
+
+## Leaving and rejoining
+
+Leaving is soft. `POST /api/stories/:id/leave` sets `participants.left_at` and keeps the row, because passages join to their author and a name stays reserved in its story.
+
+- **Turn:** `onLeave` takes the position out of the rotation and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
+- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the name the writer had there and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the old name and cookie stay on the row, so a leaver gets back only through rejoin.
+- **Names:** a leaver's name stays taken in that story, so a new joiner can't reuse it.
+- **Rejoin:** `POST /api/stories/:id/rejoin` clears `left_at` and gives the row the position at the end of the rotation (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a browser that was never in the story, 409 `already_joined` for one that is in it, 409 `story_full` when the story filled while they were away.
+- **Races:** both routes are guarded by the loaded `turn_version` like every write, so one that loses a race answers 409 `stale_turn`.
+- **Body:** `{}` and nothing else; a body with anything in it is 400 `bad_request` (`emptyRequestSchema`).
+
 ## Participant cap
 
-A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone with the link can join and each joiner can hold the turn for 24 hours. A join to a full story is 409 `story_full`. Creating a story and reading it are not affected.
+A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone with the link can join and each joiner can hold the turn for 24 hours. Only writers who are still in the story count: one who left frees their place. A join to a full story is 409 `story_full`, and so is a rejoin. Creating a story and reading it are not affected.
 
 - **Which error wins:** `already_joined`, then `name_taken`, then `story_full`. A duplicate name or a repeat join on a full story keeps its own code. Only a join that would otherwise succeed gets `story_full`.
 - **The version guard already serialises joins.** Every join bumps `turn_version`, so of two joins racing at 49 only one passes the `turn_version` guard (see "Writes and races").
-- **The count guard is a second defence in the write.** The join `INSERT` also needs `(SELECT COUNT(*) FROM participants WHERE story_id = ?) < MAX_PARTICIPANTS`, so a call with a current version still can't add a 51st. The turn `UPDATE` needs the new participant row to exist, so a refused insert never moves the turn.
-- **A refused write is explained by a re-read.** When `addParticipant` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
+- **The count guard is a second defence in the write.** The join `INSERT` and the rejoin `UPDATE` also need `(SELECT COUNT(*) FROM participants WHERE story_id = ? AND left_at IS NULL) < MAX_PARTICIPANTS`, so a call with a current version still can't add a 51st. The turn `UPDATE` needs the participant to be in the story (the row exists and `left_at` is null), so a refused insert or rejoin never moves the turn.
+- **A refused write is explained by a re-read.** When `addParticipant` or `rejoinStory` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
 - A refused join writes nothing, bumps no `turnVersion` and sends no live message.
 
 ## Guards on every mutating request
@@ -80,7 +104,7 @@ A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone 
 `GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
 
 - **Checks, in order:** `Upgrade: websocket`, any case (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), participant cookie (403 `not_participant`). Only then is the request forwarded to the room.
-- **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any valid message and does not need the version.
+- **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, rejoin, leave, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any valid message and does not need the version.
 - **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds. It hands the room's `notify` RPC call to `waitUntil` and returns at once, so a slow or hung room can't delay a committed write. A failure is logged and swallowed, never turned into an error response: clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
 - **Client:** `useStoryLive` (`src/client/useStoryLive.ts`) refetches on every open, every valid message and a second after `turn.endsAt` (a turn that times out sends no message). Its logic is in `src/client/live.ts`.
   - The `endsAt` timer re-arms every 5 seconds until `endsAt` changes, because a client clock ahead of the server's would otherwise fire early and never try again.
@@ -88,7 +112,7 @@ A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone 
   - A `ping` every 25 s; no `pong` within 10 s marks the socket dead and reconnects.
   - `StoryBoard` (`src/client/components/StoryBoard.tsx`) mounts the hook, so only joined participants open a socket (a non-participant's upgrade is a 403).
 - **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
-- **A cookie is read at the upgrade only.** An open socket is not rechecked, which is fine while nobody can leave a story.
+- **A cookie is read at the upgrade only.** An open socket is not rechecked. A writer who leaves keeps their sockets, so they go on receiving version numbers (nothing else is sent) until the socket closes; a refetch then answers 403 `left_story`. Closing them would need the room to tag sockets by participant, which it does not do.
 
 ## Cookie
 

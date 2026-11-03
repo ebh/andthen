@@ -19,8 +19,8 @@ The app exists to be read. Every visual decision serves the story text first.
 
 ## Layout
 
-- The story page is a rail beside the story. The rail holds the wordmark, whose turn it is, the turn order and the invite link. On a phone the rail stacks above the story.
-- The landing page is a pitch on one side and the form on a tinted panel on the other. On a phone the three steps are dropped and the form follows the headline.
+- The story page is a rail beside the story. The rail holds the wordmark, a link back to the writer's stories, whose turn it is, the turn order, the invite link and a quiet "Leave story" button. On a phone the rail stacks above the story, with the invite link and the leave button last, below the story.
+- The landing page is a pitch on one side and the form on a tinted panel on the other. A writer who is in stories sees them listed in place of the pitch, with the form retitled "Start a new story". On a phone the three steps are dropped and the form follows the headline.
 - Design for a 375px-wide phone first, then widen.
 
 ## Type
@@ -56,6 +56,10 @@ Tests find elements by accessible name, label, role and visible text. Classes ch
 - the list, item, button structure in `Suggestions`
 - the "Show authors" checkbox and the author buttons (`aria-pressed`) in `StoryText`
 - the "New paragraph" checkbox in `Composer`
+- the "Your stories" region on the landing page, whose rows are links named by the opening passage and the turn status
+- the "Your stories" link in the story rail
+- the "Leave story" button, and the leave dialog named "Leave this story?" with its "Cancel" and "Leave story" buttons
+- the "You left this story" screen and its "Rejoin as …" button
 
 ## Done
 

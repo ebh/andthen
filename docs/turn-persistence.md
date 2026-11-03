@@ -4,7 +4,7 @@
 
 ## The guard
 
-- Load the `stories` row and the participants' positions. Pass that state, as loaded, to `afterContribution`, `skip` or `onJoin`, with the server's `now`.
+- Load the `stories` row and the participants' positions. Pass that state, as loaded, to `afterContribution`, `skip`, `onJoin`, `onRejoin` or `onLeave`, with the server's `now`. A join or rejoin takes the new position from the caller: `LoadedStory.nextPosition`, one past every position ever held, so it never reuses a leaver's.
 - The action resolves expiry itself and compares the client's `turnVersion` with the **resolved** version. A mismatch is `stale_turn` (409).
 - Persist the returned state with `WHERE id = ? AND turn_version = <loaded version>`. Use the version you **loaded**, not the one in the returned state. `meta.changes = 0` means another write won: answer 409.
 - After k elapsed windows, the client's version is the loaded version plus k. The returned state carries loaded + k + 1.
@@ -17,7 +17,7 @@
 
 ## Every change bumps the version
 
-Each contribution, skip, expired window and join adds one to `turn_version`. A join to a waiting story also starts the turn, but the version still goes up once. So any action that loaded the participant list before a join fails the guard. That includes a contribution the holder was typing, so the composer must keep its text when it gets a 409.
+Each contribution, skip, expired window, join, rejoin and leave adds one to `turn_version`. A join to a waiting story also starts the turn, but the version still goes up once. So any action that loaded the participant list before a join or leave fails the guard. That includes a contribution the holder was typing, so the composer must keep its text when it gets a 409.
 
 ## Out of scope
 

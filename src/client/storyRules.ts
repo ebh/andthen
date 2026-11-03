@@ -1,5 +1,5 @@
 import type { StoryView } from "../shared/api";
-import { canSkip, type TurnState } from "../shared/turnOrder";
+import { canSkip, onLeave, type TurnState } from "../shared/turnOrder";
 
 /** The participant whose turn it is, or null while the story waits for a joiner. */
 export function turnHolder(view: StoryView): StoryView["participants"][number] | null {
@@ -27,6 +27,35 @@ export function canSkipTurn(view: StoryView): boolean {
       view.participants.findIndex(({ id }) => id === holderId),
     ),
   );
+}
+
+/** What leaving does to the turn. `unchanged` unless the one leaving holds it. */
+export type TurnAfterLeaving =
+  | { type: "unchanged" }
+  | { type: "passes_to"; displayName: string }
+  | { type: "waits" };
+
+/**
+ * What would happen to the turn if the viewer left, as the shared `onLeave` rule decides it. The
+ * participants arrive in rotation order, so their indexes stand in for the stored positions.
+ */
+export function turnAfterLeaving(view: StoryView): TurnAfterLeaving {
+  if (!isMyTurn(view)) {
+    return { type: "unchanged" };
+  }
+
+  const myPosition = view.participants.findIndex(({ id }) => id === view.me);
+  const { currentPosition } = onLeave(rotationState(view, myPosition), myPosition, 0);
+  if (currentPosition === null) {
+    return { type: "waits" };
+  }
+
+  const next = view.participants[currentPosition];
+  if (next === undefined) {
+    throw new Error(`No participant at position ${currentPosition.toString()}`);
+  }
+
+  return { type: "passes_to", displayName: next.displayName };
 }
 
 // The view's turn as the shared rules take it. Only the order matters to them, so the clock is 0.

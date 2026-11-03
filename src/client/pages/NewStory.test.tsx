@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { StorySummary } from "../../shared/api";
+import { justLeftStory, navigateHomeAfterLeaving } from "../router";
 import { jsonResponse } from "../testFixtures";
 import { NewStory } from "./NewStory";
 
@@ -123,5 +124,26 @@ describe("NewStory", () => {
       expect(screen.getByRole("region", { name: "Your stories" })).toBeInTheDocument();
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("says the writer left a story, once", async () => {
+    stubStories(jsonResponse(200, { stories: [] }));
+    window.history.replaceState(null, "", "/abc12");
+    navigateHomeAfterLeaving();
+
+    render(<NewStory />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("You left the story.");
+    expect(justLeftStory()).toBe(false);
+  });
+
+  it("says nothing about leaving when the writer arrived any other way", async () => {
+    stubStories(jsonResponse(200, { stories: [] }));
+    window.history.replaceState(null, "", "/");
+
+    render(<NewStory />);
+
+    await screen.findByRole("heading", { name: /write it together/i });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

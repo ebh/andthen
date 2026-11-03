@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { justLeftStory } from "../router";
 import { ME, OTHER, THIRD, jsonResponse, noContentResponse, storyView } from "../testFixtures";
 import { StoryBoard } from "./StoryBoard";
 
@@ -296,3 +297,94 @@ describe("waiting for a joiner", () => {
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
   });
 });
+
+describe("leaving the story", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/abc12");
+  });
+
+  it("asks first, and says who gets the turn when the writer holds it", async () => {
+    renderBoard();
+
+    const { dialog } = await openDialog();
+
+    expect(dialog).toHaveTextContent("passes to Kim");
+  });
+
+  it("does not talk about the turn when someone else holds it", async () => {
+    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
+
+    const { dialog } = await openDialog();
+
+    expect(dialog).not.toHaveTextContent("your turn now");
+  });
+
+  it("closes without leaving on Cancel", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    renderBoard();
+    const { user } = await openDialog();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves, then goes home with a note", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/");
+    });
+    expect(justLeftStory()).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/stories/abc12/leave",
+      expect.objectContaining({ method: "POST", body: "{}" }),
+    );
+  });
+
+  it("stays open with a message, and reloads the story, when the story moved on", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(409, { error: "stale_turn" }))),
+    );
+    const refetch = renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The story changed just now.",
+    );
+    expect(refetch).toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: "Leave story" })).toBeEnabled();
+    expect(window.location.pathname).toBe("/abc12");
+  });
+
+  it("stays open with a generic message when the request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.reject(new TypeError("offline"))),
+    );
+    const refetch = renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Can't reach the server.");
+    expect(refetch).not.toHaveBeenCalled();
+  });
+});
+
+async function openDialog() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Leave story" }));
+
+  return { user, dialog: screen.getByRole("dialog", { name: "Leave this story?" }) };
+}

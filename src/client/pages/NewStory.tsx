@@ -1,5 +1,5 @@
 import type { SubmitEvent } from "react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import {
   MAX_DISPLAY_NAME_LENGTH,
@@ -12,7 +12,7 @@ import { Composer } from "../components/Composer";
 import { MyStories } from "../components/MyStories";
 import { Wordmark } from "../components/Wordmark";
 import { describeFailure } from "../messages";
-import { navigate } from "../router";
+import { clearJustLeftStory, justLeftStory, navigate } from "../router";
 import { useMyStories } from "../useMyStories";
 
 /** `/`: pick a name, write the opening passage, get a story link. */
@@ -24,7 +24,14 @@ export function NewStory() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { load: stories, reload } = useMyStories();
+  const [leftAStory] = useState(justLeftStory);
   const hasStories = stories.type === "loaded" && stories.stories.length > 0;
+
+  useEffect(() => {
+    if (leftAStory) {
+      clearJustLeftStory();
+    }
+  }, [leftAStory]);
 
   const start = (): void => {
     const checkedName = validateDisplayName(name);
@@ -66,6 +73,11 @@ export function NewStory() {
     <div className="min-h-screen md:grid md:grid-cols-[1.1fr_1fr]">
       <div className="flex flex-col p-5 md:px-16 md:py-12">
         <Wordmark />
+        {leftAStory && (
+          <p role="status" className="mt-8 text-base-content/70">
+            You left the story.
+          </p>
+        )}
         {stories.type === "loaded" &&
           (stories.stories.length === 0 ? <Pitch /> : <MyStories stories={stories.stories} />)}
         {stories.type === "failed" && (

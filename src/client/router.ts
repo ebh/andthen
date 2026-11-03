@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { z } from "zod";
 
 import { normaliseStoryId } from "../shared/validation";
 
@@ -24,9 +25,26 @@ export function useRoute(): Route {
   return parseRoute(pathname);
 }
 
-export function navigate(path: string): void {
-  window.history.pushState(null, "", path);
+export function navigate(path: string, state: unknown = null): void {
+  window.history.pushState(state, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+const leftStoryStateSchema = z.object({ leftStory: z.literal(true) });
+
+/** Goes home with a note that the writer just left a story, which the home page shows once. */
+export function navigateHomeAfterLeaving(): void {
+  navigate("/", { leftStory: true });
+}
+
+/** Whether this history entry was reached by `navigateHomeAfterLeaving`. */
+export function justLeftStory(): boolean {
+  return leftStoryStateSchema.safeParse(window.history.state).success;
+}
+
+/** Drops the note, so reloading the page does not show it again. */
+export function clearJustLeftStory(): void {
+  window.history.replaceState(null, "");
 }
 
 function subscribe(onChange: () => void): () => void {

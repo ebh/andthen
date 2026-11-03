@@ -9,6 +9,7 @@ import { useNow } from "../useNow";
 import { useStoryLive } from "../useStoryLive";
 import { Composer } from "./Composer";
 import { InviteLink } from "./InviteLink";
+import { PageLink } from "./PageLink";
 import { StoryText } from "./StoryText";
 import { SuggestButton, SuggestionList, useSuggestions } from "./Suggestions";
 import { TurnBanner } from "./TurnBanner";
@@ -102,7 +103,15 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   return (
     <div className="min-h-screen md:grid md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr]">
       <aside className="flex flex-col gap-5 border-b border-base-300 p-5 md:col-start-1 md:row-start-1 md:gap-14 md:border-r md:border-b-0 md:p-8">
-        <Wordmark />
+        <div className="flex flex-col gap-1">
+          <Wordmark />
+          <PageLink
+            to="/"
+            className="inline-flex min-h-11 items-center gap-1 text-sm text-base-content/70 underline-offset-4 hover:underline"
+          >
+            <span aria-hidden="true">←</span> Your stories
+          </PageLink>
+        </div>
         <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
       </aside>
       <main className="p-5 md:col-start-2 md:row-span-2 md:row-start-1 md:px-16 md:py-14">

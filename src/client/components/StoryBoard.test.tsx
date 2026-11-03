@@ -21,6 +21,14 @@ function renderBoard(view = myTurn, refetch = vi.fn<() => void>()) {
   return refetch;
 }
 
+describe("rail", () => {
+  it("links back to the writer's stories", () => {
+    renderBoard();
+
+    expect(screen.getByRole("link", { name: "Your stories" })).toHaveAttribute("href", "/");
+  });
+});
+
 describe("composer", () => {
   it("counts graphemes live and disables send when empty or over the limit", async () => {
     renderBoard();

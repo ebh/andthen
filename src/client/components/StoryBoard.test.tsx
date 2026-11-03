@@ -298,6 +298,29 @@ describe("waiting for a joiner", () => {
   });
 });
 
+describe("a writer who left in another tab", () => {
+  it("reloads the story when sending a passage finds they left, and keeps the draft", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          jsonResponse(403, { error: "left_story", displayName: "Me", opening: "Once." }),
+        ),
+      ),
+    );
+    const refetch = renderBoard();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Your passage"), "And then.");
+    await user.click(screen.getByRole("button", { name: "Add to the story" }));
+
+    await waitFor(() => {
+      expect(refetch).toHaveBeenCalled();
+    });
+    expect(screen.getByLabelText("Your passage")).toHaveValue("And then.");
+  });
+});
+
 describe("leaving the story", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/abc12");

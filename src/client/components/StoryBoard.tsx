@@ -2,7 +2,7 @@ import type { Ref } from "react";
 import { useRef, useState } from "react";
 
 import type { StoryView } from "../../shared/api";
-import { contribute, leaveStory, skipTurn } from "../api";
+import { contribute, leaveStory, skipTurn, type ApiFailure } from "../api";
 import { describeFailure } from "../messages";
 import { navigateHomeAfterLeaving } from "../router";
 import { isMyTurn, turnAfterLeaving } from "../storyRules";
@@ -86,7 +86,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
         return;
       }
       // The draft stays: after a 409 or 403 the turn may come back, and the text took effort.
-      if (result.failure.type === "rejected" && REFETCH_CODES.has(result.failure.code)) {
+      if (isStoryOutOfDate(result.failure)) {
         refetch();
       }
       setNotice(describeFailure(result.failure, CONTRIBUTE_MESSAGES));
@@ -114,7 +114,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
         navigateHomeAfterLeaving();
         return;
       }
-      if (result.failure.type === "rejected" && result.failure.code === "stale_turn") {
+      if (isStoryOutOfDate(result.failure)) {
         // The dialog says who gets the turn; the story it was worked out from has moved on.
         refetch();
       }
@@ -249,6 +249,14 @@ function YourTurn(props: YourTurnProps) {
 // Each of these means the page's picture of the story is out of date. `not_participant` sends
 // the refetch to a 403, which swaps the page for the join form.
 const REFETCH_CODES = new Set(["stale_turn", "not_your_turn", "not_participant"]);
+
+// `left_story` is the same, with the refetch swapping the page for the rejoin screen.
+function isStoryOutOfDate(failure: ApiFailure): boolean {
+  return (
+    failure.type === "left_story" ||
+    (failure.type === "rejected" && REFETCH_CODES.has(failure.code))
+  );
+}
 
 const CONTRIBUTE_MESSAGES = {
   stale_turn:

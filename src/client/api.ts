@@ -4,14 +4,16 @@ import {
   createStoryResponseSchema,
   errorBodySchema,
   joinResponseSchema,
+  myStoriesResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
   type ContributeRequest,
   type CreateStoryRequest,
   type CreateStoryResponse,
-  type ErrorCode,
   type JoinRequest,
   type JoinResponse,
+  type MyStoriesResponse,
+  type PlainErrorCode,
   type StoryView,
   type SuggestionsResponse,
 } from "../shared/api";
@@ -21,9 +23,15 @@ export type ApiFailure =
   // A success status whose body isn't the documented shape, or an error status whose body isn't
   // an error code (a proxy's HTML page, say).
   | { type: "unreadable"; status: number }
-  | { type: "rejected"; status: number; code: ErrorCode };
+  | { type: "rejected"; status: number; code: PlainErrorCode }
+  // 403 `left_story`: this browser was in the story and left it.
+  | { type: "left_story"; displayName: string; opening: string };
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; failure: ApiFailure };
+
+export function listMyStories(): Promise<ApiResult<MyStoriesResponse>> {
+  return call("/api/stories", { method: "GET" }, myStoriesResponseSchema);
+}
 
 export function createStory(request: CreateStoryRequest): Promise<ApiResult<CreateStoryResponse>> {
   return call("/api/stories", postJson(request), createStoryResponseSchema);
@@ -43,6 +51,14 @@ export function contribute(storyId: string, request: ContributeRequest): Promise
 
 export function skipTurn(storyId: string, turnVersion: number): Promise<ApiResult<null>> {
   return call(`${storyPath(storyId)}/skip`, postJson({ turnVersion }), noBodySchema);
+}
+
+export function leaveStory(storyId: string): Promise<ApiResult<null>> {
+  return call(`${storyPath(storyId)}/leave`, postJson({}), noBodySchema);
+}
+
+export function rejoinStory(storyId: string): Promise<ApiResult<null>> {
+  return call(`${storyPath(storyId)}/rejoin`, postJson({}), noBodySchema);
 }
 
 export function requestSuggestions(storyId: string): Promise<ApiResult<SuggestionsResponse>> {
@@ -72,13 +88,18 @@ async function call<T>(
 
   if (!response.ok) {
     const error = errorBodySchema.safeParse(body);
+    if (!error.success) {
+      return { ok: false, failure: { type: "unreadable", status: response.status } };
+    }
 
-    return error.success
-      ? {
-          ok: false,
-          failure: { type: "rejected", status: response.status, code: error.data.error },
-        }
-      : { ok: false, failure: { type: "unreadable", status: response.status } };
+    const { data } = error;
+    if (data.error === "left_story") {
+      const { displayName, opening } = data;
+
+      return { ok: false, failure: { type: "left_story", displayName, opening } };
+    }
+
+    return { ok: false, failure: { type: "rejected", status: response.status, code: data.error } };
   }
 
   const parsed = schema.safeParse(body);

@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { contribute, fetchStory, joinStory, requestSuggestions } from "./api";
+import {
+  contribute,
+  fetchStory,
+  joinStory,
+  leaveStory,
+  listMyStories,
+  rejoinStory,
+  requestSuggestions,
+} from "./api";
 import { jsonResponse, noContentResponse, storyView, ME, OTHER } from "./testFixtures";
 
 function stubFetch(response: Response | Error) {
@@ -34,6 +42,26 @@ describe("error mapping", () => {
     expect(await joinStory("abc12", { displayName: "Sam" })).toEqual({
       ok: false,
       failure: { type: "rejected", status: 409, code: "story_full" },
+    });
+  });
+
+  it("maps 403 left_story to the name and the opening passage", async () => {
+    stubFetch(
+      jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once upon a time." }),
+    );
+
+    expect(await fetchStory("abc12")).toEqual({
+      ok: false,
+      failure: { type: "left_story", displayName: "Ana", opening: "Once upon a time." },
+    });
+  });
+
+  it("treats left_story without its details as unreadable", async () => {
+    stubFetch(jsonResponse(403, { error: "left_story" }));
+
+    expect(await fetchStory("abc12")).toEqual({
+      ok: false,
+      failure: { type: "unreadable", status: 403 },
     });
   });
 
@@ -94,5 +122,37 @@ describe("success", () => {
         body: JSON.stringify({ text: "x", turnVersion: 2, startsParagraph: true }),
       }),
     );
+  });
+});
+
+describe("my stories, leaving and rejoining", () => {
+  const summary = {
+    id: "abc12",
+    opening: "Once.",
+    holderName: null,
+    isMyTurn: false,
+    endsAt: null,
+    writerCount: 1,
+  };
+
+  it("parses the list of stories from GET /api/stories", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { stories: [summary] }));
+
+    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [summary] } });
+    expect(fetchMock).toHaveBeenCalledWith("/api/stories", { method: "GET" });
+  });
+
+  it.each([
+    ["leaving", leaveStory, "/api/stories/abc12/leave"],
+    ["rejoining", rejoinStory, "/api/stories/abc12/rejoin"],
+  ])("posts an empty JSON body when %s and accepts a 204", async (_name, send, path) => {
+    const fetchMock = stubFetch(noContentResponse());
+
+    expect(await send("abc12")).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
   });
 });

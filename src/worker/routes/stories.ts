@@ -123,18 +123,18 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     const now = deps.now();
-    const joined = onJoin(loaded.state, now);
+    const joinedState = onJoin(loaded.state, loaded.nextPosition, now);
     const participant = {
       id: newId(),
       displayName: name.value,
       displayNameKey: key,
-      position: joined.joinerPosition,
+      position: loaded.nextPosition,
       browserTokenHash,
     };
     const saved = await addParticipant(c.env.DB, {
       storyId,
       loadedVersion: loaded.state.turnVersion,
-      next: joined.state,
+      next: joinedState,
       participant,
       joinedAt: now,
     });
@@ -146,7 +146,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       );
     }
 
-    notifyRoom(c, storyId, joined.state.turnVersion);
+    notifyRoom(c, storyId, joinedState.turnVersion);
 
     const response: JoinResponse = { participantId: participant.id };
     return c.json(response, 201);

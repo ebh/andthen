@@ -5,6 +5,8 @@ import {
   canSkip,
   newStoryState,
   onJoin,
+  onLeave,
+  onRejoin,
   resolveTurn,
   skip,
   type TurnState,
@@ -387,32 +389,26 @@ describe("skip", () => {
 describe("onJoin", () => {
   it("lets the first joiner of a waiting story take the turn and starts the timer", () => {
     const now = T0 + 42;
-    expect(onJoin(waiting(), now)).toEqual({
-      state: {
-        ...waiting(),
-        participantPositions: [A, 1],
-        currentPosition: 1,
-        turnStartedAt: now,
-        turnVersion: 4,
-      },
-      joinerPosition: 1,
+    expect(onJoin(waiting(), 1, now)).toEqual({
+      ...waiting(),
+      participantPositions: [A, 1],
+      currentPosition: 1,
+      turnStartedAt: now,
+      turnVersion: 4,
     });
   });
 
   // An action that loaded the rotation before the join must fail the storage guard.
-  it("adds the joiner at the end of the rotation, keeps the holder and bumps the version", () => {
-    expect(onJoin(bHolds(), T0 + 1)).toEqual({
-      state: { ...bHolds(), participantPositions: [A, B, C, 3], turnVersion: 6 },
-      joinerPosition: 3,
+  it("adds the joiner at the given position, keeps the holder and bumps the version", () => {
+    expect(onJoin(bHolds(), 3, T0 + 1)).toEqual({
+      ...bHolds(),
+      participantPositions: [A, B, C, 3],
+      turnVersion: 6,
     });
   });
 
-  it("places the joiner after the highest position, whatever the array order", () => {
-    expect(onJoin(bHolds({ participantPositions: [C, A, B] }), T0).joinerPosition).toBe(3);
-  });
-
   it("applies expiry before the joiner arrives", () => {
-    expect(onJoin(bHolds(), T0 + WINDOW).state).toMatchObject({
+    expect(onJoin(bHolds(), 3, T0 + WINDOW)).toMatchObject({
       currentPosition: C,
       turnStartedAt: T0 + WINDOW,
       turnVersion: 7,
@@ -421,15 +417,150 @@ describe("onJoin", () => {
   });
 
   it("starts a new story's first turn with the first joiner", () => {
-    expect(onJoin(newStoryState(), T0)).toEqual({
-      state: {
-        turnVersion: 1,
-        lastContributorPosition: 0,
-        participantPositions: [0, 1],
-        currentPosition: 1,
-        turnStartedAt: T0,
-      },
-      joinerPosition: 1,
+    expect(onJoin(newStoryState(), 1, T0)).toEqual({
+      turnVersion: 1,
+      lastContributorPosition: 0,
+      participantPositions: [0, 1],
+      currentPosition: 1,
+      turnStartedAt: T0,
+    });
+  });
+});
+
+describe("onRejoin", () => {
+  it("adds the rejoiner at their new position and leaves the last contributor alone", () => {
+    const state = bHolds({ participantPositions: [A, C], currentPosition: C });
+
+    expect(onRejoin(state, { previousPosition: B, position: 3 }, T0 + 1)).toEqual({
+      ...state,
+      participantPositions: [A, C, 3],
+      turnVersion: 6,
+    });
+  });
+
+  it("keeps someone who wrote last as the last contributor under their new position", () => {
+    const state = bHolds({ participantPositions: [B, C], lastContributorPosition: A });
+
+    expect(onRejoin(state, { previousPosition: A, position: 3 }, T0 + 1)).toMatchObject({
+      lastContributorPosition: 3,
+      participantPositions: [B, C, 3],
+      currentPosition: B,
+    });
+  });
+
+  it("keeps a story waiting when the one who comes back wrote last", () => {
+    const empty: TurnState = { ...waiting(), participantPositions: [] };
+
+    expect(onRejoin(empty, { previousPosition: A, position: 1 }, T0)).toEqual({
+      turnVersion: 4,
+      lastContributorPosition: 1,
+      participantPositions: [1],
+      currentPosition: null,
+      turnStartedAt: null,
+    });
+  });
+
+  it("gives the turn to a rejoiner who did not write last when the story waits", () => {
+    const empty: TurnState = { ...waiting(), participantPositions: [] };
+
+    expect(onRejoin(empty, { previousPosition: B, position: 3 }, T0)).toEqual({
+      turnVersion: 4,
+      lastContributorPosition: A,
+      participantPositions: [3],
+      currentPosition: 3,
+      turnStartedAt: T0,
+    });
+  });
+
+  it("applies expiry before the rejoiner arrives", () => {
+    expect(onRejoin(bHolds(), { previousPosition: 9, position: 3 }, T0 + WINDOW)).toMatchObject({
+      currentPosition: C,
+      turnStartedAt: T0 + WINDOW,
+      turnVersion: 7,
+    });
+  });
+});
+
+describe("onLeave", () => {
+  it("takes a writer who does not hold the turn out of the rotation and bumps the version", () => {
+    expect(onLeave(bHolds(), C, T0 + 1)).toEqual({
+      ...bHolds(),
+      participantPositions: [A, B],
+      turnVersion: 6,
+    });
+  });
+
+  it("passes the turn to the next writer, with a fresh window, when the holder leaves", () => {
+    expect(onLeave(bHolds(), B, T0 + 1000)).toEqual({
+      ...bHolds(),
+      participantPositions: [A, C],
+      currentPosition: C,
+      turnStartedAt: T0 + 1000,
+      turnVersion: 6,
+    });
+  });
+
+  it("passes over the last contributor when the holder leaves", () => {
+    // C holds and leaves; the next place after C wraps to A, who wrote last, so B gets the turn.
+    expect(onLeave(bHolds({ currentPosition: C }), C, T0 + 1)).toMatchObject({
+      participantPositions: [A, B],
+      currentPosition: B,
+    });
+  });
+
+  it("gives the turn to the one writer left when they did not write last", () => {
+    const state = bHolds({ participantPositions: [B, C] });
+
+    expect(onLeave(state, B, T0 + 1)).toMatchObject({
+      participantPositions: [C],
+      currentPosition: C,
+      turnStartedAt: T0 + 1,
+    });
+  });
+
+  it("makes the story wait when the holder leaves and the one left wrote last", () => {
+    expect(onLeave(bHolds({ participantPositions: [A, B] }), B, T0 + 1)).toEqual({
+      ...bHolds(),
+      participantPositions: [A],
+      currentPosition: null,
+      turnStartedAt: null,
+      turnVersion: 6,
+    });
+  });
+
+  it("makes the story wait when the holder was the only writer", () => {
+    expect(onLeave(bHolds({ participantPositions: [B] }), B, T0 + 1)).toMatchObject({
+      participantPositions: [],
+      currentPosition: null,
+      turnStartedAt: null,
+    });
+  });
+
+  it("keeps a waiting story waiting when its only writer leaves", () => {
+    expect(onLeave(waiting(), A, T0)).toEqual({
+      ...waiting(),
+      participantPositions: [],
+      turnVersion: 4,
+    });
+  });
+
+  it("applies expiry first, so a holder whose turn just ended leaves as a non-holder", () => {
+    // B's window ends at T0 + WINDOW and the turn moves to C, who is not the leaver.
+    expect(onLeave(bHolds(), B, T0 + WINDOW)).toMatchObject({
+      participantPositions: [A, C],
+      currentPosition: C,
+      turnStartedAt: T0 + WINDOW,
+      turnVersion: 7,
+    });
+  });
+
+  it("applies expiry first, so the holder of the moved-on turn passes it on", () => {
+    // The turn moves from B to C at T0 + WINDOW; C leaves and the next place after C is B.
+    expect(onLeave(bHolds(), C, T0 + WINDOW)).toMatchObject({
+      participantPositions: [A, B],
+      currentPosition: B,
+      turnStartedAt: T0 + WINDOW,
+      turnVersion: 7,
     });
   });
 });

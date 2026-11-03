@@ -69,5 +69,6 @@ describe("storyRepo", () => {
     expect(loaded?.participants.map(({ id }) => id)).toEqual(["p0", "p1"]);
     expect(loaded?.activeParticipants.map(({ id }) => id)).toEqual(["p0"]);
     expect(loaded?.state.participantPositions).toEqual([0]);
+    expect(loaded?.nextPosition).toBe(2);
   });
 });

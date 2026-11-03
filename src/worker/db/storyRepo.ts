@@ -27,6 +27,8 @@ export interface LoadedStory {
   participants: ParticipantRow[];
   /** The participants who have not left, in rotation order. They hold the turn and fill the cap. */
   activeParticipants: ParticipantRow[];
+  /** One past the highest position anyone has held, a leaver's included, so a new one never collides. */
+  nextPosition: number;
   /** The stored turn state; `resolveTurn(state, now)` applies any expiry. */
   state: TurnState;
 }
@@ -232,7 +234,9 @@ function toLoadedStory(stories: StoryRow[], participants: ParticipantRow[]): Loa
       ? { ...base, currentPosition: null, turnStartedAt: null }
       : { ...base, currentPosition: story.currentPosition, turnStartedAt: story.turnStartedAt };
 
-  return { story, participants, activeParticipants, state };
+  const nextPosition = Math.max(...participants.map((participant) => participant.position)) + 1;
+
+  return { story, participants, activeParticipants, nextPosition, state };
 }
 
 async function storyExists(db: Db, storyId: string): Promise<boolean> {

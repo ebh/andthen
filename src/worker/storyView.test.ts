@@ -34,6 +34,7 @@ const waiting: LoadedStory = {
   },
   participants: [ana],
   activeParticipants: [ana],
+  nextPosition: 1,
   state: {
     turnVersion: 0,
     lastContributorPosition: 0,

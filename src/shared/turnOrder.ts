@@ -9,9 +9,9 @@
  * - Turns expire lazily. Each whole TURN_WINDOW_MS that passes moves the turn on one place.
  *
  * `turnVersion` identifies one holder for one window over one rotation. It goes up by exactly one
- * for each contribution, skip, expired window and join. A join must bump it even when the turn
- * stays put: an action that loaded the old rotation would otherwise pass the storage guard and
- * hand the turn to the wrong person.
+ * for each contribution, skip, expired window, join and leave. A join or leave must bump it even
+ * when the turn stays put: an action that loaded the old rotation would otherwise pass the
+ * storage guard and hand the turn to the wrong person.
  *
  * Every action takes the state as loaded from storage and resolves expiry itself.
  * docs/turn-persistence.md says how to persist the result.
@@ -52,9 +52,11 @@ export interface SkipAction {
   turnVersion: number;
 }
 
-export interface JoinAction {
-  state: TurnState;
-  joinerPosition: number;
+export interface RejoinAction {
+  /** The position the rejoiner held before they left. */
+  previousPosition: number;
+  /** Their new place at the end of the rotation. */
+  position: number;
 }
 
 const CREATOR_POSITION = 0;
@@ -183,25 +185,63 @@ export function canSkip(state: TurnState): boolean {
 }
 
 /**
- * Adds a joiner at the end of the rotation. A joiner to a waiting story takes the turn. Either
- * way the version goes up by exactly one.
+ * Adds a joiner at `joinerPosition`, which the caller picks at the end of the rotation. A joiner
+ * to a waiting story takes the turn, unless they wrote last: then the story keeps waiting, as
+ * nobody takes two turns in a row. Either way the version goes up by exactly one.
  */
-export function onJoin(state: TurnState, now: number): JoinAction {
+export function onJoin(state: TurnState, joinerPosition: number, now: number): TurnState {
   const current = resolveTurn(state, now).state;
-  const joinerPosition = Math.max(...current.participantPositions) + 1;
   const joined = {
     ...current,
     turnVersion: current.turnVersion + 1,
     participantPositions: [...current.participantPositions, joinerPosition],
   };
 
-  if (joined.currentPosition !== null) {
-    return { state: joined, joinerPosition };
+  if (joined.currentPosition !== null || joinerPosition === joined.lastContributorPosition) {
+    return joined;
   }
-  return {
-    state: { ...joined, currentPosition: joinerPosition, turnStartedAt: now },
-    joinerPosition,
+  return { ...joined, currentPosition: joinerPosition, turnStartedAt: now };
+}
+
+/**
+ * A joiner coming back to the story they left, at a new place in the rotation. Someone who wrote
+ * last stays the last contributor under their new position; otherwise a rejoin would let them
+ * take the next turn too.
+ */
+export function onRejoin(state: TurnState, rejoin: RejoinAction, now: number): TurnState {
+  const current = resolveTurn(state, now).state;
+  const lastContributorPosition =
+    current.lastContributorPosition === rejoin.previousPosition
+      ? rejoin.position
+      : current.lastContributorPosition;
+
+  return onJoin({ ...current, lastContributorPosition }, rejoin.position, now);
+}
+
+/**
+ * Takes `leaverPosition` out of the rotation. When the leaver held the turn it passes on with a
+ * fresh window; if nobody else is eligible (they were alone, or the one left wrote last) the story
+ * waits. The version goes up by exactly one.
+ */
+export function onLeave(state: TurnState, leaverPosition: number, now: number): TurnState {
+  const current = resolveTurn(state, now).state;
+  const remaining = current.participantPositions.filter((position) => position !== leaverPosition);
+  const left = {
+    ...current,
+    turnVersion: current.turnVersion + 1,
+    participantPositions: remaining,
   };
+
+  if (current.currentPosition !== leaverPosition) {
+    return left;
+  }
+
+  // An empty rotation has no next holder, and nextHolder would take the minimum of nothing.
+  const next = remaining.length === 0 ? null : nextHolder(left, leaverPosition);
+  if (next === null || next === left.lastContributorPosition) {
+    return { ...left, currentPosition: null, turnStartedAt: null };
+  }
+  return { ...left, currentPosition: next, turnStartedAt: now };
 }
 
 // The next position in the rotation after `from`, passing over the last contributor. Returns

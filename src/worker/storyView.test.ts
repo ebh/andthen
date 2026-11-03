@@ -11,6 +11,16 @@ const ana: ParticipantRow = {
   displayNameKey: "ana",
   position: 0,
   browserTokenHash: "h0",
+  leftAt: null,
+};
+
+const ben: ParticipantRow = {
+  id: "p1",
+  displayName: "Ben",
+  displayNameKey: "ben",
+  position: 1,
+  browserTokenHash: "h1",
+  leftAt: null,
 };
 
 const waiting: LoadedStory = {
@@ -23,6 +33,8 @@ const waiting: LoadedStory = {
     turnStartedAt: null,
   },
   participants: [ana],
+  activeParticipants: [ana],
+  nextPosition: 1,
   state: {
     turnVersion: 0,
     lastContributorPosition: 0,
@@ -55,6 +67,21 @@ describe("buildStoryView", () => {
       turn: { holderId: "p0", endsAt: 100 + TURN_WINDOW_MS, version: 1 },
       me: "p0",
     });
+  });
+
+  it("leaves out participants who have left, and does not let them hold the turn", () => {
+    const benLeft = { ...ben, leftAt: 50 };
+    const afterLeave: LoadedStory = {
+      ...waiting,
+      participants: [ana, benLeft],
+      activeParticipants: [ana],
+      state: { ...waiting.state, currentPosition: 0, turnStartedAt: 100 },
+    };
+
+    const view = buildStoryView(afterLeave, [], ana, 100);
+
+    expect(view.participants).toEqual([{ id: "p0", displayName: "Ana" }]);
+    expect(view.turn.holderId).toBe("p0");
   });
 
   it("fails fast when the stored holder is not a participant", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canSkipTurn } from "./storyRules";
+import { canSkipTurn, turnAfterLeaving } from "./storyRules";
 import { ME, OTHER, THIRD, storyView } from "./testFixtures";
 
 describe("canSkipTurn", () => {
@@ -26,5 +26,38 @@ describe("canSkipTurn", () => {
     const view = storyView({ participants: [ME], holderId: null, lastWriterId: ME });
 
     expect(canSkipTurn(view)).toBe(false);
+  });
+});
+
+describe("turnAfterLeaving", () => {
+  it("leaves the turn alone when someone else holds it", () => {
+    const view = storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME });
+
+    expect(turnAfterLeaving(view)).toEqual({ type: "unchanged" });
+  });
+
+  it("leaves a waiting story alone", () => {
+    const view = storyView({ participants: [ME], holderId: null, lastWriterId: ME });
+
+    expect(turnAfterLeaving(view)).toEqual({ type: "unchanged" });
+  });
+
+  it("passes the turn to the next writer when the holder leaves", () => {
+    const view = storyView({ participants: [ME, OTHER, THIRD], holderId: ME, lastWriterId: THIRD });
+
+    expect(turnAfterLeaving(view)).toEqual({ type: "passes_to", displayName: "Sam" });
+  });
+
+  it("passes over the one who wrote last", () => {
+    // ME holds and leaves; the next place is OTHER, who wrote last, so THIRD gets it.
+    const view = storyView({ participants: [ME, OTHER, THIRD], holderId: ME, lastWriterId: OTHER });
+
+    expect(turnAfterLeaving(view)).toEqual({ type: "passes_to", displayName: "Kim" });
+  });
+
+  it("makes the story wait when the one left wrote last", () => {
+    const view = storyView({ participants: [OTHER, ME], holderId: ME, lastWriterId: OTHER });
+
+    expect(turnAfterLeaving(view)).toEqual({ type: "waits" });
   });
 });

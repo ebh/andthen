@@ -117,6 +117,53 @@ describe("concurrent writes to one story", () => {
     expect(view.contributions.length).toBeLessThanOrEqual(2);
   });
 
+  it("lets one of a contribution and the holder leaving win", async () => {
+    const { as, storyId } = await storyWith(["Ben", "Cat"]);
+    const [ben, cat] = [as("Ben"), as("Cat")];
+    const gate = gated(2);
+
+    const { statuses, errors } = await raced([
+      () =>
+        ben.post(
+          `/api/stories/${storyId}/contributions`,
+          { text: "Ben.", turnVersion: 2, startsParagraph: false },
+          gate,
+        ),
+      () => ben.post(`/api/stories/${storyId}/leave`, {}, gate),
+    ]);
+
+    expect(statuses).toEqual([204, 409]);
+    expect(errors).toEqual(["stale_turn"]);
+    expect((await readStory(cat, storyId)).turn.version).toBe(3);
+  });
+
+  it("lets one of two leaves from the same browser win", async () => {
+    const { as, storyId } = await storyWith(["Ben", "Cat"]);
+    const [ben, cat] = [as("Ben"), as("Cat")];
+    const gate = gated(2);
+    const send = () => ben.post(`/api/stories/${storyId}/leave`, {}, gate);
+
+    const { statuses, errors } = await raced([send, send]);
+
+    expect(statuses).toEqual([204, 409]);
+    expect(errors).toEqual(["stale_turn"]);
+    expect((await readStory(cat, storyId)).turn.version).toBe(3);
+  });
+
+  it("lets one of a leave and a join win", async () => {
+    const { as, storyId } = await storyWith(["Ben", "Cat"]);
+    const cat = as("Cat");
+    const gate = gated(2);
+
+    const { statuses, errors } = await raced([
+      () => cat.post(`/api/stories/${storyId}/leave`, {}, gate),
+      () => newBrowser().post(`/api/stories/${storyId}/participants`, { displayName: "Dee" }, gate),
+    ]);
+
+    expect(statuses.filter((status) => status === 409)).toHaveLength(1);
+    expect(errors).toEqual(["stale_turn"]);
+  });
+
   it("lets one of two skips by different people win", async () => {
     const { as, storyId } = await storyWith(["Ben", "Cat", "Dee"]);
     const [ana, cat] = [as("Ana"), as("Cat")];

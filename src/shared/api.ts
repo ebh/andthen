@@ -39,6 +39,9 @@ export const contributeRequestSchema = z.object({
 });
 export type ContributeRequest = z.infer<typeof contributeRequestSchema>;
 
+/** The body of a route that takes no input. Anything else in it is refused. */
+export const emptyRequestSchema = z.strictObject({});
+
 export const skipRequestSchema = z.object({ turnVersion: turnVersionSchema });
 export type SkipRequest = z.infer<typeof skipRequestSchema>;
 
@@ -71,6 +74,24 @@ export const storyViewSchema = z.object({
 });
 export type StoryView = z.infer<typeof storyViewSchema>;
 
+/**
+ * A story the caller is in, as the list of their stories shows it. `opening` is the first passage
+ * in full; the page decides how much of it to show. A waiting story has no holder and no end time.
+ */
+export const storySummarySchema = z.object({
+  id: storyIdSchema,
+  opening: z.string(),
+  holderName: z.string().nullable(),
+  isMyTurn: z.boolean(),
+  endsAt: timestampSchema.nullable(),
+  writerCount: z.number().int().positive(),
+});
+export type StorySummary = z.infer<typeof storySummarySchema>;
+
+/** The caller's stories that they have not left: the one they hold the turn in first, then newest passage first. */
+export const myStoriesResponseSchema = z.object({ stories: z.array(storySummarySchema) });
+export type MyStoriesResponse = z.infer<typeof myStoriesResponseSchema>;
+
 export const suggestionsResponseSchema = z.object({
   suggestions: z.tuple([z.string(), z.string(), z.string()]),
 });
@@ -99,8 +120,27 @@ export const errorCodeSchema = z.enum([
   "invalid_display_name",
   "ai_unavailable",
   "ai_rate_limited",
+  "left_story", // this browser was in the story and left; the body says what to rejoin
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
-export const errorBodySchema = z.object({ error: errorCodeSchema });
+/** Every code whose body is the code alone. */
+export const plainErrorCodeSchema = errorCodeSchema.exclude(["left_story"]);
+export type PlainErrorCode = z.infer<typeof plainErrorCodeSchema>;
+
+/**
+ * Sent with 403 `left_story` to a browser that left the story: the name it had there and the
+ * story's opening passage, so the page can offer to rejoin without a second request.
+ */
+export const leftStoryErrorBodySchema = z.object({
+  error: z.literal("left_story"),
+  displayName: z.string(),
+  opening: z.string(),
+});
+export type LeftStoryErrorBody = z.infer<typeof leftStoryErrorBodySchema>;
+
+export const errorBodySchema = z.union([
+  leftStoryErrorBodySchema,
+  z.object({ error: plainErrorCodeSchema }),
+]);
 export type ErrorBody = z.infer<typeof errorBodySchema>;

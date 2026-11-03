@@ -2,13 +2,16 @@ import type { Ref } from "react";
 import { useRef, useState } from "react";
 
 import type { StoryView } from "../../shared/api";
-import { contribute, skipTurn } from "../api";
+import { contribute, leaveStory, skipTurn, type ApiFailure } from "../api";
 import { describeFailure } from "../messages";
-import { isMyTurn } from "../storyRules";
+import { navigateHomeAfterLeaving } from "../router";
+import { isMyTurn, turnAfterLeaving } from "../storyRules";
 import { useNow } from "../useNow";
 import { useStoryLive } from "../useStoryLive";
 import { Composer } from "./Composer";
 import { InviteLink } from "./InviteLink";
+import { LeaveDialog } from "./LeaveDialog";
+import { PageLink } from "./PageLink";
 import { StoryText } from "./StoryText";
 import { SuggestButton, SuggestionList, useSuggestions } from "./Suggestions";
 import { TurnBanner } from "./TurnBanner";
@@ -38,6 +41,10 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   const composerField = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  // Null while the leave dialog is closed.
+  const [leaveDialog, setLeaveDialog] = useState<{ leaving: boolean; error: string | null } | null>(
+    null,
+  );
 
   const setNotice = (text: string | null): void => {
     setRaised(text === null ? null : { text, turnVersion: view.turn.version });
@@ -79,7 +86,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
         return;
       }
       // The draft stays: after a 409 or 403 the turn may come back, and the text took effort.
-      if (result.failure.type === "rejected" && REFETCH_CODES.has(result.failure.code)) {
+      if (isStoryOutOfDate(result.failure)) {
         refetch();
       }
       setNotice(describeFailure(result.failure, CONTRIBUTE_MESSAGES));
@@ -99,10 +106,34 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     })();
   };
 
+  const confirmLeave = (): void => {
+    setLeaveDialog({ leaving: true, error: null });
+    void (async () => {
+      const result = await leaveStory(storyId);
+      if (result.ok) {
+        navigateHomeAfterLeaving();
+        return;
+      }
+      if (isStoryOutOfDate(result.failure)) {
+        // The dialog says who gets the turn; the story it was worked out from has moved on.
+        refetch();
+      }
+      setLeaveDialog({ leaving: false, error: describeFailure(result.failure, LEAVE_MESSAGES) });
+    })();
+  };
+
   return (
     <div className="min-h-screen md:grid md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr]">
       <aside className="flex flex-col gap-5 border-b border-base-300 p-5 md:col-start-1 md:row-start-1 md:gap-14 md:border-r md:border-b-0 md:p-8">
-        <Wordmark />
+        <div className="flex flex-col gap-1">
+          <Wordmark />
+          <PageLink
+            to="/"
+            className="inline-flex min-h-11 items-center gap-1 text-sm text-base-content/70 underline-offset-4 hover:underline"
+          >
+            <span aria-hidden="true">←</span> Your stories
+          </PageLink>
+        </div>
         <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
       </aside>
       <main className="p-5 md:col-start-2 md:row-span-2 md:row-start-1 md:px-16 md:py-14">
@@ -143,9 +174,29 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           )}
         </div>
       </main>
-      <div className="p-5 md:col-start-1 md:row-start-2 md:flex md:flex-col md:justify-end md:border-r md:border-base-300 md:p-8">
+      <div className="flex flex-col p-5 md:col-start-1 md:row-start-2 md:justify-end md:border-r md:border-base-300 md:p-8">
         <InviteLink url={`${window.location.origin}/${storyId}`} />
+        <button
+          type="button"
+          className="btn btn-ghost mt-4 -ml-4 min-h-11 self-start text-base-content/70"
+          onClick={() => {
+            setLeaveDialog({ leaving: false, error: null });
+          }}
+        >
+          Leave story
+        </button>
       </div>
+      {leaveDialog !== null && (
+        <LeaveDialog
+          turnAfterLeaving={turnAfterLeaving(view)}
+          leaving={leaveDialog.leaving}
+          error={leaveDialog.error}
+          onCancel={() => {
+            setLeaveDialog(null);
+          }}
+          onConfirm={confirmLeave}
+        />
+      )}
     </div>
   );
 }
@@ -199,12 +250,25 @@ function YourTurn(props: YourTurnProps) {
 // the refetch to a 403, which swaps the page for the join form.
 const REFETCH_CODES = new Set(["stale_turn", "not_your_turn", "not_participant"]);
 
+// `left_story` is the same, with the refetch swapping the page for the rejoin screen.
+function isStoryOutOfDate(failure: ApiFailure): boolean {
+  return (
+    failure.type === "left_story" ||
+    (failure.type === "rejected" && REFETCH_CODES.has(failure.code))
+  );
+}
+
 const CONTRIBUTE_MESSAGES = {
   stale_turn:
     "The story changed while you were writing. Your text is kept. Check whose turn it is, then send again.",
   not_your_turn: "It's no longer your turn. Your text is kept in case the turn comes back to you.",
   not_participant: "You're not part of this story. Join it to write.",
   invalid_passage: "That passage can't be sent. Check that it isn't empty or too long.",
+};
+
+const LEAVE_MESSAGES = {
+  stale_turn: "The story changed just now. Check who has the turn, then try again.",
+  not_participant: "You're not part of this story.",
 };
 
 const SKIP_MESSAGES = {

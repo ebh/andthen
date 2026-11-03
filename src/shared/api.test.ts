@@ -4,10 +4,13 @@ import {
   contributeRequestSchema,
   createStoryRequestSchema,
   createStoryResponseSchema,
+  emptyRequestSchema,
   errorBodySchema,
   errorCodeSchema,
+  plainErrorCodeSchema,
   joinRequestSchema,
   liveMessageSchema,
+  myStoriesResponseSchema,
   skipRequestSchema,
   storyIdSchema,
   storyViewSchema,
@@ -204,8 +207,41 @@ describe("liveMessageSchema", () => {
   });
 });
 
+describe("myStoriesResponseSchema", () => {
+  const waiting = {
+    id: "abc12",
+    opening: "Once.",
+    holderName: null,
+    isMyTurn: false,
+    endsAt: null,
+    writerCount: 1,
+  };
+
+  it("accepts a waiting story and a running one", () => {
+    const running = { ...waiting, holderName: "Ben", isMyTurn: true, endsAt: 5 };
+
+    expect(myStoriesResponseSchema.parse({ stories: [waiting, running] }).stories).toHaveLength(2);
+  });
+
+  it("refuses a story with no writers or a malformed ID", () => {
+    expect(
+      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, writerCount: 0 }] }).success,
+    ).toBe(false);
+    expect(
+      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, id: "ABC12" }] }).success,
+    ).toBe(false);
+  });
+});
+
+describe("emptyRequestSchema", () => {
+  it("accepts an empty object and refuses anything in it", () => {
+    expect(emptyRequestSchema.safeParse({}).success).toBe(true);
+    expect(emptyRequestSchema.safeParse({ turnVersion: 1 }).success).toBe(false);
+  });
+});
+
 describe("errorBodySchema", () => {
-  it.each(errorCodeSchema.options)("accepts %s", (code) => {
+  it.each(plainErrorCodeSchema.options)("accepts %s", (code) => {
     expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
   });
 
@@ -233,6 +269,17 @@ describe("errorBodySchema", () => {
     "ai_rate_limited",
   ])("accepts the route code %s", (code) => {
     expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
+  });
+
+  it("carries the name and the opening with left_story", () => {
+    const body = { error: "left_story", displayName: "Ana", opening: "Once." };
+
+    expect(errorBodySchema.parse(body)).toEqual(body);
+    expect(errorCodeSchema.options).toContain("left_story");
+  });
+
+  it("refuses left_story without them", () => {
+    expect(errorBodySchema.safeParse({ error: "left_story" }).success).toBe(false);
   });
 
   it("rejects an unknown code", () => {

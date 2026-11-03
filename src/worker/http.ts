@@ -3,18 +3,30 @@ import { bodyLimit } from "hono/body-limit";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 
-import type { ErrorBody, ErrorCode } from "../shared/api";
+import type { ErrorBody, ErrorCode, PlainErrorCode } from "../shared/api";
 import { MAX_BODY_BYTES } from "./config";
 
 export type AppContext = Context<{ Bindings: Env }>;
 
 /** Thrown by routes and guards; `handleError` turns it into the status and body for its code. */
 export class ApiError extends Error {
-  readonly code: ErrorCode;
+  readonly code: PlainErrorCode;
 
-  constructor(code: ErrorCode) {
+  constructor(code: PlainErrorCode) {
     super(code);
     this.code = code;
+  }
+}
+
+/** Thrown for a browser that left the story; `left_story` is the one code whose body has more. */
+export class LeftStoryError extends Error {
+  readonly displayName: string;
+  readonly opening: string;
+
+  constructor(displayName: string, opening: string) {
+    super("left_story");
+    this.displayName = displayName;
+    this.opening = opening;
   }
 }
 
@@ -33,6 +45,7 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   name_taken: 409,
   story_full: 409,
   already_joined: 409,
+  left_story: 403,
   no_one_to_skip_to: 409,
   ai_rate_limited: 429,
   ai_unavailable: 503,
@@ -88,6 +101,14 @@ export function handleError(error: Error, c: AppContext): Response {
   if (error instanceof ApiError) {
     return c.json(errorBody(error.code), ERROR_STATUS[error.code]);
   }
+  if (error instanceof LeftStoryError) {
+    const body: ErrorBody = {
+      error: "left_story",
+      displayName: error.displayName,
+      opening: error.opening,
+    };
+    return c.json(body, ERROR_STATUS.left_story);
+  }
 
   console.error(error);
   return c.json(errorBody("internal_error"), ERROR_STATUS.internal_error);
@@ -111,6 +132,6 @@ function isJson(contentType: string | undefined): boolean {
   return Boolean(contentType?.match(JSON_CONTENT_TYPE));
 }
 
-function errorBody(code: ErrorCode): ErrorBody {
+function errorBody(code: PlainErrorCode): ErrorBody {
   return { error: code };
 }

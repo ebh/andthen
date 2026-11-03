@@ -27,6 +27,8 @@ export const participantRowSchema = z.object({
   displayNameKey: z.string(),
   position: countSchema,
   browserTokenHash: z.string(),
+  /** Epoch ms when they left the story; null while they are in it. */
+  leftAt: countSchema.nullable(),
 });
 export type ParticipantRow = z.infer<typeof participantRowSchema>;
 
@@ -40,3 +42,26 @@ export const contributionRowSchema = z.object({
   createdAt: countSchema,
 });
 export type ContributionRow = z.infer<typeof contributionRowSchema>;
+
+/** A story the caller is in, with the position they hold in its rotation. */
+export const myStoryRowSchema = z.intersection(
+  storyRowSchema,
+  z.object({ myPosition: countSchema }),
+);
+export type MyStoryRow = z.infer<typeof myStoryRowSchema>;
+
+/** One writer who has not left a story, for the list of a browser's stories. */
+export const storyWriterRowSchema = z.object({
+  storyId: storyIdSchema,
+  displayName: z.string(),
+  position: countSchema,
+});
+export type StoryWriterRow = z.infer<typeof storyWriterRowSchema>;
+
+/** A story's first passage and when its newest passage was written. */
+export const storyPassageRowSchema = z.object({
+  storyId: storyIdSchema,
+  opening: z.string(),
+  latestAt: countSchema,
+});
+export type StoryPassageRow = z.infer<typeof storyPassageRowSchema>;

@@ -3,10 +3,12 @@ import { Hono } from "hono";
 import {
   contributeRequestSchema,
   createStoryRequestSchema,
+  emptyRequestSchema,
   joinRequestSchema,
   skipRequestSchema,
   type CreateStoryResponse,
   type JoinResponse,
+  type MyStoriesResponse,
   type SuggestionsResponse,
 } from "../../shared/api";
 import { groupParagraphs } from "../../shared/paragraphs";
@@ -14,6 +16,8 @@ import {
   afterContribution,
   newStoryState,
   onJoin,
+  onLeave,
+  onRejoin,
   resolveTurn,
   skip,
 } from "../../shared/turnOrder";
@@ -32,17 +36,28 @@ import {
   addParticipant,
   appendContribution,
   createStory,
+  leaveStory,
+  loadMyStories,
+  loadOpeningText,
   loadStory,
   loadStoryWithContributions,
+  rejoinStory,
   saveTurn,
   type CreateStoryInput,
   type Db,
   type LoadedStory,
 } from "../db/storyRepo";
-import { ApiError, parseJsonBody, requireSameOrigin, type AppContext } from "../http";
+import {
+  ApiError,
+  LeftStoryError,
+  parseJsonBody,
+  requireSameOrigin,
+  type AppContext,
+} from "../http";
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
 import { buildStoryView } from "../storyView";
+import { summariseMyStories } from "../storySummaries";
 import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
 
 export interface StoryDeps {
@@ -89,6 +104,15 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.json(response, 201);
   });
 
+  // Only reads: no cookie is issued, and a browser without one has no stories.
+  routes.get("/api/stories", async (c) => {
+    const hash = await hashBrowserToken(readBrowserToken(c));
+    const rows = await loadMyStories(c.env.DB, hash);
+    const response: MyStoriesResponse = { stories: summariseMyStories(rows, deps.now()) };
+
+    return c.json(response);
+  });
+
   routes.get("/api/stories/:id", async (c) => {
     const storyId = parseStoryId(c.req.param("id"));
     const found = await loadStoryWithContributions(c.env.DB, storyId);
@@ -118,38 +142,94 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     if (loaded.participants.some((p) => p.displayNameKey === key)) {
       throw new ApiError("name_taken");
     }
-    if (loaded.participants.length >= MAX_PARTICIPANTS) {
+    if (loaded.activeParticipants.length >= MAX_PARTICIPANTS) {
       throw new ApiError("story_full");
     }
 
     const now = deps.now();
-    const joined = onJoin(loaded.state, now);
+    const joinedState = onJoin(loaded.state, loaded.nextPosition, now);
     const participant = {
       id: newId(),
       displayName: name.value,
       displayNameKey: key,
-      position: joined.joinerPosition,
+      position: loaded.nextPosition,
       browserTokenHash,
     };
     const saved = await addParticipant(c.env.DB, {
       storyId,
       loadedVersion: loaded.state.turnVersion,
-      next: joined.state,
+      next: joinedState,
       participant,
       joinedAt: now,
     });
     if (!saved) {
-      // The write can't say why it was refused. A join that won the race may have taken the last place.
-      const current = await requireStory(c, storyId);
-      throw new ApiError(
-        current.participants.length >= MAX_PARTICIPANTS ? "story_full" : "stale_turn",
-      );
+      throw await joinRefusal(c, storyId);
     }
 
-    notifyRoom(c, storyId, joined.state.turnVersion);
+    notifyRoom(c, storyId, joinedState.turnVersion);
 
     const response: JoinResponse = { participantId: participant.id };
     return c.json(response, 201);
+  });
+
+  routes.post("/api/stories/:id/leave", async (c) => {
+    const storyId = parseStoryId(c.req.param("id"));
+    await parseJsonBody(c, emptyRequestSchema);
+    const loaded = await requireStory(c, storyId);
+    const me = await requireParticipant(c, loaded);
+
+    const now = deps.now();
+    const next = onLeave(loaded.state, me.position, now);
+    const saved = await leaveStory(c.env.DB, {
+      storyId,
+      loadedVersion: loaded.state.turnVersion,
+      next,
+      participantId: me.id,
+      leftAt: now,
+    });
+    if (!saved) {
+      throw new ApiError("stale_turn");
+    }
+
+    notifyRoom(c, storyId, next.turnVersion);
+
+    return c.body(null, 204);
+  });
+
+  routes.post("/api/stories/:id/rejoin", async (c) => {
+    const storyId = parseStoryId(c.req.param("id"));
+    await parseJsonBody(c, emptyRequestSchema);
+    const loaded = await requireStory(c, storyId);
+    const me = await findParticipant(c, loaded);
+    if (me === undefined) {
+      throw new ApiError("not_participant");
+    }
+    if (me.leftAt === null) {
+      throw new ApiError("already_joined");
+    }
+    if (loaded.activeParticipants.length >= MAX_PARTICIPANTS) {
+      throw new ApiError("story_full");
+    }
+
+    const next = onRejoin(
+      loaded.state,
+      { previousPosition: me.position, position: loaded.nextPosition },
+      deps.now(),
+    );
+    const saved = await rejoinStory(c.env.DB, {
+      storyId,
+      loadedVersion: loaded.state.turnVersion,
+      next,
+      participantId: me.id,
+      position: loaded.nextPosition,
+    });
+    if (!saved) {
+      throw await joinRefusal(c, storyId);
+    }
+
+    notifyRoom(c, storyId, next.turnVersion);
+
+    return c.body(null, 204);
   });
 
   routes.post("/api/stories/:id/contributions", async (c) => {
@@ -336,13 +416,34 @@ async function requireStory(c: AppContext, storyId: string): Promise<LoadedStory
   return loaded;
 }
 
-// The caller is the participant whose token hash matches the cookie's.
+// The write can't say why it was refused. A join that won the race may have taken the last place.
+async function joinRefusal(c: AppContext, storyId: string): Promise<ApiError> {
+  const current = await requireStory(c, storyId);
+
+  return new ApiError(
+    current.activeParticipants.length >= MAX_PARTICIPANTS ? "story_full" : "stale_turn",
+  );
+}
+
+// The caller is the participant in the story, who has not left, whose token hash matches the cookie's.
 async function requireParticipant(c: AppContext, loaded: LoadedStory): Promise<ParticipantRow> {
-  const hash = await hashBrowserToken(readBrowserToken(c));
-  const me = loaded.participants.find((p) => p.browserTokenHash === hash);
+  const me = await findParticipant(c, loaded);
   if (me === undefined) {
     throw new ApiError("not_participant");
   }
+  if (me.leftAt !== null) {
+    throw new LeftStoryError(me.displayName, await loadOpeningText(c.env.DB, loaded.story.id));
+  }
 
   return me;
+}
+
+// The participant row, left or not, whose token hash matches the cookie's.
+async function findParticipant(
+  c: AppContext,
+  loaded: LoadedStory,
+): Promise<ParticipantRow | undefined> {
+  const hash = await hashBrowserToken(readBrowserToken(c));
+
+  return loaded.participants.find((p) => p.browserTokenHash === hash);
 }

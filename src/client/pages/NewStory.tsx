@@ -1,5 +1,5 @@
 import type { SubmitEvent } from "react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import {
   MAX_DISPLAY_NAME_LENGTH,
@@ -9,9 +9,11 @@ import {
 } from "../../shared/validation";
 import { createStory } from "../api";
 import { Composer } from "../components/Composer";
+import { MyStories } from "../components/MyStories";
 import { Wordmark } from "../components/Wordmark";
 import { describeFailure } from "../messages";
-import { navigate } from "../router";
+import { clearJustLeftStory, justLeftStory, navigate } from "../router";
+import { useMyStories } from "../useMyStories";
 
 /** `/`: pick a name, write the opening passage, get a story link. */
 export function NewStory() {
@@ -21,6 +23,15 @@ export function NewStory() {
   const [opening, setOpening] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { load: stories, reload } = useMyStories();
+  const [leftAStory] = useState(justLeftStory);
+  const hasStories = stories.type === "loaded" && stories.stories.length > 0;
+
+  useEffect(() => {
+    if (leftAStory) {
+      clearJustLeftStory();
+    }
+  }, [leftAStory]);
 
   const start = (): void => {
     const checkedName = validateDisplayName(name);
@@ -62,31 +73,27 @@ export function NewStory() {
     <div className="min-h-screen md:grid md:grid-cols-[1.1fr_1fr]">
       <div className="flex flex-col p-5 md:px-16 md:py-12">
         <Wordmark />
-        <div className="mt-10 md:mt-28">
-          <h2 className="font-story text-4xl leading-tight font-semibold tracking-tight md:text-6xl md:leading-[1.04]">
-            Write it together, one turn at a time.
-          </h2>
-          <p className="mt-5 max-w-md font-story text-lg text-base-content/70 md:text-xl">
-            One person starts a story. Everyone else adds a passage when it’s their turn.
+        {leftAStory && (
+          <p role="status" className="mt-8 text-base-content/70">
+            You left the story.
           </p>
-        </div>
-        <ol
-          aria-label="How it works"
-          className="mt-14 hidden border-t border-base-300 text-sm md:block"
-        >
-          {HOW_IT_WORKS.map((step, index) => (
-            <li key={step.name} className="flex gap-5 border-b border-base-300 py-3.5">
-              <span className="w-4 font-semibold text-primary">{index + 1}</span>
-              <span className="text-base-content/70">
-                <strong className="text-base-content">{step.name}</strong> {step.rest}
-              </span>
-            </li>
-          ))}
-        </ol>
+        )}
+        {stories.type === "loaded" &&
+          (stories.stories.length === 0 ? <Pitch /> : <MyStories stories={stories.stories} />)}
+        {stories.type === "failed" && (
+          <div role="alert" className="alert alert-warning alert-vertical sm:alert-horizontal mt-8">
+            Couldn't load your stories.
+            <button type="button" className="btn min-h-11" onClick={reload}>
+              Retry
+            </button>
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-center bg-base-200 p-5 py-10 md:p-16">
         <div className="flex w-full max-w-md flex-col gap-4">
-          <h2 className="font-story text-3xl font-semibold tracking-tight">Start a story</h2>
+          <h2 className="font-story text-3xl font-semibold tracking-tight">
+            {hasStories ? "Start a new story" : "Start a story"}
+          </h2>
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <label htmlFor={nameId} className="text-sm font-semibold">
               Your name
@@ -117,6 +124,34 @@ export function NewStory() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Pitch() {
+  return (
+    <>
+      <div className="mt-10 md:mt-28">
+        <h2 className="font-story text-4xl leading-tight font-semibold tracking-tight md:text-6xl md:leading-[1.04]">
+          Write it together, one turn at a time.
+        </h2>
+        <p className="mt-5 max-w-md font-story text-lg text-base-content/70 md:text-xl">
+          One person starts a story. Everyone else adds a passage when it’s their turn.
+        </p>
+      </div>
+      <ol
+        aria-label="How it works"
+        className="mt-14 hidden border-t border-base-300 text-sm md:block"
+      >
+        {HOW_IT_WORKS.map((step, index) => (
+          <li key={step.name} className="flex gap-5 border-b border-base-300 py-3.5">
+            <span className="w-4 font-semibold text-primary">{index + 1}</span>
+            <span className="text-base-content/70">
+              <strong className="text-base-content">{step.name}</strong> {step.rest}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 

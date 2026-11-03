@@ -1,8 +1,8 @@
-import type { ErrorCode } from "../shared/api";
+import type { PlainErrorCode } from "../shared/api";
 import type { ApiFailure } from "./api";
 
 /** Messages for specific error codes in one place; anything not listed gets a generic one. */
-export type MessagesByCode = { [code in ErrorCode]?: string };
+export type MessagesByCode = { [code in PlainErrorCode]?: string };
 
 /** Plain-language text for a failed call. `byCode` holds the wording for codes this screen expects. */
 export function describeFailure(failure: ApiFailure, byCode: MessagesByCode = {}): string {

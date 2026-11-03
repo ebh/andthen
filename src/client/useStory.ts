@@ -8,6 +8,8 @@ export type StoryLoad =
   | { type: "loaded"; view: StoryView; refreshFailed: boolean }
   // The story exists but this browser hasn't joined it.
   | { type: "not_joined" }
+  // This browser was in the story and left it. The name and opening are for the rejoin screen.
+  | { type: "left"; displayName: string; opening: string }
   | { type: "not_found" }
   | { type: "failed"; failure: ApiFailure };
 
@@ -51,6 +53,9 @@ function nextLoad(previous: StoryLoad, result: ApiResult<StoryView>): StoryLoad 
   }
 
   const { failure } = result;
+  if (failure.type === "left_story") {
+    return { type: "left", displayName: failure.displayName, opening: failure.opening };
+  }
   if (failure.type === "rejected" && failure.code === "not_participant") {
     return { type: "not_joined" };
   }

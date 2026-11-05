@@ -1,4 +1,4 @@
-import "../tamagui.generated.css";
+import "../../tamagui.generated.css";
 import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { SourceSerif4_400Regular } from "@expo-google-fonts/source-serif-4/400Regular";
@@ -8,7 +8,7 @@ import { Slot } from "expo-router";
 import { useColorScheme } from "react-native";
 import { TamaguiProvider } from "tamagui";
 
-import { tamaguiConfig } from "../tamagui.config";
+import { tamaguiConfig } from "../../tamagui.config";
 
 export default function Layout() {
   const scheme = useColorScheme();

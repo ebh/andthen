@@ -8,7 +8,7 @@
     "types": ["node"]
   },
   "include": [
-    "app",
+    "src/app",
     "src/ui",
     "src/shared",
     "src/client",

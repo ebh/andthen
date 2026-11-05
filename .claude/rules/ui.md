@@ -1,6 +1,6 @@
 ---
 paths:
-  - "app/**"
+  - "src/app/**"
   - "src/client/**"
   - "index.html"
 ---

@@ -115,8 +115,8 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
 
   const invite = <InviteLink url={`${window.location.origin}/${storyId}`} />;
   const rail = (
-    <YStack gap="5" items="flex-start">
-      <YStack gap="2" items="flex-start">
+    <YStack gap={media.md ? "14" : "5"} items="flex-start">
+      <YStack gap="1" items="flex-start">
         <Wordmark />
         <Link href="/" asChild>
           <Anchor>← Your stories</Anchor>
@@ -170,22 +170,26 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   if (media.md) {
     return (
       <XStack bg="background" minH="100vh">
-        <YStack w="72" p="8" justify="space-between" borderRightWidth={1} borderColor="base-300">
+        <YStack w="80" p="8" justify="space-between" borderRightWidth={1} borderColor="base-300">
           {rail}
           {invite}
         </YStack>
-        <YStack flex={1} p="8">
-          {main}
+        <YStack flex={1} px="16" py="14">
+          <YStack maxW="story" w="100%">
+            {main}
+          </YStack>
         </YStack>
       </XStack>
     );
   }
 
   return (
-    <YStack bg="background" minH="100vh" p="5" gap="8">
-      {rail}
-      {main}
-      {invite}
+    <YStack bg="background" minH="100vh">
+      <YStack p="5" borderBottomWidth={1} borderColor="base-300">
+        {rail}
+      </YStack>
+      <YStack p="5">{main}</YStack>
+      <YStack p="5">{invite}</YStack>
     </YStack>
   );
 }

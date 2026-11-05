@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ import { jsonResponse } from "../client/testFixtures";
 import { NewStory } from "./NewStory";
 import { push } from "./routerStub";
 import { renderPage } from "./testRender";
+import { setScreen } from "./testScreen";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
 
@@ -149,5 +150,28 @@ describe("NewStory", () => {
       "Something went wrong. Please try again.",
     );
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("lists the three steps on a wide screen", () => {
+    setScreen({ wide: true, hover: true });
+    renderPage(<NewStory />);
+
+    const steps = screen.getByRole("list", { name: "How it works" });
+
+    expect(
+      within(steps)
+        .getAllByRole("listitem")
+        .map((step) => step.textContent),
+    ).toEqual([
+      "1Start with an opening passage",
+      "2Invite friends with a link",
+      "3Take turns, up to 280 characters each",
+    ]);
+  });
+
+  it("drops the steps on a phone, where the form follows the headline", () => {
+    renderPage(<NewStory />);
+
+    expect(screen.queryByRole("list", { name: "How it works" })).not.toBeInTheDocument();
   });
 });

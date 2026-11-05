@@ -3,13 +3,13 @@ import { YStack } from "tamagui";
 
 import { Wordmark } from "./Wordmark";
 
-/** A page with only the wordmark and one block of content: loading, errors and the join form. */
+/** A centred column under the wordmark, for pages with one short thing to say or do. */
 export function SimplePage({ children }: { children: ReactNode }) {
   return (
-    <YStack bg="background" minH="100vh" p="5" gap="8" items="flex-start">
-      <Wordmark />
-      <YStack gap="4" items="flex-start" maxW="96" w="100%">
-        {children}
+    <YStack bg="background" minH="100vh" p="5">
+      <YStack gap="8" maxW="simplePage" w="100%" self="center">
+        <Wordmark />
+        <YStack gap="4">{children}</YStack>
       </YStack>
     </YStack>
   );

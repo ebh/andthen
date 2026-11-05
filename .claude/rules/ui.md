@@ -20,9 +20,26 @@ The app exists to be read. Every visual decision serves the story text first.
 
 ## Layout
 
-- The story page is a rail beside the story. The rail holds the wordmark, a link back to the writer's stories, whose turn it is, the turn order, the invite link and a quiet "Leave story" button. On a phone the rail stacks above the story, with the invite link and the leave button last, below the story.
-- The landing page is a pitch on one side and the form on a tinted panel on the other. A writer who is in stories sees them listed in place of the pitch, with the form retitled "Start a new story". On a phone the three steps are dropped and the form follows the headline.
-- Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint.
+Pages are built from `YStack` and `XStack` and their documented style props. Spacing uses the space tokens; widths use the content-width tokens in the config (`simplePage` 672px, `narrow` 448px, `story` 796px, `passage` 620px). A page needs no other pixel value.
+
+- Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint, and it is the only breakpoint a layout changes at.
+- Page padding is `5` on a phone. Sections of a page are `8` apart; the parts inside a section are `2` to `4` apart.
+- A simple page (loading, error, not found, join form) is one column, centred on the screen, at most `simplePage` wide. The wordmark sits at the top-left of the column, `8` above the content.
+- The join form is a card: `base-200` fill, a `base-300` hairline border, padding `6`.
+- The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `base-200` panel on the right.
+  - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
+  - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
+  - From `md` the three steps sit under the intro as a list with hairline rules. A phone drops them.
+  - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
+- The story page is a rail beside the story from `md`.
+  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link and the quiet "Leave story" button at its bottom.
+  - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
+  - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
+  - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
+- On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the leave button. The composer's buttons are full width and stacked.
+- The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
+- Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
+- The invite field is an `Input` at `size="md"`, so a full invite URL fits in the rail.
 
 ## Components
 

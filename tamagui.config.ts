@@ -158,8 +158,28 @@ const base = createV6Config({
   },
 });
 
+/**
+ * Content widths, as `size` tokens so that `maxW` takes them. The stock scale stops at 384px,
+ * and the named widths it carries (`2xl`) are not typed for `maxW`.
+ */
+const contentWidths = {
+  /** The column of a simple page. */
+  simplePage: 672,
+  /** A narrow column: a form, or a short line of intro text. */
+  narrow: 448,
+  /** One paragraph of story text: about 55 characters a line at the passage font size. */
+  passage: 620,
+  /** The story column: the passages, their authors' margin and the composer. */
+  story: 796,
+};
+
 export const tamaguiConfig = createTamagui({
   ...base,
+  tokens: {
+    ...base.tokens,
+    size: { ...base.tokens.size, ...contentWidths },
+    maxWidth: { ...base.tokens.maxWidth, ...contentWidths },
+  },
   fonts: { body, story },
   settings: { ...base.settings, defaultFont: "body" },
 });

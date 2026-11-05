@@ -1,4 +1,4 @@
-import { Button, Paragraph, YStack } from "tamagui";
+import { Button, Paragraph, YStack, useMedia } from "tamagui";
 
 import { describeTimeLeft } from "../client/format";
 import { canSkipTurn, isMyTurn, turnHolder } from "../client/storyRules";
@@ -13,6 +13,7 @@ interface TurnBannerProps {
 
 /** Whose turn it is, how long is left, the rotation, and a skip button when the server would accept one. */
 export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
+  const media = useMedia();
   const holder = turnHolder(view);
 
   return (
@@ -21,8 +22,8 @@ export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
       <Paragraph
         role="status"
         fontFamily="story"
-        fontSize="xl"
-        lineHeight="xl"
+        fontSize={media.md ? "3xl" : "xl"}
+        lineHeight={media.md ? "3xl" : "xl"}
         fontWeight="600"
         color={isMyTurn(view) ? "primary" : "color"}
       >
@@ -31,11 +32,22 @@ export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
       {view.turn.endsAt !== null && (
         <Paragraph color="muted">{describeTimeLeft(view.turn.endsAt, now)}</Paragraph>
       )}
-      <YStack role="list" aria-label="Turn order">
+      <YStack
+        role="list"
+        aria-label="Turn order"
+        flexDirection={media.md ? "column" : "row"}
+        flexWrap="wrap"
+        gap={media.md ? "1" : "2"}
+        mt={media.md ? "4" : undefined}
+      >
         {view.participants.map((participant) => (
           <Paragraph
             key={participant.id}
             role="listitem"
+            px="2.5"
+            py="1"
+            rounded="lg"
+            bg={participant.id === view.turn.holderId ? "highlight" : "background"}
             fontWeight={participant.id === view.turn.holderId ? "600" : "400"}
             color={participant.id === view.turn.holderId ? "color" : "muted"}
           >

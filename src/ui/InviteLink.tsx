@@ -25,7 +25,7 @@ export function InviteLink({ url }: InviteLinkProps) {
   return (
     <YStack gap="2" w="100%">
       <Label htmlFor={fieldId}>Invite link</Label>
-      <Input id={fieldId} size="xl" readOnly selectTextOnFocus value={url} />
+      <Input id={fieldId} size="md" readOnly selectTextOnFocus value={url} />
       <Button
         size="xl"
         onPress={() => {

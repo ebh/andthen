@@ -49,7 +49,16 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
   };
 
   return (
-    <Form onSubmit={join} gap="4" w="100%">
+    <Form
+      onSubmit={join}
+      gap="3"
+      w="100%"
+      p="6"
+      bg="base-200"
+      rounded="lg"
+      borderWidth={1}
+      borderColor="base-300"
+    >
       <H2 fontFamily="story" fontSize="2xl" lineHeight="2xl" fontWeight="600">
         Join this story
       </H2>

@@ -1,7 +1,17 @@
 import type { ReactNode, Ref } from "react";
 import { useId } from "react";
 import type { TextInputInstance } from "react-native";
-import { Button, Checkbox, Form, Label, Paragraph, TextArea, XStack, YStack } from "tamagui";
+import {
+  Button,
+  Checkbox,
+  Form,
+  Label,
+  Paragraph,
+  TextArea,
+  XStack,
+  YStack,
+  useMedia,
+} from "tamagui";
 
 import { MAX_PASSAGE_LENGTH, passageLength, validatePassage } from "../shared/validation";
 
@@ -31,6 +41,7 @@ export function Composer({
   newParagraph,
   extraAction,
 }: ComposerProps) {
+  const media = useMedia();
   const fieldId = useId();
   const counterId = useId();
   const newParagraphId = useId();
@@ -74,18 +85,24 @@ export function Composer({
         </Checkbox>
         <Label htmlFor={newParagraphId}>New paragraph</Label>
       </XStack>
-      <Paragraph id={counterId} color={tooLong ? "error" : "muted"}>
-        {length} / {MAX_PASSAGE_LENGTH}
-        {tooLong ? " (too long)" : ""}
-      </Paragraph>
-      <YStack gap="2">
-        <Form.Trigger asChild>
-          <Button size="xl" disabled={!canSubmit}>
-            {submitting ? "Sending…" : submitLabel}
-          </Button>
-        </Form.Trigger>
-        {extraAction}
-      </YStack>
+      <XStack flexWrap="wrap" items="center" justify="space-between" gap="2">
+        <Paragraph id={counterId} color={tooLong ? "error" : "muted"}>
+          {length} / {MAX_PASSAGE_LENGTH}
+          {tooLong ? " (too long)" : ""}
+        </Paragraph>
+        <YStack
+          gap="2"
+          w={media.md ? undefined : "100%"}
+          flexDirection={media.md ? "row" : "column"}
+        >
+          {extraAction}
+          <Form.Trigger asChild>
+            <Button size="xl" disabled={!canSubmit}>
+              {submitting ? "Sending…" : submitLabel}
+            </Button>
+          </Form.Trigger>
+        </YStack>
+      </XStack>
     </Form>
   );
 }

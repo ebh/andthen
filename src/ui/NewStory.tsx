@@ -7,6 +7,7 @@ import {
   Input,
   Label,
   Paragraph,
+  Text,
   TextArea,
   useMedia,
   XStack,
@@ -71,19 +72,40 @@ export function NewStory() {
 
   return (
     <XStack bg="background" minH="100vh" flexDirection={media.md ? "row" : "column"}>
-      <YStack flex={1} p="5" gap="8" items="flex-start">
+      <YStack flex={1.1} px={media.md ? "16" : "5"} py={media.md ? "12" : "5"}>
         <Wordmark />
-        <YStack gap="4">
-          <H2 fontFamily="story" fontSize="4xl" lineHeight="4xl" fontWeight="600">
-            Write it together, one turn at a time.
-          </H2>
-          <Paragraph fontFamily="story" fontSize="lg" lineHeight="lg" opacity={0.7}>
-            One person starts a story. Everyone else adds a passage when it&apos;s their turn.
-          </Paragraph>
+        <YStack mt={media.md ? "28" : "10"}>
+          <YStack gap="5" items="flex-start">
+            <H2
+              fontFamily="story"
+              fontSize={media.md ? "6xl" : "4xl"}
+              lineHeight={media.md ? "6xl" : "4xl"}
+              fontWeight="600"
+            >
+              Write it together, one turn at a time.
+            </H2>
+            <Paragraph
+              fontFamily="story"
+              fontSize={media.md ? "xl" : "lg"}
+              lineHeight={media.md ? "xl" : "lg"}
+              opacity={0.7}
+              maxW="narrow"
+            >
+              One person starts a story. Everyone else adds a passage when it&apos;s their turn.
+            </Paragraph>
+          </YStack>
+          {media.md && <HowItWorks />}
         </YStack>
       </YStack>
-      <YStack flex={1} bg="base-200" p="5" py="10" justify="center">
-        <Form onSubmit={start} gap="4" maxW="96" w="100%">
+      <YStack
+        flex={1}
+        bg="base-200"
+        px={media.md ? "16" : "5"}
+        py={media.md ? "16" : "10"}
+        items="center"
+        justify="center"
+      >
+        <Form onSubmit={start} gap="4" maxW="narrow" w="100%">
           <H2 fontFamily="story" fontSize="3xl" lineHeight="3xl" fontWeight="600">
             Start a story
           </H2>
@@ -100,16 +122,18 @@ export function NewStory() {
           <YStack gap="2">
             <Label htmlFor={openingId}>Opening passage</Label>
             <TextArea id={openingId} size="xl" value={opening} onChangeText={setOpening} />
+          </YStack>
+          <XStack flexWrap="wrap" items="center" justify="space-between" gap="2">
             <Paragraph color={tooLong ? "error" : "muted"}>
               {length} / {MAX_PASSAGE_LENGTH}
               {tooLong ? " (too long)" : ""}
             </Paragraph>
-          </YStack>
-          <Form.Trigger asChild>
-            <Button size="xl" disabled={!canSubmit}>
-              {submitting ? "Sending…" : "Start the story"}
-            </Button>
-          </Form.Trigger>
+            <Form.Trigger asChild>
+              <Button size="xl" disabled={!canSubmit} w={media.md ? undefined : "100%"}>
+                {submitting ? "Sending…" : "Start the story"}
+              </Button>
+            </Form.Trigger>
+          </XStack>
           <Paragraph role="alert" minH="6" color="error">
             {error}
           </Paragraph>
@@ -118,3 +142,36 @@ export function NewStory() {
     </XStack>
   );
 }
+
+function HowItWorks() {
+  return (
+    <YStack role="list" aria-label="How it works" mt="14" borderTopWidth={1} borderColor="base-300">
+      {HOW_IT_WORKS.map((step, index) => (
+        <XStack
+          key={step.name}
+          role="listitem"
+          gap="5"
+          py="3.5"
+          borderBottomWidth={1}
+          borderColor="base-300"
+        >
+          <Paragraph w="4" color="primary" fontWeight="600">
+            {index + 1}
+          </Paragraph>
+          <Paragraph flex={1} color="muted">
+            <Text fontWeight="600" color="color">
+              {step.name}
+            </Text>{" "}
+            {step.rest}
+          </Paragraph>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+const HOW_IT_WORKS = [
+  { name: "Start", rest: "with an opening passage" },
+  { name: "Invite", rest: "friends with a link" },
+  { name: "Take turns,", rest: `up to ${MAX_PASSAGE_LENGTH.toString()} characters each` },
+];

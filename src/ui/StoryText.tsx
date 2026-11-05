@@ -100,6 +100,7 @@ function ParagraphView({
     >
       <StoryParagraph
         flex={md ? 3 : undefined}
+        maxW={md ? "passage" : undefined}
         fontFamily="story"
         fontSize={md ? "2xl" : "xl"}
         lineHeight={md ? "2xl" : "xl"}
@@ -118,6 +119,10 @@ function ParagraphView({
         <YStack
           role="list"
           flex={md ? 1 : undefined}
+          maxW={md ? "36" : undefined}
+          flexDirection={md ? "column" : "row"}
+          flexWrap="wrap"
+          columnGap="4"
           borderTopWidth={md ? 1 : 0}
           borderColor="base-300"
         >
@@ -175,6 +180,7 @@ function AuthorButton({
   return (
     <Button
       size="xl"
+      px="0"
       variant="quiet"
       theme="transparent"
       aria-pressed={pinned}

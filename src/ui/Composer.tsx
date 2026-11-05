@@ -80,6 +80,7 @@ export function Composer({
           }}
         >
           <Checkbox.Indicator>
+            {/* A typed tick until the documented icon package supports this Tamagui version: #24 */}
             <Paragraph aria-hidden>✓</Paragraph>
           </Checkbox.Indicator>
         </Checkbox>

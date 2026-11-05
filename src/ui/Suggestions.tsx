@@ -49,7 +49,13 @@ export function useSuggestions(storyId: string, onTurnLost: () => void): Suggest
 
 export function SuggestButton({ control }: { control: SuggestionsControl }) {
   return (
-    <Button size="xl" disabled={control.state.type === "loading"} onPress={control.ask}>
+    <Button
+      size="xl"
+      variant="outlined"
+      theme="transparent"
+      disabled={control.state.type === "loading"}
+      onPress={control.ask}
+    >
       {control.state.type === "loading" ? "Thinking…" : "Suggest continuations"}
     </Button>
   );

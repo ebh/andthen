@@ -94,7 +94,8 @@ const inkButton: typeof paper = {
 
 /**
  * For a `quiet` or `outlined` Button, which has no fill: its text sits on the page, so it reads
- * `muted`, not the `primary-content` the solid fill needs. A Button opts in with `theme="transparent"`,
+ * `muted`, not the `primary-content` the solid fill needs. The `outlined` border is `muted` too:
+ * the stock `base-300` hairline is under 3:1 against the page. A Button opts in with `theme="transparent"`,
  * which the Button wraps above its own `level2`, so these resolve as `<palette>_transparent_level2`.
  */
 const paperTransparentButton: typeof paper = {
@@ -103,6 +104,9 @@ const paperTransparentButton: typeof paper = {
   "color-hover": paper.muted,
   "color-press": paper.muted,
   "color-focus": paper.muted,
+  "border-color": paper.muted,
+  "border-color-hover": paper.muted,
+  "border-color-press": paper.muted,
 };
 
 const inkTransparentButton: typeof paper = {
@@ -111,6 +115,9 @@ const inkTransparentButton: typeof paper = {
   "color-hover": ink.muted,
   "color-press": ink.muted,
   "color-focus": ink.muted,
+  "border-color": ink.muted,
+  "border-color-hover": ink.muted,
+  "border-color-press": ink.muted,
 };
 
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };

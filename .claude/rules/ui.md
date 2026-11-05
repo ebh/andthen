@@ -36,6 +36,7 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
   - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
   - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
+  - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button` with `theme="transparent"`.
 - On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the leave button. The composer's buttons are full width and stacked.
 - The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
 - Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.

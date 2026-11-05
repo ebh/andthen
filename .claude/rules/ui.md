@@ -56,7 +56,7 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
   - a prop that the [React Native docs](https://reactnative.dev/docs) or [react-native-web docs](https://necolas.github.io/react-native-web/docs/) list for the component underneath, whether or not the Tamagui page links to them. Two examples:
     - `autoComplete` on `Input` and `TextArea`, which wrap React Native's `TextInput`.
     - `aria-pressed` on `Button`, from react-native-web's [accessibility props](https://necolas.github.io/react-native-web/docs/accessibility/), which every View accepts.
-  - a component's parts composed in the documented structure, such as the leave dialog: the `AlertDialog` skin that `tamagui` exports, as its docs show it (`Trigger`, `Portal`, `Overlay`, `Content`, `Title`, `Description`, `Cancel`). `Overlay` takes only `theme="scrim"`, the `paper_scrim` and `ink_scrim` themes in the config, whose `background` is the translucent colour that dims the page behind the dialog. `Content` takes only layout props (`gap`, `maxW`, and `mx="5"`, the phone page gutter, so it never runs flush to the screen edges).
+  - a component's parts composed in the documented structure, such as the leave dialog: the `AlertDialog` skin that `tamagui` exports, as its docs show it (`Trigger`, `Portal`, `Overlay`, `Content`, `Title`, `Description`, `Cancel`). `Overlay` takes only `theme="scrim"`, the `light_scrim` and `dark_scrim` themes in the config, whose `background` is the translucent colour that dims the page behind the dialog. `Content` takes only layout props (`gap`, `maxW`, and `mx="5"`, the phone page gutter, so it never runs flush to the screen edges).
 - Not allowed:
   - a prop that none of those docs (Tamagui, React Native, react-native-web) list for that component, such as an `aria-label` or `role` override that changes what a component exposes
   - a handler that works around a bug in a stock component, such as restoring focus that a `Dialog` drops when it closes. Our own behaviour built with documented methods, such as `focus()` on a `TextInput`, is allowed.
@@ -81,7 +81,7 @@ A plain `Button` has no fill: `muted` text and a `muted` border, from the config
 
 ## Colour
 
-- Colours come from two Tamagui themes in the config: `paper` (light, default) and `ink` (dark, follows the OS setting). Components use the theme's semantic tokens, never a raw colour. The tinted panel and the rules and borders each have their own token.
+- Colours come from two Tamagui themes in the config: `light` (default) and `dark` (follows the OS setting). Components use the theme's semantic tokens, never a raw colour. The tinted panel and the rules and borders each have their own token.
 - A new colour is defined in both themes.
 - Muted text is the base text colour at 70% opacity, the faintest value that keeps 4.5:1 on the base, tinted-panel and border surfaces in both themes.
 - Every text and background pair reaches WCAG AA (4.5:1), shown by computing the ratio in both themes.
@@ -127,7 +127,7 @@ Inside Tamagui's `Dialog` and `AlertDialog`, tests find a close button, such as 
 
 A UI change is done when:
 
-- you have looked at every changed page in `paper` and `ink` (set `prefers-color-scheme`), at 375px and at desktop width
+- you have looked at every changed page in `light` and `dark` (set `prefers-color-scheme`), at 375px and at desktop width
 - every component use fits the "Components" section
 - every control that changes the route is a link, and every other control is a button
 - the checks in `CLAUDE.md` pass, and so does `pnpm e2e`

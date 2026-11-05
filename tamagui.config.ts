@@ -1,8 +1,8 @@
 import { createV6Config, withTailwindTypeScale } from "@tamagui/config/v6";
 import { createFont, createTamagui } from "tamagui";
 
-/** paper (light) and ink (dark), the project's two palettes, as Tamagui themes. */
-const paper = {
+/** The project's two palettes, as Tamagui themes. */
+const light = {
   background: "#f6f1e7",
   "background-hover": "#f6f1e7",
   "background-press": "#ebe3d0",
@@ -32,7 +32,7 @@ const paper = {
   highlight: "rgba(31, 92, 77, 0.2)",
 };
 
-const ink: typeof paper = {
+const dark: typeof light = {
   background: "#171a18",
   "background-hover": "#171a18",
   "background-press": "#1f2421",
@@ -68,32 +68,32 @@ const ink: typeof paper = {
  * the page), with a `base-300` fill on hover and press. A `variant="outlined"` or `variant="quiet"`
  * Button, which has no fill of its own, still takes the hover fill.
  */
-const paperButton: typeof paper = {
-  ...paper,
-  "background-hover": paper["base-300"],
-  "background-press": paper["base-300"],
-  color: paper.muted,
-  "color-hover": paper.muted,
-  "color-press": paper.muted,
-  "color-focus": paper.muted,
-  "border-color": paper.muted,
-  "border-color-hover": paper.muted,
-  "border-color-press": paper.muted,
-  "outline-color": paper["base-content"],
+const lightButton: typeof light = {
+  ...light,
+  "background-hover": light["base-300"],
+  "background-press": light["base-300"],
+  color: light.muted,
+  "color-hover": light.muted,
+  "color-press": light.muted,
+  "color-focus": light.muted,
+  "border-color": light.muted,
+  "border-color-hover": light.muted,
+  "border-color-press": light.muted,
+  "outline-color": light["base-content"],
 };
 
-const inkButton: typeof paper = {
-  ...ink,
-  "background-hover": ink["base-300"],
-  "background-press": ink["base-300"],
-  color: ink.muted,
-  "color-hover": ink.muted,
-  "color-press": ink.muted,
-  "color-focus": ink.muted,
-  "border-color": ink.muted,
-  "border-color-hover": ink.muted,
-  "border-color-press": ink.muted,
-  "outline-color": ink["base-content"],
+const darkButton: typeof light = {
+  ...dark,
+  "background-hover": dark["base-300"],
+  "background-press": dark["base-300"],
+  color: dark.muted,
+  "color-hover": dark.muted,
+  "color-press": dark.muted,
+  "color-focus": dark.muted,
+  "border-color": dark.muted,
+  "border-color-hover": dark.muted,
+  "border-color-press": dark.muted,
+  "outline-color": dark["base-content"],
 };
 
 /**
@@ -101,62 +101,62 @@ const inkButton: typeof paper = {
  * wraps above its own `level2`, so the fill resolves as `<palette>_<theme>_level2`. The fill uses the
  * palette's `primary` or `error` colour with its content colour as text.
  */
-const paperPrimaryButton: typeof paper = {
-  ...paper,
-  background: paper.primary,
+const lightPrimaryButton: typeof light = {
+  ...light,
+  background: light.primary,
   "background-hover": "#184a3e",
   "background-press": "#143d33",
-  "background-focus": paper.primary,
-  color: paper["primary-content"],
-  "color-hover": paper["primary-content"],
-  "color-press": paper["primary-content"],
-  "color-focus": paper["primary-content"],
-  "outline-color": paper["base-content"],
+  "background-focus": light.primary,
+  color: light["primary-content"],
+  "color-hover": light["primary-content"],
+  "color-press": light["primary-content"],
+  "color-focus": light["primary-content"],
+  "outline-color": light["base-content"],
 };
 
-const inkPrimaryButton: typeof paper = {
-  ...ink,
-  background: ink.primary,
+const darkPrimaryButton: typeof light = {
+  ...dark,
+  background: dark.primary,
   "background-hover": "#93d0b8",
   "background-press": "#6aaf93",
-  "background-focus": ink.primary,
-  color: ink["primary-content"],
-  "color-hover": ink["primary-content"],
-  "color-press": ink["primary-content"],
-  "color-focus": ink["primary-content"],
-  "outline-color": ink["base-content"],
+  "background-focus": dark.primary,
+  color: dark["primary-content"],
+  "color-hover": dark["primary-content"],
+  "color-press": dark["primary-content"],
+  "color-focus": dark["primary-content"],
+  "outline-color": dark["base-content"],
 };
 
-const paperDestructiveButton: typeof paper = {
-  ...paperPrimaryButton,
-  background: paper.error,
+const lightDestructiveButton: typeof light = {
+  ...lightPrimaryButton,
+  background: light.error,
   "background-hover": "#861d21",
   "background-press": "#70181b",
-  "background-focus": paper.error,
-  color: paper["error-content"],
-  "color-hover": paper["error-content"],
-  "color-press": paper["error-content"],
-  "color-focus": paper["error-content"],
+  "background-focus": light.error,
+  color: light["error-content"],
+  "color-hover": light["error-content"],
+  "color-press": light["error-content"],
+  "color-focus": light["error-content"],
 };
 
-const inkDestructiveButton: typeof paper = {
-  ...inkPrimaryButton,
-  background: ink.error,
+const darkDestructiveButton: typeof light = {
+  ...darkPrimaryButton,
+  background: dark.error,
   "background-hover": "#f39d9d",
   "background-press": "#e07676",
-  "background-focus": ink.error,
-  color: ink["error-content"],
-  "color-hover": ink["error-content"],
-  "color-press": ink["error-content"],
-  "color-focus": ink["error-content"],
+  "background-focus": dark.error,
+  color: dark["error-content"],
+  "color-hover": dark["error-content"],
+  "color-press": dark["error-content"],
+  "color-focus": dark["error-content"],
 };
 
 /**
  * The dim layer behind a dialog. The stock `Overlay` paints the theme's `background`, so a dialog
  * renders it with `theme="scrim"`, which resolves as `<palette>_scrim`.
  */
-const paperScrim: typeof paper = { ...paper, background: "rgba(30, 27, 22, 0.5)" };
-const inkScrim: typeof paper = { ...ink, background: "rgba(0, 0, 0, 0.6)" };
+const lightScrim: typeof light = { ...light, background: "rgba(30, 27, 22, 0.5)" };
+const darkScrim: typeof light = { ...dark, background: "rgba(0, 0, 0, 0.6)" };
 
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };
 const lineHeights = { 1: 18, 2: 20, 3: 24, 4: 32, 5: 40, 6: 44 };
@@ -192,20 +192,20 @@ const body = createFont(
 
 const base = createV6Config({
   themes: {
-    paper,
-    ink,
-    paper_level2: paperButton,
-    ink_level2: inkButton,
-    paper_primary: paper,
-    ink_primary: ink,
-    paper_primary_level2: paperPrimaryButton,
-    ink_primary_level2: inkPrimaryButton,
-    paper_destructive: paper,
-    ink_destructive: ink,
-    paper_destructive_level2: paperDestructiveButton,
-    ink_destructive_level2: inkDestructiveButton,
-    paper_scrim: paperScrim,
-    ink_scrim: inkScrim,
+    light,
+    dark,
+    light_level2: lightButton,
+    dark_level2: darkButton,
+    light_primary: light,
+    dark_primary: dark,
+    light_primary_level2: lightPrimaryButton,
+    dark_primary_level2: darkPrimaryButton,
+    light_destructive: light,
+    dark_destructive: dark,
+    light_destructive_level2: lightDestructiveButton,
+    dark_destructive_level2: darkDestructiveButton,
+    light_scrim: lightScrim,
+    dark_scrim: darkScrim,
   },
 });
 

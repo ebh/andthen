@@ -22,7 +22,7 @@ export default function Layout() {
   });
 
   return (
-    <TamaguiProvider config={tamaguiConfig} defaultTheme={scheme === "dark" ? "ink" : "paper"}>
+    <TamaguiProvider config={tamaguiConfig} defaultTheme={scheme === "dark" ? "dark" : "light"}>
       {/* Expo's web root fixes the body to the viewport, so the app scrolls inside this ScrollView
           (https://docs.expo.dev/router/reference/static-rendering/#root-html). flexGrow lets a short
           page fill the height; a page root must use `grow={1}`, because `flex={1}` has a zero basis

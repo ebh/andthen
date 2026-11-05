@@ -39,8 +39,8 @@ export function LeaveDialog({
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
-        <AlertDialog.Overlay bg="scrim" />
-        <AlertDialog.Content gap="3" maxW="narrow">
+        <AlertDialog.Overlay theme="scrim" />
+        <AlertDialog.Content gap="3" maxW="narrow" mx="5">
           <AlertDialog.Title fontFamily="story" fontSize="2xl" lineHeight="2xl" fontWeight="600">
             Leave this story?
           </AlertDialog.Title>

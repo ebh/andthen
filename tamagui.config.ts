@@ -18,7 +18,6 @@ const paper = {
   "placeholder-color": "rgba(30, 27, 22, 0.7)",
   "outline-color": "#1f5c4d",
   "shadow-color": "rgba(0, 0, 0, 0.1)",
-  scrim: "rgba(30, 27, 22, 0.5)",
   "base-100": "#f6f1e7",
   "base-200": "#ebe3d0",
   "base-300": "#d9cfba",
@@ -49,7 +48,6 @@ const ink: typeof paper = {
   "placeholder-color": "rgba(236, 230, 214, 0.7)",
   "outline-color": "#7fc4a8",
   "shadow-color": "rgba(0, 0, 0, 0.4)",
-  scrim: "rgba(0, 0, 0, 0.6)",
   "base-100": "#171a18",
   "base-200": "#1f2421",
   "base-300": "#2c332f",
@@ -122,6 +120,13 @@ const inkTransparentButton: typeof paper = {
   "border-color-press": ink.muted,
 };
 
+/**
+ * The dim layer behind a dialog. The stock `Overlay` paints the theme's `background`, so a dialog
+ * renders it with `theme="scrim"`, which resolves as `<palette>_scrim`.
+ */
+const paperScrim: typeof paper = { ...paper, background: "rgba(30, 27, 22, 0.5)" };
+const inkScrim: typeof paper = { ...ink, background: "rgba(0, 0, 0, 0.6)" };
+
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };
 const lineHeights = { 1: 18, 2: 20, 3: 24, 4: 32, 5: 40, 6: 44 };
 
@@ -164,6 +169,8 @@ const base = createV6Config({
     ink_transparent: ink,
     paper_transparent_level2: paperTransparentButton,
     ink_transparent_level2: inkTransparentButton,
+    paper_scrim: paperScrim,
+    ink_scrim: inkScrim,
   },
 });
 

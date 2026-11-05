@@ -113,7 +113,7 @@ Tests find elements by role, accessible name, label and visible text. The role i
 - the "Couldn't load your stories." alert with its "Retry" button, and the "You left the story." status, on the landing page
 - the "Your stories" link in the story rail
 - the "Leave story" button, and the leave dialog: role `alertdialog`, named "Leave this story?", with an `alert` for failures and two buttons. "Cancel" is an `AlertDialog.Cancel` and "Leave story" is a plain `Button`, not `AlertDialog.Action`, because `Action` closes the dialog and a failed leave keeps it open. The "Leave story" button reads "Leaving…" and is disabled while the request is in flight.
-- the update notice in `UpdateReady`: an always-present `status` region under the page, which holds the text "A new version is ready." and a plain "Update" button once a new build is waiting. It is absent on the update screen.
+- the update notice in `UpdateReady`: an always-present `status` region under the page, which holds the text "A new version is ready." and an outlined "Update" button once a new build is waiting. It is absent on the update screen.
 - the "You left this story" screen: its opening quote, a "Rejoin as …" button that reads "Rejoining…" while it sends, an alert for failures, and a "← Your stories" link
 
 Links and buttons:

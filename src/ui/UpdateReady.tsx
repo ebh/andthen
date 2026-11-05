@@ -30,6 +30,7 @@ export function UpdateReady() {
         >
           <Paragraph color="muted">A new version is ready.</Paragraph>
           <Button
+            variant="outlined"
             size="xl"
             onPress={() => {
               void applyUpdate();

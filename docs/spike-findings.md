@@ -33,7 +33,7 @@ pnpm 12 blocks dependency build scripts. `pnpm-workspace.yaml` `allowBuilds` all
   - Keep route and repo code in modules that never import `cloudflare:*`, so they stay mutable. That is why the Hono app lives in `src/worker/app.ts` and `index.ts` only re-exports.
 - Miniflare 5 (a beta, pulled in by wrangler 4.15x) changed the `new Miniflare()` options shape. Use `getPlatformProxy` rather than Miniflare directly.
 - Stryker needs `"plugins": ["@stryker-mutator/vitest-runner"]` under pnpm, or it finds no test runner.
-- CI runs Stryker in its own `mutation` job: `--incremental` on pull requests, `--incremental --force` (every mutant) on pushes to `main`. Local `pnpm stryker` stays a full run.
+- CI runs Stryker in its own `mutation` job: `--incremental` on pull requests and on pushes to `main`. A push to `main` adds `--force` (every mutant) only when no cache matched the current config, Vitest and lockfile hash. Local `pnpm stryker` stays a full run.
   - Stryker reuses a cached result when the mutated code and the test that killed it are unchanged. It diffs only mutated and test files.
   - So a changed helper under an unchanged test keeps its old result until the next `main` run. The cache key hashes `stryker.config.json`, the Vitest config and the lockfile, so changes there start from no cache.
 

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { takeLeftStoryNote } from "../client/leftStoryNote";
 import {
   ME,
   OTHER,
@@ -11,6 +12,7 @@ import {
   noContentResponse,
   storyView,
 } from "../client/testFixtures";
+import { replace } from "./routerStub";
 import { StoryBoard } from "./StoryBoard";
 import { inTheme, renderPage } from "./testRender";
 
@@ -339,6 +341,112 @@ describe("skip", () => {
   });
 });
 
+describe("leaving the story", () => {
+  beforeEach(() => {
+    replace.mockClear();
+    takeLeftStoryNote();
+  });
+
+  it("asks first, and says who gets the turn when the writer holds it", async () => {
+    renderBoard(myTurn);
+
+    const { dialog } = await openDialog();
+
+    expect(dialog).toHaveTextContent("passes to Kim");
+  });
+
+  it("does not talk about the turn when someone else holds it", async () => {
+    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
+
+    const { dialog } = await openDialog();
+
+    expect(dialog).not.toHaveTextContent("your turn now");
+  });
+
+  it("closes without leaving on Cancel", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByText("Cancel"));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves, then goes home with a note", async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
+    vi.stubGlobal("fetch", fetchMock);
+    renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith("/");
+    });
+    expect(takeLeftStoryNote()).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/stories/abc12/leave",
+      expect.objectContaining({ method: "POST", body: "{}" }),
+    );
+  });
+
+  it("stays open with a message, and reloads the story, when the story moved on", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(409, { error: "stale_turn" }))),
+    );
+    const refetch = renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The story changed just now.",
+    );
+    expect(refetch).toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: "Leave story" })).toBeEnabled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("stays open with a generic message when the request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.reject(new TypeError("offline"))),
+    );
+    const refetch = renderBoard();
+    const { user, dialog } = await openDialog();
+
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Can't reach the server.");
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it("forgets an earlier failure when the dialog is opened again", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(409, { error: "stale_turn" }))),
+    );
+    renderBoard();
+    const { user, dialog } = await openDialog();
+    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
+    await within(dialog).findByText(/The story changed just now/);
+    await user.click(within(dialog).getByText("Cancel"));
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    const reopened = await openDialog();
+
+    expect(reopened.dialog).not.toHaveTextContent("The story changed just now");
+  });
+});
+
 describe("waiting for a joiner", () => {
   it("shows a message and the invite link", () => {
     renderBoard(storyView({ participants: [ME], holderId: null, lastWriterId: ME }));
@@ -371,3 +479,12 @@ describe("a writer who left in another tab", () => {
     expect(screen.getByLabelText("Your passage")).toHaveValue("And then.");
   });
 });
+
+// Tamagui's `DialogClose` names every close button "Dialog Close", so the dialog's Cancel is found
+// by its visible text. The plain "Leave story" button inside the dialog keeps its own name.
+async function openDialog() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Leave story" }));
+
+  return { user, dialog: await screen.findByRole("alertdialog", { name: "Leave this story?" }) };
+}

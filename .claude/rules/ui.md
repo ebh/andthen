@@ -14,8 +14,8 @@ The app exists to be read. Every visual decision serves the story text first.
 - On a story page the story text is the largest, highest-contrast thing. Status, buttons and the invite link stay quieter than the prose.
 - Authors exist for accountability: tracing who wrote something offensive, and crediting a good contribution. They are never part of the reading, so they stay findable and quiet.
   - On wide screens (`md` and up) each paragraph's authors sit in a margin beside it, under a hairline rule, one name per author. Hovering a name, or focusing it by keyboard, highlights that author's turns in the paragraph.
-  - On narrow screens there is no room for a margin, so authors are hidden behind a "Show authors" toggle, off by default. Show less where there is less space. With the toggle on, tapping a name highlights that author's turns until the next tap.
-  - Laptops and phones may differ. Hover can add to the wide-screen view; the phone view gets its own touch equivalent, such as tap.
+  - On narrow screens there is no room for a margin, so authors are hidden behind a "Show authors" control, a stock `Switch` that is off by default. Show less where there is less space. With it on, tapping a name highlights that author's turns until the next tap.
+  - Laptops and phones differ. Hover is for the wide-screen view; the phone view's equivalent is tap.
 - Paragraphs sit bare on the page, separated by space alone, so they read as one continuous text. A turn continues the previous paragraph unless its author ticked "New paragraph".
 
 ## Layout
@@ -36,19 +36,19 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
 - The story page is a rail beside the story from `md`.
-  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link and the quiet "Leave story" button at its bottom.
+  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is an `outlined` `Button` with `theme="transparent"`, the same secondary style as "Suggest continuations", and it is the trigger of the leave dialog.
   - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
   - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
   - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
   - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button` with `theme="transparent"`.
-- On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the leave button. The composer's buttons are full width and stacked.
+- On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
 - The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
 - Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
 - The invite field is an `Input` at `size="md"`, so a full invite URL fits in the rail.
 
 ## Components
 
-The kit is Tamagui. Its components are used as they come, doing what its docs say they can do and nothing more. Only the theme is ours. We are informed by the old design, not bound to it: where a stock component looks or behaves differently, the stock component wins.
+The kit is Tamagui. Its components are used as they come, doing what its docs say they can do and nothing more. Only the theme is ours. Where a stock component looks or behaves differently from what we would draw, the stock component wins.
 
 - Allowed, because the docs describe it:
   - theme tokens and the Tamagui config
@@ -56,7 +56,7 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
   - a prop that the [React Native docs](https://reactnative.dev/docs) or [react-native-web docs](https://necolas.github.io/react-native-web/docs/) list for the component underneath, whether or not the Tamagui page links to them. Two examples:
     - `autoComplete` on `Input` and `TextArea`, which wrap React Native's `TextInput`.
     - `aria-pressed` on `Button`, from react-native-web's [accessibility props](https://necolas.github.io/react-native-web/docs/accessibility/), which every View accepts.
-  - a component's parts composed in the documented structure, such as the Dialog "skin" from the docs
+  - a component's parts composed in the documented structure, such as the leave dialog: the `AlertDialog` skin that `tamagui` exports, as its docs show it (`Trigger`, `Portal`, `Overlay`, `Content`, `Title`, `Description`, `Cancel`). `Content` takes only layout props (`gap`, `maxW`).
 - Not allowed:
   - a prop that none of those docs (Tamagui, React Native, react-native-web) list for that component, such as an `aria-label` or `role` override that changes what a component exposes
   - a handler that works around a bug in a stock component, such as restoring focus that a `Dialog` drops when it closes. Our own behaviour built with documented methods, such as `focus()` on a `TextInput`, is allowed.
@@ -97,12 +97,12 @@ Tests find elements by role, accessible name, label and visible text. The role i
 - `aria-label`s on sections
 - `role="status"` and `role="alert"`, including the single `status` in `TurnBanner`
 - the list, item, button structure in `Suggestions`
-- the "Show authors" toggle and the author buttons (`aria-pressed`) in `StoryText`
+- the "Show authors" `Switch` (role `switch`) and the author buttons (`aria-pressed`) in `StoryText`
 - the "New paragraph" checkbox in `Composer`
 - the "Your stories" region on the landing page, headed "Your stories", whose rows are links named by the opening passage and the turn status
 - the "Couldn't load your stories." alert with its "Retry" button, and the "You left the story." status, on the landing page
 - the "Your stories" link in the story rail
-- the "Leave story" button, and the leave dialog named "Leave this story?" with its "Cancel" and "Leave story" buttons
+- the "Leave story" button, and the leave dialog: role `alertdialog`, named "Leave this story?", with an `alert` for failures and two buttons. "Cancel" is an `AlertDialog.Cancel` and "Leave story" is a plain `Button`, not `AlertDialog.Action`, because `Action` closes the dialog and a failed leave keeps it open. The "Leave story" button reads "Leaving…" and is disabled while the request is in flight.
 - the "You left this story" screen: its opening quote, a "Rejoin as …" button that reads "Rejoining…" while it sends, an alert for failures, and a "← Your stories" link
 
 Links and buttons:
@@ -112,7 +112,7 @@ Links and buttons:
 - A button may move the route when it finishes an action. "Start the story" creates a story and then moves to `/<id>`. It is still a button, because it submits a form.
 - A link under 24px tall, such as `Anchor` at 20px, needs the spacing exception from the touch rule above. A link with neither the size nor the spacing is left as it is and an issue is filed.
 
-Inside Tamagui's `Dialog`, tests find the buttons by visible text, because `Dialog.Close` names itself "Dialog Close".
+Inside Tamagui's `Dialog` and `AlertDialog`, tests find a close button, such as the leave dialog's "Cancel", by its visible text scoped to the dialog, because `Dialog.Close` names itself "Dialog Close". A plain `Button` inside the dialog keeps its own name, so tests find it by role. Tests find the dialog itself by its role, `alertdialog`.
 
 ## Done
 

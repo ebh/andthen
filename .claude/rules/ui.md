@@ -83,7 +83,7 @@ A plain `Button` has no fill: `muted` text and a `muted` border, from the config
 
 - Colours come from two Tamagui themes in the config: `paper` (light, default) and `ink` (dark, follows the OS setting). Components use the theme's semantic tokens, never a raw colour. The tinted panel and the rules and borders each have their own token.
 - A new colour is defined in both themes.
-- Muted text is the base text colour at 70% opacity, the faintest value that keeps 4.5:1 on the base, tinted-panel and border surfaces in both themes.
+- A stock component may read theme keys we do not define, and an undefined key silently renders as the browser default. `Switch` reads `color-4` and `color-5` for its off track and moves onto a `brand` sub-theme when on, so the config defines both. Before using a stock component, read its source in `node_modules/tamagui/src/components/` for the keys and sub-themes it uses.- Muted text is the base text colour at 70% opacity, the faintest value that keeps 4.5:1 on the base, tinted-panel and border surfaces in both themes.
 - Every text and background pair reaches WCAG AA (4.5:1), shown by computing the ratio in both themes.
 
 ## Touch

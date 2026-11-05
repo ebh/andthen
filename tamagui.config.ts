@@ -30,6 +30,8 @@ const paper = {
   error: "#9b2226",
   "error-content": "#fff5f3",
   highlight: "rgba(31, 92, 77, 0.2)",
+  "color-4": "#8a8374",
+  "color-5": "#7a7365",
 };
 
 const ink: typeof paper = {
@@ -60,6 +62,8 @@ const ink: typeof paper = {
   error: "#f08a8a",
   "error-content": "#2a0f0f",
   highlight: "rgba(127, 196, 168, 0.2)",
+  "color-4": "#6f7873",
+  "color-5": "#7f8883",
 };
 
 /**
@@ -152,6 +156,25 @@ const inkDestructiveButton: typeof paper = {
 };
 
 /**
+ * A checked `Switch` moves itself onto a `brand` sub-theme: its track fills with `background` and
+ * its thumb with `color`. An unchecked track fills with `color-4` (`color-5` on hover), which the
+ * palettes above define as a solid that keeps 3:1 against the page.
+ */
+const paperBrand: typeof paper = {
+  ...paper,
+  background: paper.primary,
+  color: paper["primary-content"],
+  "outline-color": paper["base-content"],
+};
+
+const inkBrand: typeof paper = {
+  ...ink,
+  background: ink.primary,
+  color: ink["primary-content"],
+  "outline-color": ink["base-content"],
+};
+
+/**
  * The dim layer behind a dialog. The stock `Overlay` paints the theme's `background`, so a dialog
  * renders it with `theme="scrim"`, which resolves as `<palette>_scrim`.
  */
@@ -204,6 +227,8 @@ const base = createV6Config({
     ink_destructive: ink,
     paper_destructive_level2: paperDestructiveButton,
     ink_destructive_level2: inkDestructiveButton,
+    paper_brand: paperBrand,
+    ink_brand: inkBrand,
     paper_scrim: paperScrim,
     ink_scrim: inkScrim,
   },

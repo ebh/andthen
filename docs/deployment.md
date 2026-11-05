@@ -20,6 +20,8 @@ The app is one Cloudflare Worker with static assets, a D1 database, a `StoryRoom
 - **A leftover `.wrangler/deploy/config.json` breaks wrangler.** Builds of the earlier Vite client wrote it, and it points at a `dist/andthen_dev/wrangler.json` that no longer exists. Delete `.wrangler/deploy/` once if wrangler reports a missing redirected configuration.
 - **Preview is one shared Worker.** Every same-repo pull request deploys over the last one, and they all share the preview database. Treat it as a scratch space.
 
+- **Raising `MIN_API_LEVEL`** (in `src/shared/apiLevel.ts`) locks out clients below it: their next request gets 426 `client_outdated` and the app shows the update screen. The app and the Worker deploy together, so only a client that loaded the old app earlier is affected: an open tab or a cached copy. Preview is shared, so a raise there also locks out everyone using the preview until they reload.
+
 Dry runs (no login, nothing uploaded): `pnpm build && pnpm wrangler deploy --dry-run --env preview`, then the same with `--env production`. CI does both on every push.
 
 ## First-time Cloudflare setup

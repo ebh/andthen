@@ -62,6 +62,36 @@ const ink: typeof paper = {
   highlight: "rgba(127, 196, 168, 0.2)",
 };
 
+/**
+ * Tamagui wraps every Button in a `level2` sub-theme. These make the stock Button a solid
+ * `primary` fill: the plain `background` token matches the page and is nearly invisible on the `base-200` panel.
+ */
+const paperButton: typeof paper = {
+  ...paper,
+  background: paper.primary,
+  "background-hover": "#184a3e",
+  "background-press": "#143d33",
+  "background-focus": paper.primary,
+  color: paper["primary-content"],
+  "color-hover": paper["primary-content"],
+  "color-press": paper["primary-content"],
+  "color-focus": paper["primary-content"],
+  "outline-color": paper["base-content"],
+};
+
+const inkButton: typeof paper = {
+  ...ink,
+  background: ink.primary,
+  "background-hover": "#93d0b8",
+  "background-press": "#6aaf93",
+  "background-focus": ink.primary,
+  color: ink["primary-content"],
+  "color-hover": ink["primary-content"],
+  "color-press": ink["primary-content"],
+  "color-focus": ink["primary-content"],
+  "outline-color": ink["base-content"],
+};
+
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };
 const lineHeights = { 1: 18, 2: 20, 3: 24, 4: 32, 5: 40, 6: 44 };
 
@@ -95,7 +125,7 @@ const body = createFont(
 );
 
 const base = createV6Config({
-  themes: { paper, ink },
+  themes: { paper, ink, paper_level2: paperButton, ink_level2: inkButton },
 });
 
 export const tamaguiConfig = createTamagui({

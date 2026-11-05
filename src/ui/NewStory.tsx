@@ -89,30 +89,18 @@ export function NewStory() {
           </H2>
           <YStack gap="2">
             <Label htmlFor={nameId}>Your name</Label>
-            <Input
-              id={nameId}
-              size="xl"
-              value={name}
-              autoComplete="nickname"
-              onChangeText={setName}
-            />
+            <Input id={nameId} size="xl" value={name} onChangeText={setName} />
           </YStack>
           <YStack gap="2">
             <Label htmlFor={openingId}>Opening passage</Label>
-            <TextArea
-              id={openingId}
-              size="xl"
-              numberOfLines={3}
-              value={opening}
-              onChangeText={setOpening}
-            />
+            <TextArea id={openingId} size="xl" value={opening} onChangeText={setOpening} />
             <Paragraph color={tooLong ? "error" : "muted"}>
               {length} / {MAX_PASSAGE_LENGTH}
               {tooLong ? " (too long)" : ""}
             </Paragraph>
           </YStack>
           <Form.Trigger asChild>
-            <Button size="xl" bg="primary" color="primary-content" disabled={!canSubmit}>
+            <Button size="xl" disabled={!canSubmit}>
               {submitting ? "Sending…" : "Start the story"}
             </Button>
           </Form.Trigger>

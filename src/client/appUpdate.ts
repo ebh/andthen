@@ -83,7 +83,14 @@ export function createAppUpdate(environment: AppUpdateEnvironment): AppUpdate {
     }
 
     worker.addEventListener("waiting", markWaiting);
-    registration = await worker.register();
+    try {
+      registration = await worker.register();
+    } catch {
+      // The browser refused the worker, such as in a private window or with site data blocked. The
+      // app works without it, only not offline, so there is nothing to tell the user.
+      return;
+    }
+
     if (registration?.waiting) {
       markWaiting();
     }

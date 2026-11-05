@@ -13,7 +13,12 @@ const HANDOVER_TIMEOUT_MS = 10_000;
 type Listener = () => void;
 
 function setUp(
-  options: { waitingAtRegister?: boolean; updateFails?: boolean; foundByUpdate?: boolean } = {},
+  options: {
+    waitingAtRegister?: boolean;
+    updateFails?: boolean;
+    foundByUpdate?: boolean;
+    registerFails?: boolean;
+  } = {},
 ) {
   const listeners = new Map<string, Listener>();
   const stateListeners: Listener[] = [];
@@ -30,7 +35,13 @@ function setUp(
     unregister,
   };
   const worker = {
-    register: vi.fn<ServiceWorkerHandle["register"]>().mockResolvedValue(registration),
+    register: vi
+      .fn<ServiceWorkerHandle["register"]>()
+      .mockImplementation(() =>
+        options.registerFails === true
+          ? Promise.reject(new Error("refused"))
+          : Promise.resolve(registration),
+      ),
     update: vi.fn<ServiceWorkerHandle["update"]>(() => {
       if (options.updateFails === true) {
         return Promise.reject(new Error("offline"));
@@ -115,6 +126,23 @@ describe("createAppUpdate", () => {
 
     expect(worker.register).toHaveBeenCalledTimes(1);
     expect(appUpdate.getSnapshot()).toBe(false);
+  });
+
+  it("carries on without a service worker when the browser refuses to register one", async () => {
+    const { appUpdate, worker, environment, becomeVisible } = setUp({ registerFails: true });
+
+    await expect(appUpdate.start()).resolves.toBeUndefined();
+    becomeVisible();
+    await vi.advanceTimersByTimeAsync(HOUR_MS);
+
+    expect(appUpdate.getSnapshot()).toBe(false);
+    expect(environment.onBecameVisible).not.toHaveBeenCalled();
+    expect(worker.update).not.toHaveBeenCalled();
+
+    await appUpdate.apply();
+
+    expect(environment.deleteCaches).toHaveBeenCalledTimes(1);
+    expect(environment.reload).toHaveBeenCalledTimes(1);
   });
 
   it("reports an update when the worker says one is waiting, and tells every subscriber", async () => {

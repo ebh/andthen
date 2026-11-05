@@ -18,7 +18,6 @@
   "ignorePatterns": [
     "worker-configuration.d.ts",
     "dist/**",
-    "dist-app/**",
     ".expo/**",
     ".tamagui/**",
     "reports/**",

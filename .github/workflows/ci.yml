@@ -44,16 +44,16 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # Builds each deployed environment and validates its config without credentials.
-      - name: Build and dry-run deploy (preview)
-        run: pnpm build && pnpm wrangler deploy --dry-run
-        env:
-          CLOUDFLARE_ENV: preview
+      # The export is the same for every environment; the environment is chosen at deploy time.
+      - name: Build
+        run: pnpm build
 
-      - name: Build and dry-run deploy (production)
-        run: pnpm build && pnpm wrangler deploy --dry-run
-        env:
-          CLOUDFLARE_ENV: production
+      # Validates each deployed environment's config without credentials.
+      - name: Dry-run deploy (preview)
+        run: pnpm wrangler deploy --dry-run --env preview
+
+      - name: Dry-run deploy (production)
+        run: pnpm wrangler deploy --dry-run --env production
 
   # Runs beside `check` so a slow mutation run doesn't hold up the fast checks.
   mutation:
@@ -132,7 +132,7 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
 
-      # Builds the app and starts it on a fresh local D1 with the fake AI provider.
+      # Builds the app and serves it from the Worker on a fresh local D1 with the fake AI provider.
       - name: End-to-end tests
         run: pnpm e2e
 

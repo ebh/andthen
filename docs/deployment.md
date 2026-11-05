@@ -14,11 +14,13 @@ The app is one Cloudflare Worker with static assets, a D1 database, a `StoryRoom
 | Cookie           | `andthen_bt`, no `Secure`       | `__Host-andthen_bt`                               | `__Host-andthen_bt`                    |
 | Deployed by      | nobody                          | `deploy.yml` on a pull request                    | `deploy.yml` after CI passes on `main` |
 
-- **The environment is chosen when you build**, not when you deploy. `CLOUDFLARE_ENV=preview pnpm build` bakes the preview config into `dist/andthen_dev/wrangler.json`, and `wrangler deploy` reads that file. A `--env` flag on `deploy` is accepted but changes nothing, so always set `CLOUDFLARE_ENV` for the build.
-- **Migrations read `wrangler.jsonc` itself**, so they do take `--env`. Run them before building: the build leaves a redirect file (`.wrangler/deploy/config.json`) that points wrangler at the built config.
+- **The build is the same for every environment; the environment is chosen when you deploy.** `pnpm build` exports the Expo web app into `dist/`: the wrapped command `tamagui build --target web ./src/ui -- expo export --platform web --output-dir dist`. Plain `expo export` leaves the app unstyled, because only `tamagui build` writes the CSS. `wrangler.jsonc` points `assets.directory` at `dist/`, and `pnpm wrangler deploy --env preview` (or `production`) uploads it with the Worker. `/api/*` reaches the Worker first; any other path that is not a file in `dist/` gets `index.html`, and the app shows its not-found page.
+- **Migrations take `--env` too.** `deploy.yml` runs them before the build and the deploy.
+- **Local runs two servers behind one address.** `pnpm dev` (`scripts/dev.ts`) starts Metro (the Expo dev server) and `wrangler dev --local`, then proxies `localhost:5173`: `/api/*`, including the live WebSocket, goes to the Worker and everything else to Metro. One origin keeps the API's same-origin check and the cookie working. The compiler is off in dev, so styles come from the generated `tamagui.generated.css` of the last `pnpm build`; run it once on a fresh checkout. The e2e run is different: it builds, then serves `dist/` from `wrangler dev --local` on port 4173.
+- **A leftover `.wrangler/deploy/config.json` breaks wrangler.** Builds of the earlier Vite client wrote it, and it points at a `dist/andthen_dev/wrangler.json` that no longer exists. Delete `.wrangler/deploy/` once if wrangler reports a missing redirected configuration.
 - **Preview is one shared Worker.** Every same-repo pull request deploys over the last one, and they all share the preview database. Treat it as a scratch space.
 
-Dry runs (no login, nothing uploaded): `CLOUDFLARE_ENV=preview pnpm build && pnpm wrangler deploy --dry-run`, then the same with `production`. CI does both on every push.
+Dry runs (no login, nothing uploaded): `pnpm build && pnpm wrangler deploy --dry-run --env preview`, then the same with `--env production`. CI does both on every push.
 
 ## First-time Cloudflare setup
 
@@ -85,7 +87,7 @@ To deploy by hand instead (first deploy from a laptop, or a rescue), after `pnpm
 
 ```sh
 pnpm wrangler d1 migrations apply DB --env preview --remote
-CLOUDFLARE_ENV=preview pnpm build && pnpm wrangler deploy
+pnpm build && pnpm wrangler deploy --env preview
 ```
 
 Use `production` in both places for production.
@@ -93,6 +95,8 @@ Use `production` in both places for production.
 A new D1 change is a new file in `migrations/`. `deploy.yml` applies it to the database before the Worker that needs it goes out, so write migrations that the previous Worker version can still run against.
 
 ## Smoke tests
+
+The app has only the start page and the not-found page so far. Until the story, join and your-stories pages return, do the first two items and check the rest against the API (`docs/api.md`).
 
 Preview, on the `workers.dev` URL, with two browsers (or a normal and a private window):
 
@@ -123,7 +127,7 @@ echo 'AI_PROVIDER=workers-ai' >> .dev.vars    # .dev.vars is gitignored
 AI_REMOTE=1 pnpm dev
 ```
 
-`AI_REMOTE` must be a shell variable: `vite.config.ts` reads it to turn remote bindings on, and `.dev.vars` is read only by the Worker. Without it, the `AI` binding is never started and the Worker throws on `env.AI.run`. See `.dev.vars.example`.
+`AI_REMOTE` must be a shell variable: `scripts/dev.ts` reads it to leave out wrangler's `--local` flag, and `.dev.vars` is read only by the Worker. Without it, the `AI` binding is never started and the Worker throws on `env.AI.run`. See `.dev.vars.example`.
 
 This path has not been run against the real model. The Workers AI call is covered only by tests with a stand-in; see "Proven only locally" below.
 

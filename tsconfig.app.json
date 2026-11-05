@@ -11,12 +11,11 @@
     "app",
     "src/ui",
     "src/shared",
-    "src/client/api.ts",
-    "src/client/messages.ts",
-    "src/client/testSetup.ts",
-    "src/client/testFixtures.ts",
+    "src/client",
     "tamagui.config.ts",
     "tamagui.build.ts",
     "css.d.ts"
-  ]
+  ],
+  // live.test.ts belongs to tsconfig.test.json, which types it without the DOM.
+  "exclude": ["src/client/live.test.ts"]
 }

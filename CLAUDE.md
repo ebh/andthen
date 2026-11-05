@@ -1,6 +1,6 @@
 # andthen.page
 
-A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, static assets serve the React SPA, D1 holds all story data, and the `StoryRoom` Durable Object only fans out live updates.
+A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, static assets serve the Expo web export, D1 holds all story data, and the `StoryRoom` Durable Object only fans out live updates.
 
 ## Rules
 
@@ -12,15 +12,15 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 
 ## Where things live
 
-- `src/shared/`: validation, turn rules, API schemas. `src/worker/`: Hono app, `StoryRoom`, D1 access. `src/client/`: React SPA.
-- Client layout: `api.ts` is the only code that calls `fetch` (Zod-parsed, failures as values); `pages/` has one file per route (`router.ts` is a small `pushState` router); `components/` holds the pieces, with `StoryBoard` as the joined participant's page; `storyRules.ts` decides what the UI offers (e.g. whether to show skip, mirroring `skip` in `turnOrder.ts`). Component tests (`*.test.tsx`) start with `// @vitest-environment jsdom`; mock `../useStoryLive` in them, since jsdom would open a real WebSocket.
-- Visual design: `.claude/rules/ui.md`. Read it before restyling `src/client/`.
+- `src/shared/`: validation, turn rules, API schemas. `src/worker/`: Hono app, `StoryRoom`, D1 access. `app/`, `src/ui/` and `src/client/`: the Expo app.
+- Client layout: `app/` holds Expo Router routes as thin re-exports. The pages and components live in `src/ui/`, because Expo Router takes `src/app/` as its routes root if it exists, so never create it. `src/client/` is plain logic with no UI: `api.ts` is the only code that calls `fetch` (Zod-parsed, failures as values); `live.ts` is the live-socket logic; `storyRules.ts` decides what the UI offers (e.g. whether to show skip, mirroring `skip` in `turnOrder.ts`). Component tests (`*.test.tsx`) start with `// @vitest-environment jsdom`; Vitest aliases `react-native` to `react-native-web`.
+- Visual design: `.claude/rules/ui.md`. Read it before restyling `src/ui/`.
 - Unit tests sit beside the code (`*.test.ts`). Integration tests are in `test/`; Playwright e2e tests are in `e2e/` (`pnpm e2e`, run once `pnpm e2e:install`; CI runs them in their own job); `test/support/testEnv.ts` gives a Miniflare `env` with a fresh in-memory D1 and all migrations applied.
 - Lint is oxlint first (owns every rule it implements, type-aware), then ESLint for what oxlint lacks. Add a rule to `.oxlintrc.json` if oxlint has it, else to `eslint.config.ts`.
 
 ## Before you push
 
-`pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm stryker` must all pass. Stryker breaks below an 80% mutation score.
+`pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm stryker` must all pass. `pnpm build` produces `dist/`, which the Worker serves. Stryker breaks below an 80% mutation score.
 
 ## Background
 

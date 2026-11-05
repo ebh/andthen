@@ -71,8 +71,12 @@ export function NewStory() {
   };
 
   return (
-    <XStack bg="background" flex={1} flexDirection={media.md ? "row" : "column"}>
-      <YStack flex={1.1} px={media.md ? "16" : "5"} py={media.md ? "12" : "5"}>
+    <XStack bg="background" grow={1} flexDirection={media.md ? "row" : "column"}>
+      <YStack
+        flex={media.md ? 1.1 : undefined}
+        px={media.md ? "16" : "5"}
+        py={media.md ? "12" : "5"}
+      >
         <Wordmark />
         <YStack mt={media.md ? "28" : "10"}>
           <YStack gap="5" items="flex-start">
@@ -98,7 +102,8 @@ export function NewStory() {
         </YStack>
       </YStack>
       <YStack
-        flex={1}
+        flex={media.md ? 1 : undefined}
+        grow={1}
         bg="base-200"
         px={media.md ? "16" : "5"}
         py={media.md ? "16" : "10"}

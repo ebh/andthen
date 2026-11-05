@@ -207,6 +207,28 @@ test("joining needs a name that nobody in the story already uses", async ({ brow
   await expect(ben.getByLabel("Invite link")).toBeVisible();
 });
 
+test("a page taller than a short screen scrolls to its last control", async ({ browser }) => {
+  // Short enough that the invite link falls below the fold before anyone has joined.
+  const screenHeight = 400;
+  const ana = await newWriter(browser, { width: 375, height: screenHeight });
+  await startStory(ana, "Ana", "The lighthouse went dark at noon.");
+  const copyLink = ana.getByRole("button", { name: "Copy link" });
+  const bottomOfCopyLink = async (): Promise<number> => {
+    const box = await copyLink.boundingBox();
+    return box === null ? Number.NaN : box.y + box.height;
+  };
+
+  // The phone layout stacks the rail, the story and the invite link, so the button starts below the fold.
+  expect(await bottomOfCopyLink()).toBeGreaterThan(screenHeight);
+
+  // A real wheel scroll, not scrollIntoView: scrollIntoView also works on a page clipped by overflow: hidden.
+  await ana.mouse.move(100, 300);
+  await ana.mouse.wheel(0, 1000);
+
+  await expect.poll(bottomOfCopyLink).toBeLessThanOrEqual(screenHeight);
+  await copyLink.click();
+});
+
 test("a story ID that doesn't exist says so and leads back to the start", async ({ page }) => {
   await page.goto("/zzzzz");
   await expect(page.getByText("That story doesn't exist.")).toBeVisible();

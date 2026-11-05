@@ -7,6 +7,7 @@ import { useStory } from "../client/useStory";
 import { normaliseStoryId } from "../shared/validation";
 import { JoinForm } from "./JoinForm";
 import { NotFound } from "./NotFound";
+import { Rejoin } from "./Rejoin";
 import { SimplePage } from "./SimplePage";
 import { StoryBoard } from "./StoryBoard";
 
@@ -44,11 +45,23 @@ function LoadedStory({ storyId }: { storyId: string }) {
       </SimplePage>
     );
   }
+  if (load.type === "left") {
+    return (
+      <SimplePage>
+        <Rejoin
+          storyId={storyId}
+          displayName={load.displayName}
+          opening={load.opening}
+          onRejoined={refetch}
+        />
+      </SimplePage>
+    );
+  }
   if (load.type === "failed") {
     return (
       <SimplePage>
         <Paragraph role="alert">{describeFailure(load.failure)}</Paragraph>
-        <Button size="xl" onPress={refetch}>
+        <Button size="xl" theme="primary" onPress={refetch}>
           Try again
         </Button>
       </SimplePage>

@@ -98,7 +98,7 @@ export function Composer({
         >
           {extraAction}
           <Form.Trigger asChild>
-            <Button size="xl" disabled={!canSubmit}>
+            <Button size="xl" theme="primary" disabled={!canSubmit}>
               {submitting ? "Sending…" : submitLabel}
             </Button>
           </Form.Trigger>

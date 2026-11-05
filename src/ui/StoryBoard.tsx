@@ -1,16 +1,18 @@
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import type { TextInputInstance } from "react-native";
 import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 
-import { contribute, skipTurn, type ApiFailure } from "../client/api";
+import { contribute, leaveStory, skipTurn, type ApiFailure } from "../client/api";
 import { describeFailure } from "../client/messages";
-import { isMyTurn } from "../client/storyRules";
+import { setLeftStoryNote } from "../client/leftStoryNote";
+import { isMyTurn, turnAfterLeaving } from "../client/storyRules";
 import { useNow } from "../client/useNow";
 import { useStoryLive } from "../client/useStoryLive";
 import type { StoryView } from "../shared/api";
 import { Composer } from "./Composer";
 import { InviteLink } from "./InviteLink";
+import { LeaveDialog } from "./LeaveDialog";
 import { StoryText } from "./StoryText";
 import { SuggestButton, SuggestionList, useSuggestions } from "./Suggestions";
 import { TurnBanner } from "./TurnBanner";
@@ -44,6 +46,7 @@ const CLOCK_TICK_MS = 10_000;
 export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoardProps) {
   useStoryLive({ storyId, endsAt: view.turn.endsAt, refetch });
   const media = useMedia();
+  const router = useRouter();
   const now = useNow(CLOCK_TICK_MS);
   const [draft, setDraft] = useState("");
   const [startsParagraph, setStartsParagraph] = useState(false);
@@ -54,6 +57,8 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   const notice = raised?.turnVersion === view.turn.version ? raised.text : null;
   const [sending, setSending] = useState(false);
   const [skipping, setSkipping] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const setNotice = (text: string | null): void => {
     setRaised(text === null ? null : { text, turnVersion: view.turn.version });
@@ -113,7 +118,39 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     })();
   };
 
-  const invite = <InviteLink url={`${window.location.origin}/${storyId}`} />;
+  const confirmLeave = (): void => {
+    setLeaving(true);
+    setLeaveError(null);
+    void (async () => {
+      const result = await leaveStory(storyId);
+      if (result.ok) {
+        setLeftStoryNote();
+        router.replace("/");
+        return;
+      }
+      setLeaving(false);
+      if (isStoryOutOfDate(result.failure)) {
+        // The dialog says who gets the turn; the story it was worked out from has moved on.
+        refetch();
+      }
+      setLeaveError(describeFailure(result.failure, LEAVE_MESSAGES));
+    })();
+  };
+
+  const invite = (
+    <YStack gap="4" items="flex-start" w="100%">
+      <InviteLink url={`${window.location.origin}/${storyId}`} />
+      <LeaveDialog
+        turnAfterLeaving={turnAfterLeaving(view)}
+        leaving={leaving}
+        error={leaveError}
+        onOpen={() => {
+          setLeaveError(null);
+        }}
+        onConfirm={confirmLeave}
+      />
+    </YStack>
+  );
   const rail = (
     <YStack gap={media.md ? "14" : "5"} items="flex-start">
       <YStack gap="1" items="flex-start">
@@ -135,7 +172,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
               <Paragraph>
                 Couldn&apos;t refresh the story. What you see may be out of date.
               </Paragraph>
-              <Button size="xl" onPress={refetch}>
+              <Button size="xl" variant="outlined" onPress={refetch}>
                 Retry
               </Button>
             </>
@@ -225,7 +262,7 @@ function YourTurn(props: YourTurnProps) {
       {props.replacedDraft !== null && (
         <XStack items="center" gap="2">
           <Paragraph>Your draft was replaced by the suggestion.</Paragraph>
-          <Button size="xl" onPress={undo}>
+          <Button size="xl" variant="outlined" onPress={undo}>
             Undo
           </Button>
         </XStack>
@@ -253,6 +290,11 @@ const CONTRIBUTE_MESSAGES = {
   not_your_turn: "It's no longer your turn. Your text is kept in case the turn comes back to you.",
   not_participant: "You're not part of this story. Join it to write.",
   invalid_passage: "That passage can't be sent. Check that it isn't empty or too long.",
+};
+
+const LEAVE_MESSAGES = {
+  stale_turn: "The story changed just now. Check who has the turn, then try again.",
+  not_participant: "You're not part of this story.",
 };
 
 const SKIP_MESSAGES = {

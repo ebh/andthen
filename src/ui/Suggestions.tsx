@@ -52,7 +52,6 @@ export function SuggestButton({ control }: { control: SuggestionsControl }) {
     <Button
       size="xl"
       variant="outlined"
-      theme="transparent"
       disabled={control.state.type === "loading"}
       onPress={control.ask}
     >
@@ -75,6 +74,7 @@ export function SuggestionList({ control, onUse }: SuggestionListProps) {
             <YStack key={`${index.toString()}:${suggestion}`} role="listitem">
               <Button
                 size="xl"
+                variant="outlined"
                 onPress={() => {
                   onUse(suggestion);
                 }}

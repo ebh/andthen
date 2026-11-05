@@ -5,6 +5,9 @@ import { vi } from "vitest";
 /** Records what a page asks the router to open. */
 export const push = vi.fn<(path: string) => void>();
 
+/** Records the page a route is swapped for. */
+export const replace = vi.fn<(path: string) => void>();
+
 /** What `useLocalSearchParams` returns; a test sets the route's parameters here. */
 export const params: { [name: string]: string } = {};
 
@@ -15,6 +18,6 @@ export const params: { [name: string]: string } = {};
 export const routerStub = {
   Link: ({ href, children }: { href: string; children: ReactElement<{ href?: string }> }) =>
     cloneElement(children, { href }),
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
   useLocalSearchParams: () => params,
 };

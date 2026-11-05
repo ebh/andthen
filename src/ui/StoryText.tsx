@@ -182,7 +182,6 @@ function AuthorButton({
       size="xl"
       px="0"
       variant="quiet"
-      theme="transparent"
       aria-pressed={pinned}
       onPress={onPress}
       onMouseEnter={preview(true)}

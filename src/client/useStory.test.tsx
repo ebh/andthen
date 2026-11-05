@@ -40,6 +40,41 @@ describe("useStory", () => {
     });
   });
 
+  it("reports a writer who left the story, with the name and opening to rejoin with", async () => {
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve(
+        jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
+      ),
+    );
+    const { result } = renderHook(() => useStory("abc12"));
+
+    await waitFor(() => {
+      expect(result.current.load).toEqual({ type: "left", displayName: "Ana", opening: "Once." });
+    });
+  });
+
+  it("moves a loaded story to the rejoin screen when a reload finds the writer left", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(200, view))
+      .mockResolvedValueOnce(
+        jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useStory("abc12"));
+    await waitFor(() => {
+      expect(result.current.load.type).toBe("loaded");
+    });
+
+    act(() => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => {
+      expect(result.current.load).toEqual({ type: "left", displayName: "Ana", opening: "Once." });
+    });
+  });
+
   it("reports a failed first load", async () => {
     vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
     const { result } = renderHook(() => useStory("abc12"));

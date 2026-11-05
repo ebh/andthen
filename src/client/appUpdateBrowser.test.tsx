@@ -6,10 +6,15 @@ const serwists = vi.hoisted(() => {
   class FakeSerwist {
     readonly listeners = new Map<string, () => void>();
     readonly register = vi.fn<
-      () => Promise<{ waiting: object | null; unregister: () => Promise<boolean> }>
+      () => Promise<{
+        waiting: object | null;
+        installing: null;
+        unregister: () => Promise<boolean>;
+      }>
     >(() =>
       Promise.resolve({
         waiting: state.updateWaiting ? {} : null,
+        installing: null,
         unregister: () => Promise.resolve(true),
       }),
     );

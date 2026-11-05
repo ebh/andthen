@@ -12,17 +12,35 @@ const HANDOVER_TIMEOUT_MS = 10_000;
 
 type Listener = () => void;
 
-function setUp(options: { waitingAtRegister?: boolean; updateFails?: boolean } = {}) {
+function setUp(
+  options: { waitingAtRegister?: boolean; updateFails?: boolean; foundByUpdate?: boolean } = {},
+) {
   const listeners = new Map<string, Listener>();
-  const registration = {
+  const stateListeners: Listener[] = [];
+  const build = {
+    state: "installing",
+    addEventListener: (_type: "statechange", listener: Listener) => {
+      stateListeners.push(listener);
+    },
+  };
+  const unregister = vi.fn<() => Promise<boolean>>().mockResolvedValue(true);
+  const registration: ServiceWorkerRegistrationHandle = {
     waiting: options.waitingAtRegister === true ? {} : null,
-    unregister: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
-  } satisfies ServiceWorkerRegistrationHandle;
+    installing: null,
+    unregister,
+  };
   const worker = {
     register: vi.fn<ServiceWorkerHandle["register"]>().mockResolvedValue(registration),
-    update: vi.fn<ServiceWorkerHandle["update"]>(() =>
-      options.updateFails === true ? Promise.reject(new Error("offline")) : Promise.resolve(),
-    ),
+    update: vi.fn<ServiceWorkerHandle["update"]>(() => {
+      if (options.updateFails === true) {
+        return Promise.reject(new Error("offline"));
+      }
+      if (options.foundByUpdate === true) {
+        registration.installing = build;
+      }
+
+      return Promise.resolve();
+    }),
     messageSkipWaiting: vi.fn<() => void>(),
     addEventListener: vi.fn<ServiceWorkerHandle["addEventListener"]>((type, listener) => {
       listeners.set(type, listener);
@@ -42,7 +60,22 @@ function setUp(options: { waitingAtRegister?: boolean; updateFails?: boolean } =
     appUpdate: createAppUpdate(environment),
     environment,
     worker,
-    registration,
+    registration: { unregister },
+    finishInstalling: () => {
+      build.state = "installed";
+      registration.installing = null;
+      registration.waiting = {};
+      stateListeners.forEach((listener) => {
+        listener();
+      });
+    },
+    failInstalling: () => {
+      build.state = "redundant";
+      registration.installing = null;
+      stateListeners.forEach((listener) => {
+        listener();
+      });
+    },
     fire: (type: string) => listeners.get(type)?.(),
     becomeVisible: () => becameVisible?.(),
   };
@@ -198,6 +231,71 @@ describe("createAppUpdate", () => {
 
     expect(environment.reload).toHaveBeenCalledTimes(1);
     expect(registration.unregister).not.toHaveBeenCalled();
+  });
+
+  it("waits for a build found by the check to finish installing, then hands over to it", async () => {
+    const { appUpdate, worker, registration, environment, finishInstalling, fire } = setUp({
+      foundByUpdate: true,
+    });
+    await appUpdate.start();
+
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(HANDOVER_TIMEOUT_MS - 1);
+
+    expect(worker.messageSkipWaiting).not.toHaveBeenCalled();
+    expect(registration.unregister).not.toHaveBeenCalled();
+
+    finishInstalling();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(worker.messageSkipWaiting).toHaveBeenCalledTimes(1);
+
+    fire("controlling");
+    await applied;
+
+    expect(environment.reload).toHaveBeenCalledTimes(1);
+    expect(environment.deleteCaches).not.toHaveBeenCalled();
+  });
+
+  it("clears the worker and the caches if the build found by the check never finishes installing", async () => {
+    const { appUpdate, worker, registration, environment } = setUp({ foundByUpdate: true });
+    await appUpdate.start();
+
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(HANDOVER_TIMEOUT_MS);
+    await applied;
+
+    expect(worker.messageSkipWaiting).not.toHaveBeenCalled();
+    expect(registration.unregister).toHaveBeenCalledTimes(1);
+    expect(environment.deleteCaches).toHaveBeenCalledTimes(1);
+    expect(environment.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the worker and the caches at once if the build found by the check fails to install", async () => {
+    const { appUpdate, worker, environment, failInstalling } = setUp({ foundByUpdate: true });
+    await appUpdate.start();
+
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(0);
+    failInstalling();
+    await applied;
+
+    expect(worker.messageSkipWaiting).not.toHaveBeenCalled();
+    expect(environment.deleteCaches).toHaveBeenCalledTimes(1);
+    expect(environment.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not wait for an installing build when one is already waiting", async () => {
+    const { appUpdate, worker, fire } = setUp({ waitingAtRegister: true, foundByUpdate: true });
+    await appUpdate.start();
+
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(worker.messageSkipWaiting).toHaveBeenCalledTimes(1);
+
+    fire("controlling");
+    await applied;
   });
 
   it("still applies a waiting update when the check for a newer one fails", async () => {

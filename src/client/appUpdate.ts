@@ -38,12 +38,18 @@ export interface ServiceWorkerHandle {
 export interface ServiceWorkerRegistrationHandle {
   /** Set while a newer worker has installed and is waiting to take over. */
   waiting: object | null;
+  /** Set while a newer worker has been found and is still downloading its files. */
+  installing: {
+    state: string;
+    addEventListener: (type: "statechange", listener: () => void) => void;
+  } | null;
   unregister: () => Promise<boolean>;
 }
 
 // "Update now" must never leave the user with a dead button. Taking over, once the waiting build is
 // told to, is local work that finishes in well under a second. Ten seconds is long enough for a slow
 // phone and short enough that a user who has tapped is not left staring at a page that does nothing.
+// A build found at the click gets the same time to finish downloading its files.
 const HANDOVER_TIMEOUT_MS = 10_000;
 
 // A page that stays open for days still finds out about a new build. Hourly is often enough to
@@ -89,6 +95,7 @@ export function createAppUpdate(environment: AppUpdateEnvironment): AppUpdate {
   async function apply(): Promise<void> {
     if (worker !== undefined && registration !== undefined) {
       await checkForUpdate();
+      await finishInstalling(registration);
 
       if (registration.waiting && (await handOver(worker))) {
         environment.reload();
@@ -114,6 +121,31 @@ export function createAppUpdate(environment: AppUpdateEnvironment): AppUpdate {
     },
     getSnapshot: () => waiting,
   };
+}
+
+/**
+ * Waits for a build found a moment ago to finish downloading. `update()` resolves when the build is
+ * found, not when it is ready, so without this a user who taps just after a release gets the slow
+ * clean reload instead of a handover.
+ */
+async function finishInstalling(registration: ServiceWorkerRegistrationHandle): Promise<void> {
+  const { installing } = registration;
+  if (registration.waiting || installing === null) {
+    return;
+  }
+
+  const left = new Promise<void>((resolve) => {
+    installing.addEventListener("statechange", () => {
+      if (installing.state !== "installing") {
+        resolve();
+      }
+    });
+  });
+  if (installing.state !== "installing") {
+    return;
+  }
+
+  await settlesWithin(left, HANDOVER_TIMEOUT_MS);
 }
 
 /** Tells the waiting build to take over. False if it has not done so in time, such as when it vanished. */

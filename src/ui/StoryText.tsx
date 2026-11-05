@@ -124,7 +124,7 @@ function ParagraphView({
           flexWrap="wrap"
           columnGap="4"
           borderTopWidth={md ? 1 : 0}
-          borderColor="base-300"
+          borderColor="border-color"
         >
           {uniqueAuthors(turns).map(({ authorId, authorName }) => {
             const author = { paragraph, authorId };

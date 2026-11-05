@@ -54,10 +54,11 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
       gap="3"
       w="100%"
       p="6"
-      bg="base-200"
+      theme="level2"
+      bg="background"
       rounded="lg"
       borderWidth={1}
-      borderColor="base-300"
+      borderColor="border-color"
     >
       <H2 fontFamily="story" fontSize="2xl" lineHeight="2xl" fontWeight="600">
         Join this story
@@ -68,7 +69,7 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
         <Input id={nameId} size="xl" autoComplete="nickname" value={name} onChangeText={setName} />
       </YStack>
       <Form.Trigger asChild>
-        <Button size="xl" theme="primary" disabled={submitting || full}>
+        <Button size="xl" theme="brand" disabled={submitting || full}>
           {submitting ? "Joining…" : "Join"}
         </Button>
       </Form.Trigger>

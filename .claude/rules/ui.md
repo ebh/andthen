@@ -7,6 +7,10 @@ paths:
 
 # UI rules
 
+This file is for using the design system. To change a theme, palette or font, read `.claude/rules/design-system.md`.
+
+Page code names theme keys that say a role (`background`, `color`, `border-color`, `muted`, `highlight`, `primary`, `error`) and theme names (`level2`, `brand`, `destructive`, `scrim`). It never names a palette token such as `brand-600`, and never a ramp key such as `color-4`.
+
 The app exists to be read. Every visual decision serves the story text first.
 
 ## Story first
@@ -27,8 +31,8 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
 - Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint, and it is the only breakpoint a layout changes at.
 - Page padding is `5` on a phone. Sections of a page are `8` apart; the parts inside a section are `2` to `4` apart.
 - A simple page (loading, error, not found, join form) is one column, centred on the screen, at most `simplePage` wide. The wordmark sits at the top-left of the column, `8` above the content.
-- The join form is a card: `base-200` fill, a `base-300` hairline border, padding `6`.
-- The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `base-200` panel on the right.
+- The join form is a card: `theme="level2"` with the `background` fill, a `border-color` hairline border, padding `6`.
+- The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `theme="level2"` panel on the right.
   - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
   - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
   - From `md` the three steps sit under the intro as a list with hairline rules. A phone drops them.
@@ -37,12 +41,12 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
 - The story page is a rail beside the story from `md`.
-  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
+  - The rail is `80` wide with a `border-color` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
   - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
   - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
   - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
   - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button`.
-- On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
+- On a phone the story page is three blocks, each padded `5`: the rail with a `border-color` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
 - The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
 - Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
 - The invite field is an `Input` at `size="md"`, so a full invite URL fits in the rail.
@@ -57,7 +61,7 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
   - a prop that the [React Native docs](https://reactnative.dev/docs) or [react-native-web docs](https://necolas.github.io/react-native-web/docs/) list for the component underneath, whether or not the Tamagui page links to them. Two examples:
     - `autoComplete` on `Input` and `TextArea`, which wrap React Native's `TextInput`.
     - `aria-pressed` on `Button`, from react-native-web's [accessibility props](https://necolas.github.io/react-native-web/docs/accessibility/), which every View accepts.
-  - a component's parts composed in the documented structure, such as the leave dialog: the `AlertDialog` skin that `tamagui` exports, as its docs show it (`Trigger`, `Portal`, `Overlay`, `Content`, `Title`, `Description`, `Cancel`). `Overlay` takes only `theme="scrim"`, the `paper_scrim` and `ink_scrim` themes in the config, whose `background` is the translucent colour that dims the page behind the dialog. `Content` takes only layout props (`gap`, `maxW`, and `mx="5"`, the phone page gutter, so it never runs flush to the screen edges).
+  - a component's parts composed in the documented structure, such as the leave dialog: the `AlertDialog` skin that `tamagui` exports, as its docs show it (`Trigger`, `Portal`, `Overlay`, `Content`, `Title`, `Description`, `Cancel`). `Overlay` takes only `theme="scrim"`, the `light_scrim` and `dark_scrim` themes in the config, whose `background` is the translucent colour that dims the page behind the dialog. `Content` takes only layout props (`gap`, `maxW`, and `mx="5"`, the phone page gutter, so it never runs flush to the screen edges).
 - Not allowed:
   - a prop that none of those docs (Tamagui, React Native, react-native-web) list for that component, such as an `aria-label` or `role` override that changes what a component exposes
   - a handler that works around a bug in a stock component, such as restoring focus that a `Dialog` drops when it closes. Our own behaviour built with documented methods, such as `focus()` on a `TextInput`, is allowed.
@@ -68,24 +72,12 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 
 ### Buttons
 
-A plain `Button` has no fill: `muted` text and a `muted` border, from the config's `level2` themes. Every button states its rank.
+A plain `Button` takes the stock raised fill, from the `level2` theme every `Button` wraps itself in. Every button states its rank.
 
 - Secondary: `variant="outlined"`. This is the default for any action that is not the page's main one.
 - Quietest: `variant="quiet"`, no border, such as the story rail's "Leave story".
-- Primary: `theme="primary"`, a solid fill. A screen has at most one.
+- Primary: `theme="brand"`, a solid fill. A screen has at most one.
 - Destructive confirm: `theme="destructive"`, a solid red fill, such as the leave dialog's "Leave story".
-
-## Type
-
-- Two typefaces. Source Serif 4 carries prose: story passages, the composer, suggestions, and page headings including the wordmark. Inter carries everything else. Both are set in the Tamagui config.
-- Fonts are loaded with `expo-font` and bundled into the build, so rendering matches on every device and no request leaves the origin.
-
-## Colour
-
-- Colours come from two Tamagui themes in the config: `paper` (light, default) and `ink` (dark, follows the OS setting). Components use the theme's semantic tokens, never a raw colour. The tinted panel and the rules and borders each have their own token.
-- A new colour is defined in both themes.
-- Muted text is the base text colour at 70% opacity, the faintest value that keeps 4.5:1 on the base, tinted-panel and border surfaces in both themes.
-- Every text and background pair reaches WCAG AA (4.5:1), shown by computing the ratio in both themes.
 
 ## Touch
 
@@ -129,7 +121,7 @@ Inside Tamagui's `Dialog` and `AlertDialog`, tests find a close button, such as 
 
 A UI change is done when:
 
-- you have looked at every changed page in `paper` and `ink` (set `prefers-color-scheme`), at 375px and at desktop width
+- you have looked at every changed page in `light` and `dark` (set `prefers-color-scheme`), at 375px and at desktop width
 - every component use fits the "Components" section
 - every control that changes the route is a link, and every other control is a button
 - the checks in `CLAUDE.md` pass, and so does `pnpm e2e`

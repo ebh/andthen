@@ -33,7 +33,7 @@ pnpm 12 blocks dependency build scripts. `pnpm-workspace.yaml` `allowBuilds` all
   - Keep route and repo code in modules that never import `cloudflare:*`, so they stay mutable. That is why the Hono app lives in `src/worker/app.ts` and `index.ts` only re-exports.
 - Miniflare 5 (a beta, pulled in by wrangler 4.15x) changed the `new Miniflare()` options shape. Use `getPlatformProxy` rather than Miniflare directly.
 - Stryker needs `"plugins": ["@stryker-mutator/vitest-runner"]` under pnpm, or it finds no test runner.
-- CI runs Stryker in its own `mutation` job: `--incremental` on pull requests, `--incremental --force` (every mutant) on pushes to `main`. Local `pnpm stryker` stays a full run.
+- CI runs Stryker in its own `mutation` job: `--incremental` on pull requests and on pushes to `main`. A push to `main` adds `--force` (every mutant) only when no cache matched the current config, Vitest and lockfile hash. Local `pnpm stryker` stays a full run.
   - Stryker reuses a cached result when the mutated code and the test that killed it are unchanged. It diffs only mutated and test files.
   - So a changed helper under an unchanged test keeps its old result until the next `main` run. The cache key hashes `stryker.config.json`, the Vitest config and the lockfile, so changes there start from no cache.
 
@@ -131,7 +131,7 @@ daisyUI cannot run in React Native. Six candidates each built the same story-pag
 | Gluestack UI v5      | about 229 + 4,436 | 4.7 MB        | 90             | 5                 | Release candidate. Vendored code breaks the no-`as` rule. |
 | HeroUI Native 1.0.11 | about 298         | 5.5 MB        | 149            | about 7           | Heaviest. Open web bugs in overlay components.            |
 
-**Decided:** Tamagui, with stock components and only the theme ours (paper and ink tokens, Source Serif 4 and Inter). Components do what Tamagui's docs say they can do. A bug in a stock component is filed as an issue, not worked around.
+**Decided:** Tamagui, with stock components and only the theme ours (light and dark themes, Source Serif 4 and Inter). Components do what Tamagui's docs say they can do. A bug in a stock component is filed as an issue, not worked around.
 
 Checks on web (Chromium) with react-native-web 0.21:
 
@@ -161,7 +161,7 @@ Checks on web (Chromium) with react-native-web 0.21:
   It rewrites sources in place and restores them afterwards. The restore was checked after normal and failing runs, not after a hard kill. It also writes `tamagui.generated.css`.
 
 - `metro.config.js` is `withTamagui(getDefaultConfig(__dirname))`. `tamagui.build.ts` sets `config`, `components: ["tamagui"]`, `outputCSS` and `disable: isDev`. Dev runs with the compiler off.
-- Output parity: paper and ink at 375px and 1280px are byte-identical to compiler off. The Dialog checks and role tests give the same results. The compiler drops a redundant `role="heading"` from the `<h1>`.
+- Output parity: light and dark at 375px and 1280px are byte-identical to compiler off. The Dialog checks and role tests give the same results. The compiler drops a redundant `role="heading"` from the `<h1>`.
 - The docs are stale here. `disableExtraction` is ignored by the Metro plugin, and the docs' saving from `outputCSS` does not hold on Metro. The experimental zero-runtime mode fails with "509 forbidden Tamagui module(s)".
 - Cost, production web export, compiler off against on:
 

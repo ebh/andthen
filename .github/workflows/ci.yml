@@ -58,7 +58,7 @@ jobs:
   # Runs beside `check` so a slow mutation run doesn't hold up the fast checks.
   mutation:
     runs-on: ubuntu-latest
-    # Sized for a full run: the first run on a branch with no cache, and every push to main.
+    # Sized for a full run: a run with no cache, or a push to main after a config or dependency change.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
@@ -75,9 +75,11 @@ jobs:
       # Stryker's diff only sees mutated and test files, so a change to its config, the Vitest config
       # or a dependency can leave stale results. The hash keeps those out of the exact-match restore.
       # The bare `stryker-` fallback still restores the newest file from main after such a change, so
-      # a pull request is never cold; the next push to main reruns every mutant and corrects it.
+      # a pull request is never cold; the next push to main sees the fallback match and reruns every
+      # mutant to correct it.
       # Keys can't be overwritten, so each run saves under a unique key and restores by prefix.
       - name: Restore the incremental file
+        id: restore
         uses: actions/cache/restore@v4
         with:
           path: reports/stryker-incremental.json
@@ -86,10 +88,12 @@ jobs:
             stryker-${{ hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml') }}-
             stryker-
 
-      # Pull requests reuse results for code and tests they didn't touch. A push to main reruns
-      # every mutant, which also catches a changed helper under an unchanged test.
+      # Pull requests and pushes to main reuse results for code and tests they didn't touch. A full
+      # run of every mutant took longer than the timeout, so main forces one only when the restored
+      # file came from a different config or dependency hash (or there was none). Accepted risk: a
+      # changed helper under an unchanged test keeps its old result until that test or code changes.
       - name: Mutation test
-        run: pnpm stryker --incremental ${{ github.event_name == 'push' && '--force' || '' }}
+        run: pnpm stryker --incremental ${{ github.event_name == 'push' && !startsWith(steps.restore.outputs.cache-matched-key, format('stryker-{0}-', hashFiles('stryker.config.json', 'vitest*.ts', 'pnpm-lock.yaml'))) && '--force' || '' }}
 
       # Stryker writes a partial file when interrupted, so a cancelled or timed-out run still saves progress.
       - name: Save the incremental file

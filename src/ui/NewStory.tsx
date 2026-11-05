@@ -109,7 +109,8 @@ export function NewStory() {
       <YStack
         flex={media.md ? 1 : undefined}
         grow={1}
-        bg="base-200"
+        theme="level2"
+        bg="background"
         px={media.md ? "16" : "5"}
         py={media.md ? "16" : "10"}
         items="center"
@@ -141,7 +142,7 @@ export function NewStory() {
             <Form.Trigger asChild>
               <Button
                 size="xl"
-                theme="primary"
+                theme="brand"
                 disabled={!canSubmit}
                 w={media.md ? undefined : "100%"}
               >
@@ -189,7 +190,13 @@ function Pitch() {
 
 function HowItWorks() {
   return (
-    <YStack role="list" aria-label="How it works" mt="14" borderTopWidth={1} borderColor="base-300">
+    <YStack
+      role="list"
+      aria-label="How it works"
+      mt="14"
+      borderTopWidth={1}
+      borderColor="border-color"
+    >
       {HOW_IT_WORKS.map((step, index) => (
         <XStack
           key={step.name}
@@ -197,7 +204,7 @@ function HowItWorks() {
           gap="5"
           py="3.5"
           borderBottomWidth={1}
-          borderColor="base-300"
+          borderColor="border-color"
         >
           <Paragraph w="4" color="primary" fontWeight="600">
             {index + 1}

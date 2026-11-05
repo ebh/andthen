@@ -28,6 +28,7 @@ export function InviteLink({ url }: InviteLinkProps) {
       <Input id={fieldId} size="md" readOnly selectTextOnFocus value={url} />
       <Button
         size="xl"
+        variant="outlined"
         onPress={() => {
           void copy();
         }}

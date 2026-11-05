@@ -61,7 +61,7 @@ function LoadedStory({ storyId }: { storyId: string }) {
     return (
       <SimplePage>
         <Paragraph role="alert">{describeFailure(load.failure)}</Paragraph>
-        <Button size="xl" onPress={refetch}>
+        <Button size="xl" theme="primary" onPress={refetch}>
           Try again
         </Button>
       </SimplePage>

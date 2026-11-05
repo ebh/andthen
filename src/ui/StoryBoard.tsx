@@ -172,7 +172,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
               <Paragraph>
                 Couldn&apos;t refresh the story. What you see may be out of date.
               </Paragraph>
-              <Button size="xl" onPress={refetch}>
+              <Button size="xl" variant="outlined" onPress={refetch}>
                 Retry
               </Button>
             </>
@@ -262,7 +262,7 @@ function YourTurn(props: YourTurnProps) {
       {props.replacedDraft !== null && (
         <XStack items="center" gap="2">
           <Paragraph>Your draft was replaced by the suggestion.</Paragraph>
-          <Button size="xl" onPress={undo}>
+          <Button size="xl" variant="outlined" onPress={undo}>
             Undo
           </Button>
         </XStack>

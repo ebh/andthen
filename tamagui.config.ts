@@ -63,10 +63,45 @@ const ink: typeof paper = {
 };
 
 /**
- * Tamagui wraps every Button in a `level2` sub-theme. These make the stock Button a solid
- * `primary` fill: the plain `background` token matches the page and is nearly invisible on the `base-200` panel.
+ * Tamagui wraps every Button in a `level2` sub-theme, so these themes style a plain Button, the
+ * secondary look: `muted` text and a `muted` border (the stock `base-300` hairline is under 3:1 against
+ * the page), with a `base-300` fill on hover and press. A `variant="outlined"` or `variant="quiet"`
+ * Button, which has no fill of its own, still takes the hover fill.
  */
 const paperButton: typeof paper = {
+  ...paper,
+  "background-hover": paper["base-300"],
+  "background-press": paper["base-300"],
+  color: paper.muted,
+  "color-hover": paper.muted,
+  "color-press": paper.muted,
+  "color-focus": paper.muted,
+  "border-color": paper.muted,
+  "border-color-hover": paper.muted,
+  "border-color-press": paper.muted,
+  "outline-color": paper["base-content"],
+};
+
+const inkButton: typeof paper = {
+  ...ink,
+  "background-hover": ink["base-300"],
+  "background-press": ink["base-300"],
+  color: ink.muted,
+  "color-hover": ink.muted,
+  "color-press": ink.muted,
+  "color-focus": ink.muted,
+  "border-color": ink.muted,
+  "border-color-hover": ink.muted,
+  "border-color-press": ink.muted,
+  "outline-color": ink["base-content"],
+};
+
+/**
+ * A Button opts in to a solid fill with `theme="primary"` or `theme="destructive"`, which the Button
+ * wraps above its own `level2`, so the fill resolves as `<palette>_<theme>_level2`. The fill uses the
+ * palette's `primary` or `error` colour with its content colour as text.
+ */
+const paperPrimaryButton: typeof paper = {
   ...paper,
   background: paper.primary,
   "background-hover": "#184a3e",
@@ -79,7 +114,7 @@ const paperButton: typeof paper = {
   "outline-color": paper["base-content"],
 };
 
-const inkButton: typeof paper = {
+const inkPrimaryButton: typeof paper = {
   ...ink,
   background: ink.primary,
   "background-hover": "#93d0b8",
@@ -92,32 +127,28 @@ const inkButton: typeof paper = {
   "outline-color": ink["base-content"],
 };
 
-/**
- * For a `quiet` or `outlined` Button, which has no fill: its text sits on the page, so it reads
- * `muted`, not the `primary-content` the solid fill needs. The `outlined` border is `muted` too:
- * the stock `base-300` hairline is under 3:1 against the page. A Button opts in with `theme="transparent"`,
- * which the Button wraps above its own `level2`, so these resolve as `<palette>_transparent_level2`.
- */
-const paperTransparentButton: typeof paper = {
-  ...paperButton,
-  color: paper.muted,
-  "color-hover": paper.muted,
-  "color-press": paper.muted,
-  "color-focus": paper.muted,
-  "border-color": paper.muted,
-  "border-color-hover": paper.muted,
-  "border-color-press": paper.muted,
+const paperDestructiveButton: typeof paper = {
+  ...paperPrimaryButton,
+  background: paper.error,
+  "background-hover": "#861d21",
+  "background-press": "#70181b",
+  "background-focus": paper.error,
+  color: paper["error-content"],
+  "color-hover": paper["error-content"],
+  "color-press": paper["error-content"],
+  "color-focus": paper["error-content"],
 };
 
-const inkTransparentButton: typeof paper = {
-  ...inkButton,
-  color: ink.muted,
-  "color-hover": ink.muted,
-  "color-press": ink.muted,
-  "color-focus": ink.muted,
-  "border-color": ink.muted,
-  "border-color-hover": ink.muted,
-  "border-color-press": ink.muted,
+const inkDestructiveButton: typeof paper = {
+  ...inkPrimaryButton,
+  background: ink.error,
+  "background-hover": "#f39d9d",
+  "background-press": "#e07676",
+  "background-focus": ink.error,
+  color: ink["error-content"],
+  "color-hover": ink["error-content"],
+  "color-press": ink["error-content"],
+  "color-focus": ink["error-content"],
 };
 
 /**
@@ -165,10 +196,14 @@ const base = createV6Config({
     ink,
     paper_level2: paperButton,
     ink_level2: inkButton,
-    paper_transparent: paper,
-    ink_transparent: ink,
-    paper_transparent_level2: paperTransparentButton,
-    ink_transparent_level2: inkTransparentButton,
+    paper_primary: paper,
+    ink_primary: ink,
+    paper_primary_level2: paperPrimaryButton,
+    ink_primary_level2: inkPrimaryButton,
+    paper_destructive: paper,
+    ink_destructive: ink,
+    paper_destructive_level2: paperDestructiveButton,
+    ink_destructive_level2: inkDestructiveButton,
     paper_scrim: paperScrim,
     ink_scrim: inkScrim,
   },

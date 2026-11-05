@@ -68,7 +68,7 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
         <Input id={nameId} size="xl" autoComplete="nickname" value={name} onChangeText={setName} />
       </YStack>
       <Form.Trigger asChild>
-        <Button size="xl" disabled={submitting || full}>
+        <Button size="xl" theme="primary" disabled={submitting || full}>
           {submitting ? "Joining…" : "Join"}
         </Button>
       </Form.Trigger>

@@ -54,7 +54,7 @@ export function Rejoin({ storyId, displayName, opening, onRejoined }: RejoinProp
         {error}
       </Paragraph>
       <XStack flexWrap="wrap" items="center" gap="4">
-        <Button size="xl" disabled={rejoining || full} onPress={rejoin}>
+        <Button size="xl" theme="primary" disabled={rejoining || full} onPress={rejoin}>
           {rejoining ? "Rejoining…" : `Rejoin as ${displayName}`}
         </Button>
         <Link href="/" asChild>

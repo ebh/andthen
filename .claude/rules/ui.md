@@ -36,11 +36,11 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
 - The story page is a rail beside the story from `md`.
-  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is an `outlined` `Button` with `theme="transparent"`, the same secondary style as "Suggest continuations", and it is the trigger of the leave dialog.
+  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
   - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
   - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
   - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
-  - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button` with `theme="transparent"`.
+  - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button`.
 - On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
 - The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
 - Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
@@ -64,6 +64,15 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 - A bug in a stock component is filed as a GitHub issue. It is not fixed in our code. A test that has to avoid the bug links the issue.
 - Custom UI code is limited to the story text layout: paragraphs, and the authors in a margin from `md` up.
 - Each page has one level-1 heading, the wordmark, and a level-2 heading for its own title where it has one.
+
+### Buttons
+
+A plain `Button` has no fill: `muted` text and a `muted` border, from the config's `level2` themes. Every button states its rank.
+
+- Secondary: `variant="outlined"`. This is the default for any action that is not the page's main one.
+- Quietest: `variant="quiet"`, no border, such as the story rail's "Leave story".
+- Primary: `theme="primary"`, a solid fill. A screen has at most one.
+- Destructive confirm: `theme="destructive"`, a solid red fill, such as the leave dialog's "Leave story".
 
 ## Type
 

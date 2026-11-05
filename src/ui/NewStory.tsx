@@ -100,7 +100,7 @@ export function NewStory() {
         {stories.type === "failed" && (
           <YStack role="alert" mt="8" gap="3" items="flex-start">
             <Paragraph>Couldn&apos;t load your stories.</Paragraph>
-            <Button size="xl" onPress={reload}>
+            <Button size="xl" variant="outlined" onPress={reload}>
               Retry
             </Button>
           </YStack>
@@ -139,7 +139,12 @@ export function NewStory() {
               {tooLong ? " (too long)" : ""}
             </Paragraph>
             <Form.Trigger asChild>
-              <Button size="xl" disabled={!canSubmit} w={media.md ? undefined : "100%"}>
+              <Button
+                size="xl"
+                theme="primary"
+                disabled={!canSubmit}
+                w={media.md ? undefined : "100%"}
+              >
                 {submitting ? "Sending…" : "Start the story"}
               </Button>
             </Form.Trigger>

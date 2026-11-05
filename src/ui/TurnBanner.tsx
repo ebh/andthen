@@ -57,7 +57,7 @@ export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
         ))}
       </YStack>
       {canSkipTurn(view) && (
-        <Button size="xl" disabled={skipping} onPress={onSkip}>
+        <Button size="xl" variant="outlined" disabled={skipping} onPress={onSkip}>
           {skipping ? "Skipping…" : `Skip ${holder?.displayName ?? "this turn"}`}
         </Button>
       )}

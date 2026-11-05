@@ -1,162 +1,147 @@
 import { createV6Config, withTailwindTypeScale } from "@tamagui/config/v6";
+import {
+  createThemes,
+  getTheme as getStockTheme,
+  levels,
+  paletteTokens,
+  tokens as stockTokens,
+  type GetThemeContext,
+  type Ramp,
+  type SemanticThemeKey,
+  type ThemeDefinitionContext,
+  type ShadowName,
+} from "@tamagui/config/v6-builder";
 import { createFont, createTamagui } from "tamagui";
 
-/** paper (light) and ink (dark), the project's two palettes, as Tamagui themes. */
-const paper = {
-  background: "#f6f1e7",
-  "background-hover": "#f6f1e7",
-  "background-press": "#ebe3d0",
-  "background-focus": "#f6f1e7",
-  color: "#1e1b16",
-  "color-hover": "#1e1b16",
-  "color-press": "#1e1b16",
-  "color-focus": "#1e1b16",
-  "border-color": "#d9cfba",
-  "border-color-hover": "#d9cfba",
-  "border-color-press": "#d9cfba",
-  "border-color-focus": "#1f5c4d",
-  "placeholder-color": "rgba(30, 27, 22, 0.7)",
-  "outline-color": "#1f5c4d",
-  "shadow-color": "rgba(0, 0, 0, 0.1)",
-  "base-100": "#f6f1e7",
-  "base-200": "#ebe3d0",
-  "base-300": "#d9cfba",
-  "base-content": "#1e1b16",
-  muted: "rgba(30, 27, 22, 0.7)",
-  primary: "#1f5c4d",
-  "primary-content": "#f6f1e7",
-  secondary: "#ddd3bd",
-  "secondary-content": "#1e1b16",
-  error: "#9b2226",
-  "error-content": "#fff5f3",
-  highlight: "rgba(31, 92, 77, 0.2)",
-};
-
-const ink: typeof paper = {
-  background: "#171a18",
-  "background-hover": "#171a18",
-  "background-press": "#1f2421",
-  "background-focus": "#171a18",
-  color: "#ece6d6",
-  "color-hover": "#ece6d6",
-  "color-press": "#ece6d6",
-  "color-focus": "#ece6d6",
-  "border-color": "#2c332f",
-  "border-color-hover": "#2c332f",
-  "border-color-press": "#2c332f",
-  "border-color-focus": "#7fc4a8",
-  "placeholder-color": "rgba(236, 230, 214, 0.7)",
-  "outline-color": "#7fc4a8",
-  "shadow-color": "rgba(0, 0, 0, 0.4)",
-  "base-100": "#171a18",
-  "base-200": "#1f2421",
-  "base-300": "#2c332f",
-  "base-content": "#ece6d6",
-  muted: "rgba(236, 230, 214, 0.7)",
-  primary: "#7fc4a8",
-  "primary-content": "#0f1a15",
-  secondary: "#2c332f",
-  "secondary-content": "#ece6d6",
-  error: "#f08a8a",
-  "error-content": "#2a0f0f",
-  highlight: "rgba(127, 196, 168, 0.2)",
-};
-
-/**
- * Tamagui wraps every Button in a `level2` sub-theme, so these themes style a plain Button, the
- * secondary look: `muted` text and a `muted` border (the stock `base-300` hairline is under 3:1 against
- * the page), with a `base-300` fill on hover and press. A `variant="outlined"` or `variant="quiet"`
- * Button, which has no fill of its own, still takes the hover fill.
+/*
+ * Palettes: eleven steps from 50 (palest) to 950 (deepest). The stock theme scales pick steps by
+ * number, so the steps that carry a job are pinned by the contrast they must reach:
+ * - surface 50 and dark 950 are the page; surface 950 and dark 50 are the text. The two schemes
+ *   need different warm and cool neutrals, so each has its own ramp.
+ * - surface 100 and dark 900 are the raised surface. surface 200 and dark 800 are the border and the
+ *   Button press and hover fills: at least 3:1 against the page, and 4.5:1 with the text on them.
+ * - brand 600 and red 600 are the solid fill in the light scheme; 500 is the hover fill there and
+ *   the resting fill in the dark scheme, so 500 and 400 stay deep enough for step 50 text.
+ * - brand 300 and red 300 are the text colours in the dark scheme.
  */
-const paperButton: typeof paper = {
-  ...paper,
-  "background-hover": paper["base-300"],
-  "background-press": paper["base-300"],
-  color: paper.muted,
-  "color-hover": paper.muted,
-  "color-press": paper.muted,
-  "color-focus": paper.muted,
-  "border-color": paper.muted,
-  "border-color-hover": paper.muted,
-  "border-color-press": paper.muted,
-  "outline-color": paper["base-content"],
+const palettes = {
+  surface: [
+    "#f6f1e7",
+    "#ebe3d0",
+    "#96896b",
+    "#928565",
+    "#877b5e",
+    "#695f48",
+    "#544c38",
+    "#453e2c",
+    "#373122",
+    "#2b251a",
+    "#1e1b16",
+  ],
+  "surface-dark": [
+    "#ece6d6",
+    "#d4cebf",
+    "#b6b6a5",
+    "#9ca499",
+    "#8d9a8f",
+    "#808e84",
+    "#66726a",
+    "#5e6a62",
+    "#5e6961",
+    "#1f2421",
+    "#171a18",
+  ],
+  brand: [
+    "#eaf6f3",
+    "#cfebe4",
+    "#a6d9cc",
+    "#7fc4a8",
+    "#297a66",
+    "#267360",
+    "#1f5c4d",
+    "#194a3e",
+    "#143b32",
+    "#0f2e27",
+    "#0b221d",
+  ],
+  red: [
+    "#fdf1f1",
+    "#f9dfdf",
+    "#f4bfc0",
+    "#f08a8a",
+    "#c63b40",
+    "#bb363b",
+    "#9b2226",
+    "#752225",
+    "#5b1a1c",
+    "#491517",
+    "#371011",
+  ],
+} as const;
+
+// Only these colours become tokens: the full stock set would add hundreds of unused CSS variables.
+const colorTokens = {
+  white: stockTokens.color.white,
+  black: stockTokens.color.black,
+  ...paletteTokens(palettes),
 };
 
-const inkButton: typeof paper = {
-  ...ink,
-  "background-hover": ink["base-300"],
-  "background-press": ink["base-300"],
-  color: ink.muted,
-  "color-hover": ink.muted,
-  "color-press": ink.muted,
-  "color-focus": ink.muted,
-  "border-color": ink.muted,
-  "border-color-hover": ink.muted,
-  "border-color-press": ink.muted,
-  "outline-color": ink["base-content"],
+type Tokens = { color: Record<string, string> };
+
+type Recipe = {
+  scheme: "light" | "dark";
+  palette: string;
+  treatment?: "normal" | "bold" | "tint";
+  level?: 1 | 2 | 3 | 4;
+  active?: boolean;
 };
 
-/**
- * A Button opts in to a solid fill with `theme="primary"` or `theme="destructive"`, which the Button
- * wraps above its own `level2`, so the fill resolves as `<palette>_<theme>_level2`. The fill uses the
- * palette's `primary` or `error` colour with its content colour as text.
- */
-const paperPrimaryButton: typeof paper = {
-  ...paper,
-  background: paper.primary,
-  "background-hover": "#184a3e",
-  "background-press": "#143d33",
-  "background-focus": paper.primary,
-  color: paper["primary-content"],
-  "color-hover": paper["primary-content"],
-  "color-press": paper["primary-content"],
-  "color-focus": paper["primary-content"],
-  "outline-color": paper["base-content"],
-};
+type Theme = Record<
+  keyof Ramp | SemanticThemeKey | ShadowName | "muted" | "highlight" | "primary" | "error",
+  string
+>;
 
-const inkPrimaryButton: typeof paper = {
-  ...ink,
-  background: ink.primary,
-  "background-hover": "#93d0b8",
-  "background-press": "#6aaf93",
-  "background-focus": ink.primary,
-  color: ink["primary-content"],
-  "color-hover": ink["primary-content"],
-  "color-press": ink["primary-content"],
-  "color-focus": ink["primary-content"],
-  "outline-color": ink["base-content"],
-};
+/** The keys Tamagui has no role for, per scheme. */
+const ownKeys = {
+  light: {
+    muted: "rgba(30, 27, 22, 0.7)",
+    highlight: "rgba(31, 92, 77, 0.2)",
+    primary: "brand-600",
+    error: "red-600",
+  },
+  dark: {
+    muted: "rgba(236, 230, 214, 0.7)",
+    highlight: "rgba(127, 196, 168, 0.2)",
+    primary: "brand-300",
+    error: "red-300",
+  },
+} as const;
 
-const paperDestructiveButton: typeof paper = {
-  ...paperPrimaryButton,
-  background: paper.error,
-  "background-hover": "#861d21",
-  "background-press": "#70181b",
-  "background-focus": paper.error,
-  color: paper["error-content"],
-  "color-hover": paper["error-content"],
-  "color-press": paper["error-content"],
-  "color-focus": paper["error-content"],
-};
+// Standalone, with explicit generics on `createThemes` below: inferring it from the tree fails.
+function getTheme(context: GetThemeContext<Tokens, Recipe>): Theme {
+  return { ...getStockTheme(context), ...ownKeys[context.recipe.scheme] };
+}
 
-const inkDestructiveButton: typeof paper = {
-  ...inkPrimaryButton,
-  background: ink.error,
-  "background-hover": "#f39d9d",
-  "background-press": "#e07676",
-  "background-focus": ink.error,
-  color: ink["error-content"],
-  "color-hover": ink["error-content"],
-  "color-press": ink["error-content"],
-  "color-focus": ink["error-content"],
-};
+const tree = {
+  light: { scheme: "light", palette: "surface" },
+  dark: { scheme: "dark", palette: "surface-dark" },
+  children: {
+    // Every Button wraps itself in `level2`, and a panel takes it as its raised surface.
+    ...levels(),
+    // A solid fill, which the checked Switch and Checkbox and `<Button theme="brand">` take.
+    brand: { palette: "brand", treatment: "bold", children: levels() },
+    // `<Button theme="destructive">`.
+    destructive: { palette: "red", treatment: "bold", children: levels() },
+    // The dim layer behind a dialog: the stock `Overlay` paints the theme's `background`.
+    scrim: ({ parent }: ThemeDefinitionContext) => ({
+      values: {
+        background: parent.scheme === "light" ? "rgba(30, 27, 22, 0.5)" : "rgba(0, 0, 0, 0.6)",
+      },
+    }),
+  },
+} as const;
 
-/**
- * The dim layer behind a dialog. The stock `Overlay` paints the theme's `background`, so a dialog
- * renders it with `theme="scrim"`, which resolves as `<palette>_scrim`.
- */
-const paperScrim: typeof paper = { ...paper, background: "rgba(30, 27, 22, 0.5)" };
-const inkScrim: typeof paper = { ...ink, background: "rgba(0, 0, 0, 0.6)" };
+const themes = createThemes<Tokens, typeof tree, Theme>({ color: colorTokens }, tree, { getTheme });
 
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };
 const lineHeights = { 1: 18, 2: 20, 3: 24, 4: 32, 5: 40, 6: 44 };
@@ -190,24 +175,7 @@ const body = createFont(
   }),
 );
 
-const base = createV6Config({
-  themes: {
-    paper,
-    ink,
-    paper_level2: paperButton,
-    ink_level2: inkButton,
-    paper_primary: paper,
-    ink_primary: ink,
-    paper_primary_level2: paperPrimaryButton,
-    ink_primary_level2: inkPrimaryButton,
-    paper_destructive: paper,
-    ink_destructive: ink,
-    paper_destructive_level2: paperDestructiveButton,
-    ink_destructive_level2: inkDestructiveButton,
-    paper_scrim: paperScrim,
-    ink_scrim: inkScrim,
-  },
-});
+const base = createV6Config({ themes, colorTokens });
 
 /**
  * Content widths, as `size` tokens so that `maxW` takes them. The stock scale stops at 384px,

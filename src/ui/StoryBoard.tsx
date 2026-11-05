@@ -207,7 +207,13 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   if (media.md) {
     return (
       <XStack bg="background" grow={1}>
-        <YStack w="80" p="8" justify="space-between" borderRightWidth={1} borderColor="base-300">
+        <YStack
+          w="80"
+          p="8"
+          justify="space-between"
+          borderRightWidth={1}
+          borderColor="border-color"
+        >
           {rail}
           {invite}
         </YStack>
@@ -222,7 +228,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
 
   return (
     <YStack bg="background" grow={1}>
-      <YStack p="5" borderBottomWidth={1} borderColor="base-300">
+      <YStack p="5" borderBottomWidth={1} borderColor="border-color">
         {rail}
       </YStack>
       <YStack p="5">{main}</YStack>

@@ -131,7 +131,7 @@ daisyUI cannot run in React Native. Six candidates each built the same story-pag
 | Gluestack UI v5      | about 229 + 4,436 | 4.7 MB        | 90             | 5                 | Release candidate. Vendored code breaks the no-`as` rule. |
 | HeroUI Native 1.0.11 | about 298         | 5.5 MB        | 149            | about 7           | Heaviest. Open web bugs in overlay components.            |
 
-**Decided:** Tamagui, with stock components and only the theme ours (paper and ink tokens, Source Serif 4 and Inter). Components do what Tamagui's docs say they can do. A bug in a stock component is filed as an issue, not worked around.
+**Decided:** Tamagui, with stock components and only the theme ours (light and dark themes, Source Serif 4 and Inter). Components do what Tamagui's docs say they can do. A bug in a stock component is filed as an issue, not worked around.
 
 Checks on web (Chromium) with react-native-web 0.21:
 
@@ -161,7 +161,7 @@ Checks on web (Chromium) with react-native-web 0.21:
   It rewrites sources in place and restores them afterwards. The restore was checked after normal and failing runs, not after a hard kill. It also writes `tamagui.generated.css`.
 
 - `metro.config.js` is `withTamagui(getDefaultConfig(__dirname))`. `tamagui.build.ts` sets `config`, `components: ["tamagui"]`, `outputCSS` and `disable: isDev`. Dev runs with the compiler off.
-- Output parity: paper and ink at 375px and 1280px are byte-identical to compiler off. The Dialog checks and role tests give the same results. The compiler drops a redundant `role="heading"` from the `<h1>`.
+- Output parity: light and dark at 375px and 1280px are byte-identical to compiler off. The Dialog checks and role tests give the same results. The compiler drops a redundant `role="heading"` from the `<h1>`.
 - The docs are stale here. `disableExtraction` is ignored by the Metro plugin, and the docs' saving from `outputCSS` does not hold on Metro. The experimental zero-runtime mode fails with "509 forbidden Tamagui module(s)".
 - Cost, production web export, compiler off against on:
 

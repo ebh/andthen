@@ -109,7 +109,8 @@ export function NewStory() {
       <YStack
         flex={media.md ? 1 : undefined}
         grow={1}
-        bg="base-200"
+        theme="level2"
+        bg="background"
         px={media.md ? "16" : "5"}
         py={media.md ? "16" : "10"}
         items="center"
@@ -141,7 +142,7 @@ export function NewStory() {
             <Form.Trigger asChild>
               <Button
                 size="xl"
-                theme="primary"
+                theme="brand"
                 disabled={!canSubmit}
                 w={media.md ? undefined : "100%"}
               >

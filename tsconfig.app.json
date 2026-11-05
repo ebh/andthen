@@ -7,5 +7,16 @@
     "jsx": "react-jsx",
     "types": ["node"]
   },
-  "include": ["app", "tamagui.config.ts", "tamagui.build.ts", "css.d.ts"]
+  "include": [
+    "app",
+    "src/ui",
+    "src/shared",
+    "src/client/api.ts",
+    "src/client/messages.ts",
+    "src/client/testSetup.ts",
+    "src/client/testFixtures.ts",
+    "tamagui.config.ts",
+    "tamagui.build.ts",
+    "css.d.ts"
+  ]
 }

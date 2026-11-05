@@ -65,23 +65,6 @@ const ink: typeof paper = {
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };
 const lineHeights = { 1: 18, 2: 20, 3: 24, 4: 32, 5: 40, 6: 44 };
 
-/** The "brand" sub-theme is what Checkbox and Switch switch to when checked; Buttons use it for the primary look. */
-const brandOf = (scheme: typeof paper) => ({
-  ...scheme,
-  background: scheme.primary,
-  "background-hover": scheme.primary,
-  "background-press": scheme.primary,
-  "background-focus": scheme.primary,
-  color: scheme["primary-content"],
-  "color-hover": scheme["primary-content"],
-  "color-press": scheme["primary-content"],
-  "color-focus": scheme["primary-content"],
-  "border-color": scheme.primary,
-  "border-color-hover": scheme.primary,
-  "border-color-press": scheme.primary,
-  "border-color-focus": scheme.primary,
-});
-
 // `face` maps weights to the names expo-font registers; web uses `family` plus the same @font-face names.
 const story = createFont(
   withTailwindTypeScale({
@@ -112,7 +95,7 @@ const body = createFont(
 );
 
 const base = createV6Config({
-  themes: { light: paper, dark: ink, light_brand: brandOf(paper), dark_brand: brandOf(ink) },
+  themes: { paper, ink },
 });
 
 export const tamaguiConfig = createTamagui({

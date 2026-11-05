@@ -6,7 +6,7 @@ import { SourceSerif4_600SemiBold } from "@expo-google-fonts/source-serif-4/600S
 import { useFonts } from "expo-font";
 import { Slot } from "expo-router";
 import { useColorScheme } from "react-native";
-import { TamaguiProvider } from "tamagui";
+import { ScrollView, TamaguiProvider } from "tamagui";
 
 import { tamaguiConfig } from "../../tamagui.config";
 
@@ -25,7 +25,13 @@ export default function Layout() {
 
   return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme={scheme === "dark" ? "ink" : "paper"}>
-      <Slot />
+      {/* Expo's web root fixes the body to the viewport, so the app scrolls inside this ScrollView
+          (https://docs.expo.dev/router/reference/static-rendering/#root-html). flexGrow lets a short
+          page fill the height; a page root must use `grow={1}`, because `flex={1}` has a zero basis
+          and is clamped to the screen height while its content overflows. */}
+      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <Slot />
+      </ScrollView>
     </TamaguiProvider>
   );
 }

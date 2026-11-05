@@ -6,9 +6,14 @@ import { tamaguiConfig } from "../../tamagui.config";
 
 /** Renders a page inside the app's Tamagui provider and `paper` theme, as the root layout does. */
 export function renderPage(page: ReactElement): RenderResult {
-  return render(
+  return render(inTheme(page));
+}
+
+/** The page inside the provider, for `rerender`, which does not add one. */
+export function inTheme(page: ReactElement): ReactElement {
+  return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme="paper">
       {page}
-    </TamaguiProvider>,
+    </TamaguiProvider>
   );
 }

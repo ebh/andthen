@@ -92,6 +92,34 @@ const inkButton: typeof paper = {
   "outline-color": ink["base-content"],
 };
 
+/**
+ * For a `quiet` or `outlined` Button, which has no fill: its text sits on the page, so it reads
+ * `muted`, not the `primary-content` the solid fill needs. The `outlined` border is `muted` too:
+ * the stock `base-300` hairline is under 3:1 against the page. A Button opts in with `theme="transparent"`,
+ * which the Button wraps above its own `level2`, so these resolve as `<palette>_transparent_level2`.
+ */
+const paperTransparentButton: typeof paper = {
+  ...paperButton,
+  color: paper.muted,
+  "color-hover": paper.muted,
+  "color-press": paper.muted,
+  "color-focus": paper.muted,
+  "border-color": paper.muted,
+  "border-color-hover": paper.muted,
+  "border-color-press": paper.muted,
+};
+
+const inkTransparentButton: typeof paper = {
+  ...inkButton,
+  color: ink.muted,
+  "color-hover": ink.muted,
+  "color-press": ink.muted,
+  "color-focus": ink.muted,
+  "border-color": ink.muted,
+  "border-color-hover": ink.muted,
+  "border-color-press": ink.muted,
+};
+
 const sizes = { 1: 12, 2: 14, 3: 16, 4: 20, 5: 25, 6: 30 };
 const lineHeights = { 1: 18, 2: 20, 3: 24, 4: 32, 5: 40, 6: 44 };
 
@@ -125,11 +153,40 @@ const body = createFont(
 );
 
 const base = createV6Config({
-  themes: { paper, ink, paper_level2: paperButton, ink_level2: inkButton },
+  themes: {
+    paper,
+    ink,
+    paper_level2: paperButton,
+    ink_level2: inkButton,
+    paper_transparent: paper,
+    ink_transparent: ink,
+    paper_transparent_level2: paperTransparentButton,
+    ink_transparent_level2: inkTransparentButton,
+  },
 });
+
+/**
+ * Content widths, as `size` tokens so that `maxW` takes them. The stock scale stops at 384px,
+ * and the named widths it carries (`2xl`) are not typed for `maxW`.
+ */
+const contentWidths = {
+  /** The column of a simple page. */
+  simplePage: 672,
+  /** A narrow column: a form, or a short line of intro text. */
+  narrow: 448,
+  /** One paragraph of story text: about 55 characters a line at the passage font size. */
+  passage: 620,
+  /** The story column: the passages, their authors' margin and the composer. */
+  story: 796,
+};
 
 export const tamaguiConfig = createTamagui({
   ...base,
+  tokens: {
+    ...base.tokens,
+    size: { ...base.tokens.size, ...contentWidths },
+    maxWidth: { ...base.tokens.maxWidth, ...contentWidths },
+  },
   fonts: { body, story },
   settings: { ...base.settings, defaultFont: "body" },
 });

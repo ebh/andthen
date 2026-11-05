@@ -16,10 +16,11 @@ export interface LiveSocket {
   close: () => void;
 }
 
-export interface LiveDeps {
+/** `Timer` is whatever `setTimer` hands back; the caller picks it so `clearTimer` needs no guess about its type. */
+export interface LiveDeps<Timer = unknown> {
   openSocket: (url: string, handlers: SocketHandlers) => LiveSocket;
-  setTimer: (callback: () => void, delayMs: number) => unknown;
-  clearTimer: (timer: unknown) => void;
+  setTimer: (callback: () => void, delayMs: number) => Timer;
+  clearTimer: (timer: Timer) => void;
   /** A number in [0, 1), as `Math.random`. */
   random: () => number;
   /** The clock, in epoch milliseconds. */
@@ -54,15 +55,18 @@ const PONG = "pong";
  * The backoff restarts only once a connection proves itself: it stays open for STABLE_AFTER_MS
  * or delivers a live message. A missing pong marks the socket dead and reconnects.
  */
-export function keepSocketOpen(connection: LiveConnection, deps: LiveDeps): () => void {
+export function keepSocketOpen<Timer>(
+  connection: LiveConnection,
+  deps: LiveDeps<Timer>,
+): () => void {
   let stopped = false;
   let failedAttempts = 0;
   let current: LiveSocket | null = null;
   // Handlers of a socket we already gave up on must not act on the new one.
   let generation = 0;
-  let retryTimer: unknown = null;
-  let stableTimer: unknown = null;
-  let heartbeatTimer: unknown = null;
+  let retryTimer: Timer | null = null;
+  let stableTimer: Timer | null = null;
+  let heartbeatTimer: Timer | null = null;
 
   const clearHeartbeat = (): void => {
     if (heartbeatTimer !== null) {
@@ -178,16 +182,16 @@ const TURN_END_RETRY_MS = 5000;
  *
  * Returns a function that cancels it.
  */
-export function refetchWhenTurnEnds(
+export function refetchWhenTurnEnds<Timer>(
   endsAt: number | null,
   refetch: () => void,
-  deps: Pick<LiveDeps, "setTimer" | "clearTimer" | "now">,
+  deps: Pick<LiveDeps<Timer>, "setTimer" | "clearTimer" | "now">,
 ): () => void {
   if (endsAt === null) {
     return () => undefined;
   }
 
-  let timer: unknown = null;
+  let timer: Timer | null = null;
   const arm = (delayMs: number): void => {
     timer = deps.setTimer(() => {
       refetch();
@@ -197,7 +201,9 @@ export function refetchWhenTurnEnds(
   arm(Math.max(0, endsAt - deps.now()) + TURN_END_MARGIN_MS);
 
   return () => {
-    deps.clearTimer(timer);
+    if (timer !== null) {
+      deps.clearTimer(timer);
+    }
   };
 }
 

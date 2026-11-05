@@ -20,9 +20,28 @@ The app exists to be read. Every visual decision serves the story text first.
 
 ## Layout
 
-- The story page is a rail beside the story. The rail holds the wordmark, a link back to the writer's stories, whose turn it is, the turn order, the invite link and a quiet "Leave story" button. On a phone the rail stacks above the story, with the invite link and the leave button last, below the story.
-- The landing page is a pitch on one side and the form on a tinted panel on the other. A writer who is in stories sees them listed in place of the pitch, with the form retitled "Start a new story". On a phone the three steps are dropped and the form follows the headline.
-- Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint.
+Pages are built from `YStack` and `XStack` and their documented style props. Spacing uses the space tokens; widths use the content-width tokens in the config (`simplePage` 672px, `narrow` 448px, `story` 796px, `passage` 620px). A page needs no other pixel value.
+
+- The root layout wraps every page in one `ScrollView`, so a page taller than the screen scrolls. A page's root fills a short screen with `grow={1}`, never `flex={1}`: its zero basis clamps the page to the screen height while the content overflows.
+- Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint, and it is the only breakpoint a layout changes at.
+- Page padding is `5` on a phone. Sections of a page are `8` apart; the parts inside a section are `2` to `4` apart.
+- A simple page (loading, error, not found, join form) is one column, centred on the screen, at most `simplePage` wide. The wordmark sits at the top-left of the column, `8` above the content.
+- The join form is a card: `base-200` fill, a `base-300` hairline border, padding `6`.
+- The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `base-200` panel on the right.
+  - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
+  - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
+  - From `md` the three steps sit under the intro as a list with hairline rules. A phone drops them.
+  - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
+- The story page is a rail beside the story from `md`.
+  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link and the quiet "Leave story" button at its bottom.
+  - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
+  - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
+  - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
+  - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button` with `theme="transparent"`.
+- On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the leave button. The composer's buttons are full width and stacked.
+- The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
+- Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
+- The invite field is an `Input` at `size="md"`, so a full invite URL fits in the rail.
 
 ## Components
 
@@ -31,11 +50,13 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 - Allowed, because the docs describe it:
   - theme tokens and the Tamagui config
   - a component's documented props and state props
-  - the props of the React Native or react-native-web component that the Tamagui docs page says it wraps and links to. `Input` and `TextArea` wrap `TextInput`, so `autoComplete` is allowed. A prop that neither the Tamagui docs nor those linked docs list is still not allowed.
+  - a prop that the [React Native docs](https://reactnative.dev/docs) or [react-native-web docs](https://necolas.github.io/react-native-web/docs/) list for the component underneath, whether or not the Tamagui page links to them. Two examples:
+    - `autoComplete` on `Input` and `TextArea`, which wrap React Native's `TextInput`.
+    - `aria-pressed` on `Button`, from react-native-web's [accessibility props](https://necolas.github.io/react-native-web/docs/accessibility/), which every View accepts.
   - a component's parts composed in the documented structure, such as the Dialog "skin" from the docs
 - Not allowed:
-  - a prop the docs do not list for that component, such as an `aria-label` or `role` override that changes what a component exposes
-  - a handler that works around a component's behaviour, such as one that restores focus
+  - a prop that none of those docs (Tamagui, React Native, react-native-web) list for that component, such as an `aria-label` or `role` override that changes what a component exposes
+  - a handler that works around a bug in a stock component, such as restoring focus that a `Dialog` drops when it closes. Our own behaviour built with documented methods, such as `focus()` on a `TextInput`, is allowed.
   - a wrapper that adds behaviour, a patched package, or a hand-built replacement for a component Tamagui has
 - A bug in a stock component is filed as a GitHub issue. It is not fixed in our code. A test that has to avoid the bug links the issue.
 - Custom UI code is limited to the story text layout: paragraphs, and the authors in a margin from `md` up.
@@ -55,8 +76,13 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 
 ## Touch
 
-- Interactive elements are at least 44px tall.
-- That size comes from Tamagui's documented `size` prop and the size tokens in the config, never from a pixel value on one element. A stock component that cannot reach 44px that way is left as it is and filed as an issue.
+- Touch targets follow WCAG 2.2 AA [Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) (2.5.8). A target meets it in one of two ways:
+  - It is at least 24×24px.
+  - Or it has enough spacing: a 24px-diameter circle centred on it overlaps no other target and no other target's circle.
+- A link inside a sentence of text is exempt.
+- Size comes from Tamagui's documented `size` prop and the size tokens in the config, never from a pixel value on one element.
+- A stock component that meets neither the size nor the spacing is left as it is and filed as an issue.
+- Measured today: stock `Switch` and `Checkbox` at `size="xl"` are 28px tall. `Button` at `size="xl"` is 50px. `Anchor` links are 20px tall, so they pass only through the spacing exception.
 - Everything a user needs is visible, or reachable by tap and keyboard.
 - Every interactive element shows a focus ring. Tamagui draws it; check it in both themes.
 
@@ -80,7 +106,7 @@ Links and buttons:
 - Use a link when the action changes the route (the URL). Use a button when it does not, such as submitting a form, leaving a story or toggling something.
 - A link is a stock `Anchor` inside an Expo Router `Link` with `asChild`, as in `Wordmark.tsx`. A `Button` is never given an `href`.
 - A button may move the route when it finishes an action. "Start the story" creates a story and then moves to `/<id>`. It is still a button, because it submits a form.
-- A link may be shorter than 44px, because `Anchor` has no documented `size` prop. That follows the touch rule above: it is left as it is and an issue is filed.
+- A link under 24px tall, such as `Anchor` at 20px, needs the spacing exception from the touch rule above. A link with neither the size nor the spacing is left as it is and an issue is filed.
 
 Inside Tamagui's `Dialog`, tests find the buttons by visible text, because `Dialog.Close` names itself "Dialog Close".
 

@@ -2,12 +2,20 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.client.tsbuildinfo",
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite/client"]
+    "types": ["node"]
   },
-  "include": ["src/client", "src/shared"],
+  "include": [
+    "src/app",
+    "src/ui",
+    "src/shared",
+    "src/client",
+    "tamagui.config.ts",
+    "tamagui.build.ts",
+    "css.d.ts"
+  ],
   // live.test.ts belongs to tsconfig.test.json, which types it without the DOM.
   "exclude": ["src/client/live.test.ts"]
 }

@@ -10,7 +10,10 @@
   "mutate": [
     "src/shared/**/*.ts",
     "src/worker/**/*.ts",
+    "src/client/**/*.ts",
     "!src/**/*.test.ts",
+    "!src/client/testFixtures.ts",
+    "!src/client/testSetup.ts",
     "!src/worker/index.ts",
     "!src/worker/storyRoom.ts"
   ],

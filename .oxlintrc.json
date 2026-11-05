@@ -18,6 +18,8 @@
   "ignorePatterns": [
     "worker-configuration.d.ts",
     "dist/**",
+    ".expo/**",
+    ".tamagui/**",
     "reports/**",
     ".stryker-tmp/**",
     ".wrangler/**",

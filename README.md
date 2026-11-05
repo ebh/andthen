@@ -26,13 +26,13 @@ Needs Node 26.13.0 and pnpm 12.16.1. No Cloudflare account or login is needed.
    ```sh
    pnpm db:migrate:local
    ```
-4. Start the app. Wrangler warns that AI bindings "may incur usage charges"; that is expected, and nothing calls Workers AI unless you set `AI_REMOTE=1` (see below).
+4. Start the app (the Expo dev server and the Worker behind one address). Wrangler warns that AI bindings "may incur usage charges"; that is expected, and nothing calls Workers AI unless you set `AI_REMOTE=1` (see below).
    ```sh
    pnpm dev
    ```
-5. Open the URL `pnpm dev` prints, usually <http://localhost:5173>. Use `localhost`, not `127.0.0.1`: the login cookie only works without HTTPS on `localhost`.
+5. Open <http://localhost:5173>. Use `localhost`, not `127.0.0.1`: the login cookie only works without HTTPS on `localhost`.
 
-What you should see: a form asking for your name and an opening passage. Start a story and you land on `/<5 characters>` with your passage, a note that the story is waiting for someone to join, and an invite link. Open that link in a private window, join under another name, and the first window updates on its own. Local suggestions are three fixed sentences, not real AI.
+What you should see: a form asking for your name and an opening passage. Start a story and the Worker creates it and sends you to `/<5 characters>`. That page, along with joining, the story itself and your list of stories, is not in the new app yet, so you land on the not-found page. The API behind them works; see [docs/api.md](docs/api.md).
 
 Local data lives in `.wrangler/state`; delete that folder to start clean. Copy `.dev.vars.example` to `.dev.vars` to change local variables. To try the real model, see [docs/deployment.md](docs/deployment.md#trying-the-real-model-locally).
 
@@ -40,22 +40,21 @@ Local data lives in `.wrangler/state`; delete that folder to start clean. Copy `
 
 | Command                 | Does                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `pnpm dev`              | Dev server with the Worker, local D1 and fake suggestions.                                |
-| `pnpm build`            | Typecheck, then build the app and Worker into `dist/`.                                    |
-| `pnpm preview`          | Serve the build.                                                                          |
+| `pnpm dev`              | Expo dev server and the Worker (local D1, fake suggestions) on one address.               |
+| `pnpm build`            | Export the web app into `dist/`, which the Worker serves as static assets.                |
 | `pnpm db:migrate:local` | Apply `migrations/` to the local database.                                                |
 | `pnpm format`           | Format with oxfmt (`format:check` only checks).                                           |
 | `pnpm lint`             | oxlint (type-aware), then ESLint for the rules oxlint lacks.                              |
-| `pnpm typecheck`        | `tsc -b` over client, Worker, tests, e2e and tooling.                                     |
+| `pnpm typecheck`        | `tsc -b` over the app, Worker, tests, e2e and tooling.                                    |
 | `pnpm test`             | Vitest: unit tests, component tests and Miniflare-backed integration tests.               |
 | `pnpm e2e`              | Playwright in Chromium against a fresh build and database. Needs `pnpm e2e:install` once. |
-| `pnpm stryker`          | Mutation tests over `src/shared` and `src/worker`.                                        |
+| `pnpm stryker`          | Mutation tests over `src/shared`, `src/worker` and `src/client`.                          |
 | `pnpm cf-typegen`       | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc`.                             |
 
 ## Tests
 
 - **Unit and integration (`pnpm test`).** Test files sit beside the code (`*.test.ts`) and in `test/`. They need no browser and finish in seconds. A passing run ends with `Test Files  N passed`.
-- **End to end (`pnpm e2e`).** Run `pnpm e2e:install` once to download Chromium. Each run builds the app, creates a new local database in `.wrangler/e2e-state` and serves it on port 4173, so it never touches your `pnpm dev` data. Two browser contexts act as two writers. A passing run ends with `4 passed`; on failure, open `playwright-report/index.html` or `test-results/`.
+- **End to end (`pnpm e2e`).** Run `pnpm e2e:install` once to download Chromium. Each run builds the app, creates a new local database in `.wrangler/e2e-state` and serves the build from the Worker on port 4173, so it never touches your `pnpm dev` data. A passing run ends with `2 passed`; on failure, open `playwright-report/index.html` or `test-results/`.
 - **Mutation (`pnpm stryker`).** Breaks if fewer than 80% of injected bugs are caught. CI runs it in its own job.
 
 Before you push: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm stryker`. CI also runs the e2e job, checks that `worker-configuration.d.ts` is current (`pnpm cf-typegen`) and dry-runs both deploys.

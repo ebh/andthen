@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.expo/
+.tamagui/
+tamagui.generated.css
 .wrangler/
 .dev.vars
 .dev.vars.*

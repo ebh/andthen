@@ -23,9 +23,10 @@ export default defineConfig({
   use: { baseURL, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // `prepare` gives each run a fresh local D1 and a fresh build; the server then serves it.
-    command: `node e2e/prepare.ts && pnpm exec vite preview --port ${E2E_PORT.toString()} --strictPort`,
-    // Relative to this file: run from the repo root, where `.wrangler` and `dist` live.
+    // `prepare` gives each run a fresh local D1 and a fresh export; the Worker then serves it. Remote
+    // bindings stay off, so the `AI` binding needs no Cloudflare credentials.
+    command: `node e2e/prepare.ts && pnpm exec wrangler dev --local --config wrangler.jsonc --port ${E2E_PORT.toString()} --persist-to ${E2E_STATE_DIR}`,
+    // Relative to this file: run from the repo root, where `wrangler.jsonc`, `.wrangler` and `dist` live.
     cwd: "..",
     url: `${baseURL}/api/health`,
     // Reusing a running server would reuse its database, so reruns could collide.

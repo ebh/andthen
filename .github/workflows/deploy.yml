@@ -41,21 +41,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Before the build: the build leaves a redirect that points wrangler at its own output.
       - name: Apply D1 migrations (preview)
         run: pnpm wrangler d1 migrations apply DB --env preview --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      # CLOUDFLARE_ENV makes the build bake in the preview config; `wrangler deploy` reads that.
       - name: Build
         run: pnpm build
-        env:
-          CLOUDFLARE_ENV: preview
 
       - name: Deploy (preview)
-        run: pnpm wrangler deploy
+        run: pnpm wrangler deploy --env preview
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -112,12 +108,10 @@ jobs:
       - name: Build
         if: steps.latest.outputs.current == 'true'
         run: pnpm build
-        env:
-          CLOUDFLARE_ENV: production
 
       - name: Deploy (production)
         if: steps.latest.outputs.current == 'true'
-        run: pnpm wrangler deploy
+        run: pnpm wrangler deploy --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

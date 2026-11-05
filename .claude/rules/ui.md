@@ -1,8 +1,8 @@
 ---
 paths:
-  - "app/**"
+  - "src/app/**"
+  - "src/ui/**"
   - "src/client/**"
-  - "index.html"
 ---
 
 # UI rules
@@ -31,6 +31,7 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 - Allowed, because the docs describe it:
   - theme tokens and the Tamagui config
   - a component's documented props and state props
+  - the props of the React Native or react-native-web component that the Tamagui docs page says it wraps and links to. `Input` and `TextArea` wrap `TextInput`, so `autoComplete` is allowed. A prop that neither the Tamagui docs nor those linked docs list is still not allowed.
   - a component's parts composed in the documented structure, such as the Dialog "skin" from the docs
 - Not allowed:
   - a prop the docs do not list for that component, such as an `aria-label` or `role` override that changes what a component exposes
@@ -74,6 +75,13 @@ Tests find elements by role, accessible name, label and visible text. The role i
 - the "Leave story" button, and the leave dialog named "Leave this story?" with its "Cancel" and "Leave story" buttons
 - the "You left this story" screen and its "Rejoin as …" button
 
+Links and buttons:
+
+- Use a link when the action changes the route (the URL). Use a button when it does not, such as submitting a form, leaving a story or toggling something.
+- A link is a stock `Anchor` inside an Expo Router `Link` with `asChild`, as in `Wordmark.tsx`. A `Button` is never given an `href`.
+- A button may move the route when it finishes an action. "Start the story" creates a story and then moves to `/<id>`. It is still a button, because it submits a form.
+- A link may be shorter than 44px, because `Anchor` has no documented `size` prop. That follows the touch rule above: it is left as it is and an issue is filed.
+
 Inside Tamagui's `Dialog`, tests find the buttons by visible text, because `Dialog.Close` names itself "Dialog Close".
 
 ## Done
@@ -82,4 +90,5 @@ A UI change is done when:
 
 - you have looked at every changed page in `paper` and `ink` (set `prefers-color-scheme`), at 375px and at desktop width
 - every component use fits the "Components" section
+- every control that changes the route is a link, and every other control is a button
 - the checks in `CLAUDE.md` pass, and so does `pnpm e2e`

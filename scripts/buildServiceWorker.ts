@@ -19,11 +19,19 @@ const SW_PATH = `${DIST}/sw.js`;
 
 const precache = await getManifest({
   globDirectory: DIST,
-  // The hashed app shell: the page, its scripts and styles, and the fonts. Left out on purpose: the
-  // expo-router images under `assets/node_modules` (the app uses none of them) and `metadata.json`.
+  // The hashed app shell: the page, its scripts and styles, and the fonts, plus the two tab icons that
+  // every page links to. Left out on purpose: the larger manifest and touch icons (only the install
+  // flow fetches them, and that needs the network anyway), the expo-router images under
+  // `assets/node_modules` (the app uses none of them) and `metadata.json`.
   // Expo keeps the fonts under pnpm's `.pnpm` folder, which `**` skips because its name starts with a
   // dot, so the pattern names it.
-  globPatterns: ["index.html", "_expo/static/**/*", "assets/node_modules/.pnpm/**/*.ttf"],
+  globPatterns: [
+    "index.html",
+    "icon.svg",
+    "favicon.ico",
+    "_expo/static/**/*",
+    "assets/node_modules/.pnpm/**/*.ttf",
+  ],
   // The default ignores `node_modules`, where those fonts are.
   globIgnores: [],
   modifyURLPrefix: { "": "/" },
@@ -39,6 +47,7 @@ if (manifestEntries === undefined) {
 const precached = manifestEntries.map((entry) => entry.url);
 const hasAppShell =
   precached.includes("/index.html") &&
+  precached.includes("/icon.svg") &&
   precached.some((url) => url.startsWith("/_expo/")) &&
   precached.some((url) => url.endsWith(".ttf"));
 if (!hasAppShell) {

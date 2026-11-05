@@ -7,8 +7,13 @@ import { UpdateRequired } from "./UpdateRequired";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
 
+const applyUpdate = vi.fn<() => Promise<void>>();
+vi.mock("../client/appUpdate", () => ({
+  useAppUpdate: () => ({ updateReady: false, applyUpdate }),
+}));
+
 afterEach(() => {
-  vi.unstubAllGlobals();
+  applyUpdate.mockReset();
 });
 
 describe("UpdateRequired", () => {
@@ -20,9 +25,7 @@ describe("UpdateRequired", () => {
     expect(screen.getByText("This version of And then… is out of date.")).toBeVisible();
   });
 
-  it("offers one button, which reloads the page", () => {
-    const reload = vi.fn<() => void>();
-    vi.stubGlobal("location", { reload });
+  it("offers one button, which applies the update", () => {
     renderPage(<UpdateRequired />);
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
@@ -30,6 +33,6 @@ describe("UpdateRequired", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Update now" }));
 
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
   });
 });

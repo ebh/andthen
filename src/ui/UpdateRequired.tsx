@@ -1,9 +1,12 @@
 import { Button, H2, Paragraph, YStack } from "tamagui";
 
+import { useAppUpdate } from "../client/appUpdate";
 import { SimplePage } from "./SimplePage";
 
 /** Replaces the whole app once the Worker has refused this build's API level. */
 export function UpdateRequired() {
+  const { applyUpdate } = useAppUpdate();
+
   return (
     <SimplePage>
       <YStack gap="3" items="flex-start">
@@ -15,7 +18,7 @@ export function UpdateRequired() {
           size="xl"
           theme="primary"
           onPress={() => {
-            window.location.reload();
+            void applyUpdate();
           }}
         >
           Update now

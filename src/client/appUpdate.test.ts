@@ -4,7 +4,7 @@ import {
   createAppUpdate,
   type AppUpdateEnvironment,
   type ServiceWorkerHandle,
-  type WorkerRegistration,
+  type ServiceWorkerRegistrationHandle,
 } from "./appUpdate";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -16,7 +16,7 @@ function setUp(options: { waitingAtRegister?: boolean; updateFails?: boolean } =
   const registration = {
     waiting: options.waitingAtRegister === true ? {} : null,
     unregister: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
-  } satisfies WorkerRegistration;
+  } satisfies ServiceWorkerRegistrationHandle;
   const worker = {
     register: vi.fn<ServiceWorkerHandle["register"]>().mockResolvedValue(registration),
     update: vi.fn<ServiceWorkerHandle["update"]>(() =>

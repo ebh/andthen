@@ -27,14 +27,14 @@ export interface AppUpdateEnvironment {
 
 /** The part of `@serwist/window`'s `Serwist` that `createAppUpdate` uses. */
 export interface ServiceWorkerHandle {
-  register: () => Promise<WorkerRegistration | undefined>;
+  register: () => Promise<ServiceWorkerRegistrationHandle | undefined>;
   update: () => Promise<void>;
   messageSkipWaiting: () => void;
   addEventListener: (type: "waiting" | "controlling", listener: () => void) => void;
 }
 
 /** The part of a `ServiceWorkerRegistration` that `createAppUpdate` uses. */
-export interface WorkerRegistration {
+export interface ServiceWorkerRegistrationHandle {
   /** Set while a newer worker has installed and is waiting to take over. */
   waiting: object | null;
   unregister: () => Promise<boolean>;
@@ -47,7 +47,7 @@ const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 export function createAppUpdate(environment: AppUpdateEnvironment): AppUpdate {
   const { worker } = environment;
   const listeners = new Set<() => void>();
-  let registration: WorkerRegistration | undefined;
+  let registration: ServiceWorkerRegistrationHandle | undefined;
   let waiting = false;
 
   function markWaiting(): void {

@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ME, OTHER, jsonResponse, storyView } from "../client/testFixtures";
+import { ME, OTHER, jsonResponse, noContentResponse, storyView } from "../client/testFixtures";
 import { params } from "./routerStub";
 import { Story } from "./Story";
 import { renderPage } from "./testRender";
@@ -52,6 +52,27 @@ describe("Story", () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/stories/abc12",
       "/api/stories/abc12/participants",
+      "/api/stories/abc12",
+    ]);
+  });
+
+  it("offers a writer who left their old name, then shows the story once they rejoin", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
+      )
+      .mockResolvedValueOnce(noContentResponse())
+      .mockResolvedValueOnce(jsonResponse(200, view));
+    vi.stubGlobal("fetch", fetchMock);
+    renderPage(<Story />);
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Rejoin as Ana" }));
+
+    expect(await screen.findByLabelText("Invite link")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/stories/abc12",
+      "/api/stories/abc12/rejoin",
       "/api/stories/abc12",
     ]);
   });

@@ -9,6 +9,8 @@ export type StoryLoad =
   // The story exists but this browser hasn't joined it.
   | { type: "not_joined" }
   | { type: "not_found" }
+  // This browser was in the story and left it.
+  | { type: "left"; displayName: string; opening: string }
   | { type: "failed"; failure: ApiFailure };
 
 const LOADING: StoryLoad = { type: "loading" };
@@ -56,6 +58,10 @@ function nextLoad(previous: StoryLoad, result: ApiResult<StoryView>): StoryLoad 
   }
   if (failure.type === "rejected" && failure.code === "not_found") {
     return { type: "not_found" };
+  }
+  // Checked before the reload rule below: a writer who left in another tab gets the way back in.
+  if (failure.type === "left_story") {
+    return { type: "left", displayName: failure.displayName, opening: failure.opening };
   }
   // A failed reload keeps the story on screen: the live socket retries on its own.
   if (previous.type === "loaded") {

@@ -22,7 +22,10 @@ import {
   validatePassage,
 } from "../shared/validation";
 import { createStory } from "../client/api";
+import { takeLeftStoryNote } from "../client/leftStoryNote";
 import { describeFailure } from "../client/messages";
+import { useMyStories } from "../client/useMyStories";
+import { MyStories } from "./MyStories";
 import { Wordmark } from "./Wordmark";
 
 /** `/`: pick a name, write the opening passage, get a story link. */
@@ -35,6 +38,9 @@ export function NewStory() {
   const [opening, setOpening] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { load: stories, reload } = useMyStories();
+  const [leftAStory] = useState(takeLeftStoryNote);
+  const hasStories = stories.type === "loaded" && stories.stories.length > 0;
   const length = passageLength(opening);
   const tooLong = length > MAX_PASSAGE_LENGTH;
   const canSubmit = validatePassage(opening).ok && !submitting;
@@ -78,28 +84,27 @@ export function NewStory() {
         py={media.md ? "12" : "5"}
       >
         <Wordmark />
-        <YStack mt={media.md ? "28" : "10"}>
-          <YStack gap="5" items="flex-start">
-            <H2
-              fontFamily="story"
-              fontSize={media.md ? "6xl" : "4xl"}
-              lineHeight={media.md ? "6xl" : "4xl"}
-              fontWeight="600"
-            >
-              Write it together, one turn at a time.
-            </H2>
-            <Paragraph
-              fontFamily="story"
-              fontSize={media.md ? "xl" : "lg"}
-              lineHeight={media.md ? "xl" : "lg"}
-              color="muted"
-              maxW="narrow"
-            >
-              One person starts a story. Everyone else adds a passage when it&apos;s their turn.
-            </Paragraph>
+        {leftAStory && (
+          <Paragraph role="status" color="muted" mt="8">
+            You left the story.
+          </Paragraph>
+        )}
+        {stories.type === "loaded" &&
+          (stories.stories.length === 0 ? (
+            <Pitch />
+          ) : (
+            <YStack mt={media.md ? "24" : "8"}>
+              <MyStories stories={stories.stories} />
+            </YStack>
+          ))}
+        {stories.type === "failed" && (
+          <YStack role="alert" mt="8" gap="3" items="flex-start">
+            <Paragraph>Couldn&apos;t load your stories.</Paragraph>
+            <Button size="xl" onPress={reload}>
+              Retry
+            </Button>
           </YStack>
-          {media.md && <HowItWorks />}
-        </YStack>
+        )}
       </YStack>
       <YStack
         flex={media.md ? 1 : undefined}
@@ -112,7 +117,7 @@ export function NewStory() {
       >
         <Form onSubmit={start} gap="4" maxW="narrow" w="100%">
           <H2 fontFamily="story" fontSize="3xl" lineHeight="3xl" fontWeight="600">
-            Start a story
+            {hasStories ? "Start a new story" : "Start a story"}
           </H2>
           <YStack gap="2">
             <Label htmlFor={nameId}>Your name</Label>
@@ -145,6 +150,35 @@ export function NewStory() {
         </Form>
       </YStack>
     </XStack>
+  );
+}
+
+function Pitch() {
+  const media = useMedia();
+
+  return (
+    <YStack mt={media.md ? "28" : "10"}>
+      <YStack gap="5" items="flex-start">
+        <H2
+          fontFamily="story"
+          fontSize={media.md ? "6xl" : "4xl"}
+          lineHeight={media.md ? "6xl" : "4xl"}
+          fontWeight="600"
+        >
+          Write it together, one turn at a time.
+        </H2>
+        <Paragraph
+          fontFamily="story"
+          fontSize={media.md ? "xl" : "lg"}
+          lineHeight={media.md ? "xl" : "lg"}
+          color="muted"
+          maxW="narrow"
+        >
+          One person starts a story. Everyone else adds a passage when it&apos;s their turn.
+        </Paragraph>
+      </YStack>
+      {media.md && <HowItWorks />}
+    </YStack>
   );
 }
 

@@ -7,6 +7,7 @@ import { useStory } from "../client/useStory";
 import { normaliseStoryId } from "../shared/validation";
 import { JoinForm } from "./JoinForm";
 import { NotFound } from "./NotFound";
+import { Rejoin } from "./Rejoin";
 import { SimplePage } from "./SimplePage";
 import { StoryBoard } from "./StoryBoard";
 
@@ -41,6 +42,18 @@ function LoadedStory({ storyId }: { storyId: string }) {
     return (
       <SimplePage>
         <JoinForm storyId={storyId} onJoined={refetch} />
+      </SimplePage>
+    );
+  }
+  if (load.type === "left") {
+    return (
+      <SimplePage>
+        <Rejoin
+          storyId={storyId}
+          displayName={load.displayName}
+          opening={load.opening}
+          onRejoined={refetch}
+        />
       </SimplePage>
     );
   }

@@ -31,6 +31,9 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
   - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
   - From `md` the three steps sit under the intro as a list with hairline rules. A phone drops them.
+  - When the writer has stories, their list replaces the pitch and the form heading reads "Start a new story". While the list loads, the column shows neither, and the form is there at once.
+  - If the list fails to load, the column shows an alert "Couldn't load your stories." with a "Retry" button, and the form stays.
+  - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
 - The story page is a rail beside the story from `md`.
   - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link and the quiet "Leave story" button at its bottom.
@@ -96,10 +99,11 @@ Tests find elements by role, accessible name, label and visible text. The role i
 - the list, item, button structure in `Suggestions`
 - the "Show authors" toggle and the author buttons (`aria-pressed`) in `StoryText`
 - the "New paragraph" checkbox in `Composer`
-- the "Your stories" region on the landing page, whose rows are links named by the opening passage and the turn status
+- the "Your stories" region on the landing page, headed "Your stories", whose rows are links named by the opening passage and the turn status
+- the "Couldn't load your stories." alert with its "Retry" button, and the "You left the story." status, on the landing page
 - the "Your stories" link in the story rail
 - the "Leave story" button, and the leave dialog named "Leave this story?" with its "Cancel" and "Leave story" buttons
-- the "You left this story" screen and its "Rejoin as …" button
+- the "You left this story" screen: its opening quote, a "Rejoin as …" button that reads "Rejoining…" while it sends, an alert for failures, and a "← Your stories" link
 
 Links and buttons:
 

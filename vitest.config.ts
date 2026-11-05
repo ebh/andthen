@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "test/**/*.test.ts"],
-    setupFiles: ["src/client/testSetup.ts"],
+    setupFiles: ["src/client/testSetup.ts", "src/ui/testSetup.ts"],
     server: {
       // Inlined so the alias above also reaches the `react-native` imports inside these packages.
       deps: { inline: [/tamagui/, /react-native-web/] },

@@ -1,4 +1,4 @@
-import type { Browser, Page } from "@playwright/test";
+import type { Browser, Locator, Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
 interface Viewport {
@@ -27,7 +27,7 @@ export async function startStory(page: Page, name: string, opening: string): Pro
   await page.getByRole("button", { name: "Start the story" }).click();
 
   await expect(page).toHaveURL(/\/[a-z0-9]{5}$/);
-  await expect(page.getByLabel("Invite link")).toBeVisible();
+  await expect(storyText(page)).toContainText(opening);
 
   return page.getByLabel("Invite link").inputValue();
 }
@@ -37,6 +37,42 @@ export async function joinStory(page: Page, inviteLink: string, name: string): P
   await page.getByLabel("Your name").fill(name);
   await page.getByRole("button", { name: "Join" }).click();
 
-  // Only a participant's page has the invite link.
-  await expect(page.getByLabel("Invite link")).toBeVisible();
+  // The turn order lists the joiner as "<name> (you)" only once the join has gone through.
+  await expect(turnBanner(page)).toContainText(`${name} (you)`);
+}
+
+export async function addPassage(
+  page: Page,
+  text: string,
+  { newParagraph = false }: { newParagraph?: boolean } = {},
+): Promise<void> {
+  await page.getByLabel("Your passage").fill(text);
+  if (newParagraph) {
+    await page.getByLabel("New paragraph").check();
+  }
+  await page.getByRole("button", { name: "Add to the story" }).click();
+
+  await expect(storyText(page)).toContainText(text);
+}
+
+export function turnBanner(page: Page): Locator {
+  return page.getByRole("region", { name: "Turn" });
+}
+
+export function storyText(page: Page): Locator {
+  return page.getByRole("region", { name: "The story so far" });
+}
+
+/**
+ * Tags the running page. A reload or navigation wipes the tag, so a test that still finds it knows
+ * the page changed on its own, which is what a live update is.
+ */
+export async function tagPage(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    Object.assign(window, { notReloaded: true });
+  });
+}
+
+export async function expectPageNotReloaded(page: Page): Promise<void> {
+  expect(await page.evaluate(() => "notReloaded" in window)).toBe(true);
 }

@@ -1,0 +1,10 @@
+{
+  "name": "And then…",
+  "short_name": "And then",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f1e7",
+  "theme_color": "#f6f1e7"
+}

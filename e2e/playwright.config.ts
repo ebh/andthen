@@ -20,7 +20,13 @@ export default defineConfig({
     : [["list"]],
   outputDir: "../test-results",
   expect: { timeout: 10_000 },
-  use: { baseURL, trace: "retain-on-failure" },
+  use: {
+    baseURL,
+    trace: "retain-on-failure",
+    // A service worker answers requests before `page.route` sees them, so a worker the app registered
+    // would make the route mocks in these tests silently miss. Specs that test the worker opt in.
+    serviceWorkers: "block",
+  },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     // `prepare` gives each run a fresh local D1 and a fresh export; the Worker then serves it. Remote

@@ -22,10 +22,14 @@ test("a Worker that refuses the app's API level replaces the page with an update
   await expect(page.getByRole("button")).toHaveCount(1);
   await expect(page.getByLabel("Opening passage")).toHaveCount(0);
 
+  await page.evaluate(() => caches.open("stale"));
+
   await Promise.all([
     page.waitForEvent("load"),
     page.getByRole("button", { name: "Update now" }).click(),
   ]);
 
   await expect(page.getByRole("heading", { level: 2, name: "Update to continue" })).toBeVisible();
+  // With no service worker to hand over to, "Update now" also clears what the page cached.
+  expect(await page.evaluate(() => caches.keys())).toStrictEqual([]);
 });

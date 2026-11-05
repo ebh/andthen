@@ -20,9 +20,21 @@ The app is one Cloudflare Worker with static assets, a D1 database, a `StoryRoom
 - **A leftover `.wrangler/deploy/config.json` breaks wrangler.** Builds of the earlier Vite client wrote it, and it points at a `dist/andthen_dev/wrangler.json` that no longer exists. Delete `.wrangler/deploy/` once if wrangler reports a missing redirected configuration.
 - **Preview is one shared Worker.** Every same-repo pull request deploys over the last one, and they all share the preview database. Treat it as a scratch space.
 
-- **Raising `MIN_API_LEVEL`** (in `src/shared/apiLevel.ts`) locks out clients below it: their next request gets 426 `client_outdated` and the app shows the update screen. The app and the Worker deploy together, so only a client that loaded the old app earlier is affected: an open tab or a cached copy. Preview is shared, so a raise there also locks out everyone using the preview until they reload.
+- **Raising `MIN_API_LEVEL`** (in `src/shared/apiLevel.ts`) locks out clients below it: their next request gets 426 `client_outdated` and the app shows the update screen. The app and the Worker deploy together, so only a client that loaded the old app earlier is affected: an open tab or a cached copy, which the service worker keeps (see "Offline and updates"). On the update screen, "Update now" replaces the old app through the service worker, so the user does not have to clear anything. Preview is shared, so a raise there also locks out everyone using the preview until they reload.
 
 Dry runs (no login, nothing uploaded): `pnpm build && pnpm wrangler deploy --dry-run --env preview`, then the same with `--env production`. CI does both on every push.
+
+## Offline and updates
+
+The app is installable and its pages load offline. A service worker, `dist/sw.js`, does this. `pnpm build` makes it after the Expo export: `scripts/buildServiceWorker.ts` bundles `src/serviceWorker/sw.ts` and fills in the list of files to precache. The page registers it in a production build only (`src/client/appUpdate.ts`), so `pnpm dev` has none.
+
+- **What it caches.** The app shell: `index.html`, the hashed files under `_expo/static/`, the fonts and the two tab icons (`icon.svg`, `favicon.ico`). Any page address gets the cached `index.html`, except `/api/*`. Nothing else is cached at run time, so API calls, including the live socket, always go to the network.
+- **How a new build reaches users.** A deploy changes `dist/sw.js`. The browser checks for it when a page becomes visible and once an hour, and installs it beside the old one. The new build then waits: it does not take over by itself, so a page never changes under a reader. The page shows "A new version is ready." with an "Update" button. Tapping it, or "Update now" on the update screen, tells the new build to take over, and the page reloads under it. If no build is waiting, or it does not take over within 10 seconds, the page removes the service worker and every cache and reloads from the network.
+- **`/sw.js` must never be served stale.** Cloudflare serves static assets with `max-age=0, must-revalidate`, which is what a worker script needs. Do not add a `_headers` rule that caches it.
+- **The single-page fallback hides a missing `/sw.js`.** A path that is not a file in `dist/` gets `index.html` with a 200, so without `dist/sw.js` the deploy looks healthy and browsers reject the registration only on the user's device. `buildServiceWorker.ts` therefore fails the build if `dist/sw.js` is missing or empty, or if the precache list lacks `index.html`, a file under `_expo/` or a font.
+- **Fonts sit under a `.pnpm` folder.** Expo puts them in `assets/node_modules/.pnpm/…`. A `**` glob skips a folder whose name starts with a dot, so the precache pattern names `.pnpm` in full. The font check above fails the build if it stops matching.
+- **The icons are placeholders.** `public/` holds `icon.svg` (the source and the SVG favicon), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` and `favicon.ico`. The final art replaces these files under the same names, with no code change.
+- **Testing it.** `e2e/pwa.spec.ts` covers registration, offline loading, the API staying uncached and the update flow. The update test goes through `e2e/versionProxy.ts`, which swaps `/sw.js` to stand in for a deploy, because `wrangler dev` reads its asset list once at start.
 
 ## First-time Cloudflare setup
 
@@ -119,6 +131,14 @@ Production, on `https://app.andthen.page`: repeat the list above, and also:
 - [ ] `curl -sI http://app.andthen.page` ends on HTTPS.
 - [ ] Look at the Workers AI usage page after the suggestions test. If the account is on a paid plan, check the budget alert exists; on the Free plan it is not needed.
 
+Installed app, after the production smoke test, on a real Android phone (Chrome) and a real iPhone (Safari):
+
+- [ ] Android Chrome: the browser offers "Install app", and the installed app opens full screen with the right name and icon.
+- [ ] iPhone Safari: "Add to Home Screen" gives the right name and icon, and the app opens full screen.
+- [ ] With the app open once, switch on airplane mode and reopen it: the start page loads, and a story link opens the app, which says the story is unavailable.
+- [ ] After the next deploy, reopen the installed app: "A new version is ready." appears, "Update" reloads the app, and the notice does not return.
+- [ ] After a deploy that raises `MIN_API_LEVEL`, an app opened from before it shows the update screen, and "Update now" brings the new version.
+
 ## Trying the real model locally
 
 `pnpm dev` uses the fake provider and needs no login. To call Workers AI from your machine, which can cost money:
@@ -159,3 +179,4 @@ Everything below passed against Miniflare, workerd or test doubles, never agains
 - **The `__Host-` cookie over real HTTPS.** Checked on `http://localhost` only, where the cookie has a different name and no `Secure`. Confirm that the cookie is set, kept and sent on `workers.dev` and on `app.andthen.page`, and that a second browser gets a different participant.
 - **The live WebSocket through the real edge.** The upgrade, the 25 s ping, reconnects and the same-origin check on `Origin`, behind Cloudflare's proxy and, for production, the custom domain.
 - **Custom domain and redirect.** The first `app.andthen.page` deploy, its certificate, and the apex 301.
+- **The service worker on real devices.** Registration, install prompts, offline loading and the update flow were tested in Chromium against `wrangler dev` only. Safari and Firefox behaviour, the install prompt, and Cloudflare's `max-age=0, must-revalidate` on `/sw.js` need the smoke tests above on the real preview.

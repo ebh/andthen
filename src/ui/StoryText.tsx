@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import type { FocusEvent } from "react";
-import { Button, Label, Paragraph, Switch, Text, XStack, YStack, useMedia } from "tamagui";
+import { Button, Label, Paragraph, Switch, Text, XStack, YStack, styled, useMedia } from "tamagui";
 
 import type { ContributionView } from "../shared/api";
 import { groupParagraphs } from "../shared/paragraphs";
@@ -24,6 +24,10 @@ interface ParagraphViewProps {
   onPreview: (author: AuthorInParagraph | null) => void;
   onTogglePin: (author: AuthorInParagraph) => void;
 }
+
+const StoryParagraph = styled(Paragraph, { render: "p" });
+
+const HighlightedTurn = styled(Text, { render: "mark", bg: "highlight", color: "color" });
 
 /**
  * The story as paragraphs, oldest first. Authors are there for accountability, not reading, so
@@ -85,8 +89,7 @@ function ParagraphView({
   onPreview,
   onTogglePin,
 }: ParagraphViewProps) {
-  // Both read up front: Tamagui subscribes to the keys read while rendering, so a read inside a
-  // branch that is not rendered yet would see a stale value.
+  // Tamagui tracks only the media keys a component reads, so read both here, not inside the author branch.
   const { md, hoverable } = useMedia();
 
   return (
@@ -95,8 +98,7 @@ function ParagraphView({
       gap={md ? "8" : "2"}
       items={md ? "flex-start" : "stretch"}
     >
-      <Paragraph
-        render="p"
+      <StoryParagraph
         flex={md ? 3 : undefined}
         fontFamily="story"
         fontSize={md ? "2xl" : "xl"}
@@ -111,7 +113,7 @@ function ParagraphView({
             highlighted={isSame(highlighted, { paragraph, authorId: turn.authorId })}
           />
         ))}
-      </Paragraph>
+      </StoryParagraph>
       {showAuthors && (
         <YStack
           role="list"
@@ -174,6 +176,7 @@ function AuthorButton({
     <Button
       size="xl"
       variant="quiet"
+      theme="transparent"
       aria-pressed={pinned}
       onPress={onPress}
       onMouseEnter={preview(true)}
@@ -189,12 +192,7 @@ function AuthorButton({
         onPreview(false);
       }}
     >
-      <Button.Text
-        color={highlighted ? "base-content" : "muted"}
-        textDecorationLine={highlighted ? "underline" : "none"}
-      >
-        {name}
-      </Button.Text>
+      <Button.Text textDecorationLine={highlighted ? "underline" : "none"}>{name}</Button.Text>
     </Button>
   );
 }
@@ -211,13 +209,7 @@ function Turn({
   return (
     <>
       {separated && " "}
-      {highlighted ? (
-        <Text render="mark" bg="highlight" color="color">
-          {turn.text}
-        </Text>
-      ) : (
-        <Text>{turn.text}</Text>
-      )}
+      {highlighted ? <HighlightedTurn>{turn.text}</HighlightedTurn> : <Text>{turn.text}</Text>}
     </>
   );
 }

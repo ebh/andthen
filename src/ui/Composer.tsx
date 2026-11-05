@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useId } from "react";
+import type { TextInputInstance } from "react-native";
 import { Button, Checkbox, Form, Label, Paragraph, TextArea, XStack, YStack } from "tamagui";
 
 import { MAX_PASSAGE_LENGTH, passageLength, validatePassage } from "../shared/validation";
@@ -11,6 +12,8 @@ interface ComposerProps {
   onSubmit: () => void;
   submitting: boolean;
   submitLabel: string;
+  /** Lets the parent move focus into the field, e.g. after filling it. */
+  fieldRef: Ref<TextInputInstance>;
   newParagraph: { checked: boolean; onChange: (checked: boolean) => void };
   /** A secondary action, placed beside the submit button. */
   extraAction: ReactNode;
@@ -24,6 +27,7 @@ export function Composer({
   onSubmit,
   submitting,
   submitLabel,
+  fieldRef,
   newParagraph,
   extraAction,
 }: ComposerProps) {
@@ -46,6 +50,7 @@ export function Composer({
     >
       <Label htmlFor={fieldId}>{label}</Label>
       <TextArea
+        ref={fieldRef}
         id={fieldId}
         size="xl"
         fontFamily="story"

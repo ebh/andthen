@@ -1,5 +1,6 @@
 import { Link } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { TextInputInstance } from "react-native";
 import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 
 import { contribute, skipTurn, type ApiFailure } from "../client/api";
@@ -192,6 +193,17 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
 // Mounted only while it is the reader's turn, so suggestions asked for in one turn are gone by the next.
 function YourTurn(props: YourTurnProps) {
   const suggestions = useSuggestions(props.storyId, props.onTurnLost);
+  const field = useRef<TextInputInstance>(null);
+
+  const chooseSuggestion = (text: string): void => {
+    props.onUseSuggestion(text);
+    field.current?.focus();
+  };
+
+  const undo = (): void => {
+    props.onUndo();
+    field.current?.focus();
+  };
 
   return (
     <YStack gap="4">
@@ -202,18 +214,19 @@ function YourTurn(props: YourTurnProps) {
         onSubmit={props.onSubmit}
         submitting={props.sending}
         submitLabel="Add to the story"
+        fieldRef={field}
         newParagraph={{ checked: props.startsParagraph, onChange: props.onStartsParagraphChange }}
         extraAction={<SuggestButton control={suggestions} />}
       />
       {props.replacedDraft !== null && (
         <XStack items="center" gap="2">
           <Paragraph>Your draft was replaced by the suggestion.</Paragraph>
-          <Button size="xl" onPress={props.onUndo}>
+          <Button size="xl" onPress={undo}>
             Undo
           </Button>
         </XStack>
       )}
-      <SuggestionList control={suggestions} onUse={props.onUseSuggestion} />
+      <SuggestionList control={suggestions} onUse={chooseSuggestion} />
     </YStack>
   );
 }

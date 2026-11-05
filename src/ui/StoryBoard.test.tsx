@@ -236,10 +236,12 @@ describe("replacing a draft with a suggestion", () => {
     await askAndPick(user, "Two.");
 
     expect(field).toHaveValue("Two.");
+    expect(field).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: "Undo" }));
 
     expect(field).toHaveValue("My own words");
+    expect(field).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
 

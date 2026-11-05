@@ -12,6 +12,7 @@ export function UpdateRequired() {
         </H2>
         <Paragraph>This version of And then… is out of date.</Paragraph>
         <Button
+          size="xl"
           theme="primary"
           onPress={() => {
             window.location.reload();

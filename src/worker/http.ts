@@ -4,6 +4,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 
 import type { ErrorBody, ErrorCode, PlainErrorCode } from "../shared/api";
+import { API_LEVEL_HEADER, parseApiLevel } from "../shared/apiLevel";
 import { MAX_BODY_BYTES } from "./config";
 
 export type AppContext = Context<{ Bindings: Env }>;
@@ -46,6 +47,7 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   story_full: 409,
   already_joined: 409,
   left_story: 403,
+  client_outdated: 426,
   no_one_to_skip_to: 409,
   ai_rate_limited: 429,
   ai_unavailable: 503,
@@ -55,7 +57,30 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 // `application/json`, optionally followed by parameters such as `; charset=utf-8`.
 const JSON_CONTENT_TYPE = /^application\/json\s*(;|$)/i;
 
+const HEALTH_PATH = "/api/health";
+
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Refuses a client whose `X-Api-Level` is below `minApiLevel` with `client_outdated`, and a
+ * malformed one with `bad_request`. A request with no header passes: curl, uptime checks and
+ * clients built before the header existed send none. `/api/health` is never refused.
+ */
+export function requireApiLevel(minApiLevel: number): (c: AppContext, next: Next) => Promise<void> {
+  return async (c, next) => {
+    if (c.req.path !== HEALTH_PATH) {
+      const parsed = parseApiLevel(c.req.header(API_LEVEL_HEADER));
+      if (parsed.type === "invalid") {
+        throw new ApiError("bad_request");
+      }
+      if (parsed.type === "level" && parsed.level < minApiLevel) {
+        throw new ApiError("client_outdated");
+      }
+    }
+
+    await next();
+  };
+}
 
 /** Same-origin check on every mutating request, and `application/json` on every body. */
 export async function guardMutation(c: AppContext, next: Next): Promise<void> {

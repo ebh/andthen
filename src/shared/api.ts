@@ -121,6 +121,7 @@ export const errorCodeSchema = z.enum([
   "ai_unavailable",
   "ai_rate_limited",
   "left_story", // this browser was in the story and left; the body says what to rejoin
+  "client_outdated", // the client's API level is below the Worker's minimum; it must update
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 

@@ -6,6 +6,7 @@ import {
   storyViewSchema,
   type StoryView,
 } from "../../src/shared/api";
+import { API_LEVEL, API_LEVEL_HEADER } from "../../src/shared/apiLevel";
 import { createApp } from "../../src/worker/app";
 import { fakeProvider } from "../../src/worker/suggestions/fake";
 import type { SuggestionProvider } from "../../src/worker/suggestions/provider";
@@ -27,6 +28,8 @@ export interface RequestOptions {
   rawBody?: string;
   /** Bindings to run against, instead of the ones the browser was made with. */
   env?: object;
+  /** The X-Api-Level header value; the current API_LEVEL by default. `null` sends none. */
+  apiLevel?: string | null;
 }
 
 export interface GetOptions {
@@ -34,6 +37,8 @@ export interface GetOptions {
   headers?: Record<string, string>;
   /** Bindings to run against, instead of the ones the browser was made with. */
   env?: object;
+  /** The X-Api-Level header value; the current API_LEVEL by default. `null` sends none. */
+  apiLevel?: string | null;
 }
 
 /** A browser with its own cookie jar, talking to the app in-process. */
@@ -50,6 +55,7 @@ export function createTestApp(
   clock: Clock,
   newStoryId?: () => string,
   suggestionProvider: SuggestionProvider = fakeProvider,
+  minApiLevel?: number,
 ): TestApp {
   let counter = 0;
 
@@ -62,6 +68,7 @@ export function createTestApp(
         return counter.toString(36).padStart(5, "0");
       }),
     suggestionProvider: () => suggestionProvider,
+    minApiLevel,
   });
 }
 
@@ -72,8 +79,16 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
     background.push(promise);
   });
 
-  const send = async (path: string, init: RequestInit, extra?: object): Promise<Response> => {
+  const send = async (
+    path: string,
+    init: RequestInit,
+    options: { env?: object | undefined; apiLevel?: string | null | undefined },
+  ): Promise<Response> => {
     const headers = new Headers(init.headers);
+    const apiLevel = options.apiLevel === undefined ? String(API_LEVEL) : options.apiLevel;
+    if (apiLevel !== null) {
+      headers.set(API_LEVEL_HEADER, apiLevel);
+    }
     if (cookies.size > 0) {
       headers.set("Cookie", Array.from(cookies, ([name, value]) => `${name}=${value}`).join("; "));
     }
@@ -81,7 +96,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
     const response = await app.request(
       `${origin}${path}`,
       { ...init, headers },
-      extra ?? env,
+      options.env ?? env,
       executionCtx,
     );
     for (const setCookie of response.headers.getSetCookie()) {
@@ -96,7 +111,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
   return {
     cookies,
     backgroundWork: background,
-    get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options.env),
+    get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options),
     post: (path, body, options = {}) => {
       const headers = new Headers();
       const sentOrigin = options.origin === undefined ? origin : options.origin;
@@ -116,7 +131,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
           headers,
           body: new TextEncoder().encode(options.rawBody ?? JSON.stringify(body)),
         },
-        options.env,
+        options,
       );
     },
   };

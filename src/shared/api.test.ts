@@ -278,6 +278,14 @@ describe("errorBodySchema", () => {
     expect(errorCodeSchema.options).toContain("left_story");
   });
 
+  it("carries client_outdated as a plain code", () => {
+    expect(errorBodySchema.parse({ error: "client_outdated" })).toEqual({
+      error: "client_outdated",
+    });
+    expect(errorCodeSchema.options).toContain("client_outdated");
+    expect(plainErrorCodeSchema.options).toContain("client_outdated");
+  });
+
   it("refuses left_story without them", () => {
     expect(errorBodySchema.safeParse({ error: "left_story" }).success).toBe(false);
   });

@@ -7,6 +7,10 @@ paths:
 
 # UI rules
 
+This file is for using the design system. To change a theme, palette or font, read `.claude/rules/design-system.md`.
+
+Page code names theme keys that say a role (`background`, `color`, `border-color`, `muted`, `highlight`, `primary`, `error`) and theme names (`level2`, `brand`, `destructive`, `scrim`). It never names a palette token such as `brand-600`, and never a ramp key such as `color-4`.
+
 The app exists to be read. Every visual decision serves the story text first.
 
 ## Story first
@@ -26,8 +30,8 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
 - Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint, and it is the only breakpoint a layout changes at.
 - Page padding is `5` on a phone. Sections of a page are `8` apart; the parts inside a section are `2` to `4` apart.
 - A simple page (loading, error, not found, join form) is one column, centred on the screen, at most `simplePage` wide. The wordmark sits at the top-left of the column, `8` above the content.
-- The join form is a card: `base-200` fill, a `border-color` hairline border, padding `6`.
-- The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `base-200` panel on the right.
+- The join form is a card: `theme="level2"` with the `background` fill, a `border-color` hairline border, padding `6`.
+- The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `theme="level2"` panel on the right.
   - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
   - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
   - From `md` the three steps sit under the intro as a list with hairline rules. A phone drops them.
@@ -67,11 +71,11 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 
 ### Buttons
 
-A plain `Button` has no fill: `muted` text and a `muted` border, from the config's `level2` themes. Every button states its rank.
+A plain `Button` takes the stock raised fill, from the `level2` theme every `Button` wraps itself in. Every button states its rank.
 
 - Secondary: `variant="outlined"`. This is the default for any action that is not the page's main one.
 - Quietest: `variant="quiet"`, no border, such as the story rail's "Leave story".
-- Primary: `theme="primary"`, a solid fill. A screen has at most one.
+- Primary: `theme="brand"`, a solid fill. A screen has at most one.
 - Destructive confirm: `theme="destructive"`, a solid red fill, such as the leave dialog's "Leave story".
 
 ## Touch

@@ -4,10 +4,12 @@ import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { SourceSerif4_400Regular } from "@expo-google-fonts/source-serif-4/400Regular";
 import { SourceSerif4_600SemiBold } from "@expo-google-fonts/source-serif-4/600SemiBold";
 import { FontDisplay, useFonts } from "expo-font";
+import { useEffect } from "react";
 import { useColorScheme } from "react-native";
 import { ScrollView, TamaguiProvider } from "tamagui";
 
 import { tamaguiConfig } from "../../tamagui.config";
+import { startAppUpdates } from "../client/appUpdate";
 import { UpdateGate } from "../ui/UpdateGate";
 
 export default function Layout() {
@@ -20,6 +22,10 @@ export default function Layout() {
     SourceSerif4_400Regular: { uri: SourceSerif4_400Regular, display: FontDisplay.SWAP },
     SourceSerif4_600SemiBold: { uri: SourceSerif4_600SemiBold, display: FontDisplay.SWAP },
   });
+
+  useEffect(() => {
+    void startAppUpdates();
+  }, []);
 
   return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme={scheme === "dark" ? "ink" : "paper"}>

@@ -71,7 +71,7 @@ export function NewStory() {
   };
 
   return (
-    <XStack bg="background" minH="100vh" flexDirection={media.md ? "row" : "column"}>
+    <XStack bg="background" flex={1} flexDirection={media.md ? "row" : "column"}>
       <YStack flex={1.1} px={media.md ? "16" : "5"} py={media.md ? "12" : "5"}>
         <Wordmark />
         <YStack mt={media.md ? "28" : "10"}>
@@ -88,7 +88,7 @@ export function NewStory() {
               fontFamily="story"
               fontSize={media.md ? "xl" : "lg"}
               lineHeight={media.md ? "xl" : "lg"}
-              opacity={0.7}
+              color="muted"
               maxW="narrow"
             >
               One person starts a story. Everyone else adds a passage when it&apos;s their turn.

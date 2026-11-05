@@ -57,7 +57,7 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
       bg="base-200"
       rounded="lg"
       borderWidth={1}
-      borderColor="base-300"
+      borderColor="border-color"
     >
       <H2 fontFamily="story" fontSize="2xl" lineHeight="2xl" fontWeight="600">
         Join this story

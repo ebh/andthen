@@ -189,7 +189,13 @@ function Pitch() {
 
 function HowItWorks() {
   return (
-    <YStack role="list" aria-label="How it works" mt="14" borderTopWidth={1} borderColor="base-300">
+    <YStack
+      role="list"
+      aria-label="How it works"
+      mt="14"
+      borderTopWidth={1}
+      borderColor="border-color"
+    >
       {HOW_IT_WORKS.map((step, index) => (
         <XStack
           key={step.name}
@@ -197,7 +203,7 @@ function HowItWorks() {
           gap="5"
           py="3.5"
           borderBottomWidth={1}
-          borderColor="base-300"
+          borderColor="border-color"
         >
           <Paragraph w="4" color="primary" fontWeight="600">
             {index + 1}

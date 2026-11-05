@@ -22,9 +22,9 @@ export function MyStories({ stories }: MyStoriesProps) {
       <H2 fontFamily="story" fontSize="3xl" lineHeight="3xl" fontWeight="600">
         Your stories
       </H2>
-      <YStack role="list" borderTopWidth={1} borderColor="base-300">
+      <YStack role="list" borderTopWidth={1} borderColor="border-color">
         {stories.map((story) => (
-          <YStack key={story.id} role="listitem" borderBottomWidth={1} borderColor="base-300">
+          <YStack key={story.id} role="listitem" borderBottomWidth={1} borderColor="border-color">
             <Link href={`/${story.id}`} asChild>
               <Anchor
                 display="flex"

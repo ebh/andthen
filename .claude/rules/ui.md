@@ -26,7 +26,7 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
 - Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint, and it is the only breakpoint a layout changes at.
 - Page padding is `5` on a phone. Sections of a page are `8` apart; the parts inside a section are `2` to `4` apart.
 - A simple page (loading, error, not found, join form) is one column, centred on the screen, at most `simplePage` wide. The wordmark sits at the top-left of the column, `8` above the content.
-- The join form is a card: `base-200` fill, a `base-300` hairline border, padding `6`.
+- The join form is a card: `base-200` fill, a `border-color` hairline border, padding `6`.
 - The landing page is two columns from `md`: the pitch on the left, slightly wider (flex 1.1 to 1), and the form on a `base-200` panel on the right.
   - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
   - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
@@ -36,12 +36,12 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
 - The story page is a rail beside the story from `md`.
-  - The rail is `80` wide with a `base-300` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
+  - The rail is `80` wide with a `border-color` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
   - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
   - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
   - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
   - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button`.
-- On a phone the story page is three blocks, each padded `5`: the rail with a `base-300` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
+- On a phone the story page is three blocks, each padded `5`: the rail with a `border-color` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
 - The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
 - Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
 - The invite field is an `Input` at `size="md"`, so a full invite URL fits in the rail.

@@ -18,15 +18,10 @@ const light = {
   "placeholder-color": "rgba(30, 27, 22, 0.7)",
   "outline-color": "#1f5c4d",
   "shadow-color": "rgba(0, 0, 0, 0.1)",
-  "base-100": "#f6f1e7",
   "base-200": "#ebe3d0",
-  "base-300": "#d9cfba",
-  "base-content": "#1e1b16",
   muted: "rgba(30, 27, 22, 0.7)",
   primary: "#1f5c4d",
   "primary-content": "#f6f1e7",
-  secondary: "#ddd3bd",
-  "secondary-content": "#1e1b16",
   error: "#9b2226",
   "error-content": "#fff5f3",
   highlight: "rgba(31, 92, 77, 0.2)",
@@ -48,15 +43,10 @@ const dark: typeof light = {
   "placeholder-color": "rgba(236, 230, 214, 0.7)",
   "outline-color": "#7fc4a8",
   "shadow-color": "rgba(0, 0, 0, 0.4)",
-  "base-100": "#171a18",
   "base-200": "#1f2421",
-  "base-300": "#2c332f",
-  "base-content": "#ece6d6",
   muted: "rgba(236, 230, 214, 0.7)",
   primary: "#7fc4a8",
   "primary-content": "#0f1a15",
-  secondary: "#2c332f",
-  "secondary-content": "#ece6d6",
   error: "#f08a8a",
   "error-content": "#2a0f0f",
   highlight: "rgba(127, 196, 168, 0.2)",
@@ -64,14 +54,14 @@ const dark: typeof light = {
 
 /**
  * Tamagui wraps every Button in a `level2` sub-theme, so these themes style a plain Button, the
- * secondary look: `muted` text and a `muted` border (the stock `base-300` hairline is under 3:1 against
- * the page), with a `base-300` fill on hover and press. A `variant="outlined"` or `variant="quiet"`
+ * secondary look: `muted` text and a `muted` border (the stock `border-color` hairline is under 3:1 against
+ * the page), with a `border-color` fill on hover and press. A `variant="outlined"` or `variant="quiet"`
  * Button, which has no fill of its own, still takes the hover fill.
  */
 const lightButton: typeof light = {
   ...light,
-  "background-hover": light["base-300"],
-  "background-press": light["base-300"],
+  "background-hover": light["border-color"],
+  "background-press": light["border-color"],
   color: light.muted,
   "color-hover": light.muted,
   "color-press": light.muted,
@@ -79,13 +69,13 @@ const lightButton: typeof light = {
   "border-color": light.muted,
   "border-color-hover": light.muted,
   "border-color-press": light.muted,
-  "outline-color": light["base-content"],
+  "outline-color": light.color,
 };
 
 const darkButton: typeof light = {
   ...dark,
-  "background-hover": dark["base-300"],
-  "background-press": dark["base-300"],
+  "background-hover": dark["border-color"],
+  "background-press": dark["border-color"],
   color: dark.muted,
   "color-hover": dark.muted,
   "color-press": dark.muted,
@@ -93,7 +83,7 @@ const darkButton: typeof light = {
   "border-color": dark.muted,
   "border-color-hover": dark.muted,
   "border-color-press": dark.muted,
-  "outline-color": dark["base-content"],
+  "outline-color": dark.color,
 };
 
 /**
@@ -111,7 +101,7 @@ const lightPrimaryButton: typeof light = {
   "color-hover": light["primary-content"],
   "color-press": light["primary-content"],
   "color-focus": light["primary-content"],
-  "outline-color": light["base-content"],
+  "outline-color": light.color,
 };
 
 const darkPrimaryButton: typeof light = {
@@ -124,7 +114,7 @@ const darkPrimaryButton: typeof light = {
   "color-hover": dark["primary-content"],
   "color-press": dark["primary-content"],
   "color-focus": dark["primary-content"],
-  "outline-color": dark["base-content"],
+  "outline-color": dark.color,
 };
 
 const lightDestructiveButton: typeof light = {

@@ -1,0 +1,21 @@
+[
+  { "error": "bad_request" },
+  { "error": "forbidden_origin" },
+  { "error": "not_participant" },
+  { "error": "already_joined" },
+  { "error": "not_found" },
+  { "error": "payload_too_large" },
+  { "error": "internal_error" },
+  { "error": "stale_turn" },
+  { "error": "not_your_turn" },
+  { "error": "cannot_skip_self" },
+  { "error": "no_one_to_skip_to" },
+  { "error": "name_taken" },
+  { "error": "story_full" },
+  { "error": "invalid_passage" },
+  { "error": "invalid_display_name" },
+  { "error": "ai_unavailable" },
+  { "error": "ai_rate_limited" },
+  { "error": "left_story", "displayName": "Ana", "opening": "Once upon a time." },
+  { "error": "client_outdated" }
+]

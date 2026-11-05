@@ -6,5 +6,6 @@
     "lib": ["ES2024"],
     "types": ["node"]
   },
-  "include": ["*.config.ts", "eslint.config.ts"]
+  "include": ["*.config.ts", "eslint.config.ts"],
+  "exclude": ["tamagui.config.ts"]
 }

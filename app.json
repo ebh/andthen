@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "andthen",
+    "slug": "andthen",
+    "scheme": "andthen",
+    "userInterfaceStyle": "automatic",
+    "web": { "output": "single", "bundler": "metro" },
+    "plugins": ["expo-router"]
+  }
+}

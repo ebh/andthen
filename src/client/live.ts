@@ -1,5 +1,3 @@
-import { liveMessageSchema } from "../shared/api";
-
 // Browser-free so it runs under Node tests: the hook in useStoryLive.ts supplies the real
 // WebSocket, timers and clock.
 
@@ -29,7 +27,7 @@ export interface LiveDeps<Timer = unknown> {
 
 export interface LiveConnection {
   url: string;
-  /** Called on every open (so a change missed while disconnected is caught) and on every valid message. */
+  /** Called on every open (so a change missed while disconnected is caught) and on every JSON message. */
   refetch: () => void;
 }
 
@@ -49,8 +47,9 @@ const PONG = "pong";
 
 /**
  * Keeps one socket open to `url`, reconnecting with backoff until the returned function is
- * called. Messages that aren't a valid live message are ignored: a refetch is the only effect
- * a message has, so a bad one has nothing to act on.
+ * called. Any message that is JSON text triggers a refetch, whatever its shape: the only effect a
+ * message has is a refetch, and a message kind from a newer Worker still means "something
+ * changed". Text that isn't JSON and binary frames are ignored.
  *
  * The backoff restarts only once a connection proves itself: it stays open for STABLE_AFTER_MS
  * or delivers a live message. A missing pong marks the socket dead and reconnects.
@@ -124,7 +123,7 @@ export function keepSocketOpen<Timer>(
         if (data === PONG) {
           clearHeartbeat();
           scheduleHeartbeat(current);
-        } else if (isLiveMessage(data)) {
+        } else if (isJsonText(data)) {
           failedAttempts = 0;
           connection.refetch();
         }
@@ -207,13 +206,15 @@ export function refetchWhenTurnEnds<Timer>(
   };
 }
 
-function isLiveMessage(data: unknown): boolean {
+function isJsonText(data: unknown): boolean {
   if (typeof data !== "string") {
     return false;
   }
 
   try {
-    return liveMessageSchema.safeParse(JSON.parse(data)).success;
+    JSON.parse(data);
+
+    return true;
   } catch {
     return false;
   }

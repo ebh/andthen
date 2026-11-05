@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { API_LEVEL, API_LEVEL_HEADER } from "../shared/apiLevel";
 import {
   createStoryResponseSchema,
   errorBodySchema,
+  errorCodeSchema,
   joinResponseSchema,
   myStoriesResponseSchema,
   storyViewSchema,
@@ -17,6 +19,7 @@ import {
   type StoryView,
   type SuggestionsResponse,
 } from "../shared/api";
+import { setClientOutdated } from "./clientOutdated";
 
 export type ApiFailure =
   | { type: "network" }
@@ -24,6 +27,10 @@ export type ApiFailure =
   // an error code (a proxy's HTML page, say).
   | { type: "unreadable"; status: number }
   | { type: "rejected"; status: number; code: PlainErrorCode }
+  // An error body whose code this build doesn't know, from a newer Worker.
+  | { type: "unknown_code"; status: number; code: string }
+  // 426: the Worker no longer accepts this build's API level, so the app must be reloaded.
+  | { type: "client_outdated" }
   // 403 `left_story`: this browser was in the story and left it.
   | { type: "left_story"; displayName: string; opening: string };
 
@@ -68,14 +75,17 @@ export function requestSuggestions(storyId: string): Promise<ApiResult<Suggestio
 // Mutating routes answer 204, so reading the body fails and yields null.
 const noBodySchema = z.null();
 
-async function call<T>(
-  path: string,
-  init: RequestInit,
-  schema: z.ZodType<T>,
-): Promise<ApiResult<T>> {
+const anyErrorBodySchema = z.object({ error: z.string() });
+
+type Init = Omit<RequestInit, "headers"> & { headers?: Record<string, string> };
+
+async function call<T>(path: string, init: Init, schema: z.ZodType<T>): Promise<ApiResult<T>> {
   let response: Response;
   try {
-    response = await fetch(path, init);
+    response = await fetch(path, {
+      ...init,
+      headers: { ...init.headers, [API_LEVEL_HEADER]: String(API_LEVEL) },
+    });
   } catch (error) {
     // fetch rejects with a TypeError when the network fails; anything else is a bug here.
     if (error instanceof TypeError) {
@@ -89,10 +99,15 @@ async function call<T>(
   if (!response.ok) {
     const error = errorBodySchema.safeParse(body);
     if (!error.success) {
-      return { ok: false, failure: { type: "unreadable", status: response.status } };
+      return { ok: false, failure: unrecognisedError(response.status, body) };
     }
 
     const { data } = error;
+    if (data.error === "client_outdated") {
+      setClientOutdated(true);
+
+      return { ok: false, failure: { type: "client_outdated" } };
+    }
     if (data.error === "left_story") {
       const { displayName, opening } = data;
 
@@ -109,11 +124,21 @@ async function call<T>(
     : { ok: false, failure: { type: "unreadable", status: response.status } };
 }
 
+function unrecognisedError(status: number, body: unknown): ApiFailure {
+  const parsed = anyErrorBodySchema.safeParse(body);
+  // A known code that failed errorBodySchema is a malformed body, not a newer Worker's code.
+  if (!parsed.success || errorCodeSchema.safeParse(parsed.data.error).success) {
+    return { type: "unreadable", status };
+  }
+
+  return { type: "unknown_code", status, code: parsed.data.error };
+}
+
 function storyPath(storyId: string): string {
   return `/api/stories/${storyId}`;
 }
 
-function postJson(body: object): RequestInit {
+function postJson(body: object): Init {
   return {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -4,11 +4,11 @@ import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { SourceSerif4_400Regular } from "@expo-google-fonts/source-serif-4/400Regular";
 import { SourceSerif4_600SemiBold } from "@expo-google-fonts/source-serif-4/600SemiBold";
 import { FontDisplay, useFonts } from "expo-font";
-import { Slot } from "expo-router";
 import { useColorScheme } from "react-native";
 import { ScrollView, TamaguiProvider } from "tamagui";
 
 import { tamaguiConfig } from "../../tamagui.config";
+import { UpdateGate } from "../ui/UpdateGate";
 
 export default function Layout() {
   const scheme = useColorScheme();
@@ -28,7 +28,7 @@ export default function Layout() {
           page fill the height; a page root must use `grow={1}`, because `flex={1}` has a zero basis
           and is clamped to the screen height while its content overflows. */}
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-        <Slot />
+        <UpdateGate />
       </ScrollView>
     </TamaguiProvider>
   );

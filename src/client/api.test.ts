@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { API_LEVEL } from "../shared/apiLevel";
+import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
   contribute,
+  createStory,
   fetchStory,
   joinStory,
   leaveStory,
   listMyStories,
   rejoinStory,
   requestSuggestions,
+  skipTurn,
 } from "./api";
 import { jsonResponse, noContentResponse, storyView, ME, OTHER } from "./testFixtures";
 
@@ -22,6 +26,7 @@ function stubFetch(response: Response | Error) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  setClientOutdated(false);
 });
 
 describe("error mapping", () => {
@@ -66,8 +71,10 @@ describe("error mapping", () => {
   });
 
   it.each([
-    ["an unknown code", jsonResponse(500, { error: "made_up" })],
     ["a non-JSON body", new Response("<html>Bad gateway</html>", { status: 502 })],
+    ["an error that isn't a string", jsonResponse(500, { error: 7 })],
+    ["a body with no error", jsonResponse(500, { message: "oops" })],
+    ["a JSON null", jsonResponse(500, null)],
   ])("treats %s as unreadable", async (_name, response) => {
     stubFetch(response);
 
@@ -75,6 +82,31 @@ describe("error mapping", () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.failure.type).toBe("unreadable");
+  });
+
+  it("keeps a code from a newer Worker, with its status", async () => {
+    stubFetch(jsonResponse(418, { error: "made_up" }));
+
+    expect(await requestSuggestions("abc12")).toEqual({
+      ok: false,
+      failure: { type: "unknown_code", status: 418, code: "made_up" },
+    });
+  });
+
+  it("maps client_outdated to its own failure and flags the app as outdated", async () => {
+    stubFetch(jsonResponse(426, { error: "client_outdated" }));
+
+    expect(getClientOutdated()).toBe(false);
+    expect(await fetchStory("abc12")).toEqual({ ok: false, failure: { type: "client_outdated" } });
+    expect(getClientOutdated()).toBe(true);
+  });
+
+  it("does not flag the app as outdated for any other failure", async () => {
+    stubFetch(jsonResponse(409, { error: "stale_turn" }));
+
+    await fetchStory("abc12");
+
+    expect(getClientOutdated()).toBe(false);
   });
 
   it("treats a rejected fetch as a network failure", async () => {
@@ -87,6 +119,60 @@ describe("error mapping", () => {
     stubFetch(new RangeError("bug"));
 
     await expect(fetchStory("abc12")).rejects.toThrow("bug");
+  });
+});
+
+describe("API level header", () => {
+  const requests = [
+    ["listMyStories", () => listMyStories(), "GET", "/api/stories"],
+    [
+      "createStory",
+      () => createStory({ displayName: "Ana", opening: "Once." }),
+      "POST",
+      "/api/stories",
+    ],
+    ["fetchStory", () => fetchStory("abc12"), "GET", "/api/stories/abc12"],
+    [
+      "joinStory",
+      () => joinStory("abc12", { displayName: "Sam" }),
+      "POST",
+      "/api/stories/abc12/participants",
+    ],
+    [
+      "contribute",
+      () => contribute("abc12", { text: "x", turnVersion: 1, startsParagraph: true }),
+      "POST",
+      "/api/stories/abc12/contributions",
+    ],
+    ["skipTurn", () => skipTurn("abc12", 1), "POST", "/api/stories/abc12/skip"],
+    ["leaveStory", () => leaveStory("abc12"), "POST", "/api/stories/abc12/leave"],
+    ["rejoinStory", () => rejoinStory("abc12"), "POST", "/api/stories/abc12/rejoin"],
+    [
+      "requestSuggestions",
+      () => requestSuggestions("abc12"),
+      "POST",
+      "/api/stories/abc12/suggestions",
+    ],
+  ] as const;
+
+  it.each(requests)("%s sends X-Api-Level", async (_name, send, method, path) => {
+    const fetchMock = stubFetch(noContentResponse());
+
+    await send();
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe(path);
+    expect(init?.method).toBe(method);
+    expect(new Headers(init?.headers).get("X-Api-Level")).toBe(String(API_LEVEL));
+  });
+
+  it("keeps the Content-Type of a JSON request", async () => {
+    const fetchMock = stubFetch(noContentResponse());
+
+    await leaveStory("abc12");
+
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
   });
 });
 
@@ -139,7 +225,10 @@ describe("my stories, leaving and rejoining", () => {
     const fetchMock = stubFetch(jsonResponse(200, { stories: [summary] }));
 
     expect(await listMyStories()).toEqual({ ok: true, value: { stories: [summary] } });
-    expect(fetchMock).toHaveBeenCalledWith("/api/stories", { method: "GET" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/stories", {
+      method: "GET",
+      headers: { "X-Api-Level": "1" },
+    });
   });
 
   it.each([
@@ -151,7 +240,7 @@ describe("my stories, leaving and rejoining", () => {
     expect(await send("abc12")).toEqual({ ok: true, value: null });
     expect(fetchMock).toHaveBeenCalledWith(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
       body: "{}",
     });
   });

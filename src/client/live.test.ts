@@ -140,18 +140,27 @@ describe("keepSocketOpen", () => {
     expect(refetches()).toBe(1);
   });
 
-  it("ignores messages that aren't a live message", () => {
+  it("refetches on JSON of any other shape, such as a message kind from a newer Worker", () => {
     const { h, refetches } = start();
 
     for (const data of [
-      "not json",
+      JSON.stringify({ kind: "participant_left", id: 4 }),
       JSON.stringify({ version: "3" }),
-      JSON.stringify({ version: -1 }),
       JSON.stringify({}),
       JSON.stringify(null),
-      new ArrayBuffer(2),
-      42,
+      JSON.stringify([1]),
+      "42",
     ]) {
+      h.sockets[0]?.handlers.onMessage(data);
+    }
+
+    expect(refetches()).toBe(6);
+  });
+
+  it("ignores text that isn't JSON and payloads that aren't text", () => {
+    const { h, refetches } = start();
+
+    for (const data of ["not json", "", new ArrayBuffer(2), 42, null]) {
       h.sockets[0]?.handlers.onMessage(data);
     }
 

@@ -12,6 +12,9 @@ export function describeFailure(failure: ApiFailure, byCode: MessagesByCode = {}
   if (failure.type === "rejected") {
     return byCode[failure.code] ?? GENERIC_MESSAGE;
   }
+  if (failure.type === "client_outdated") {
+    return "This version of the app is out of date. Reload the page to update.";
+  }
 
   return GENERIC_MESSAGE;
 }

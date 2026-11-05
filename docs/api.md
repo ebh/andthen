@@ -33,7 +33,9 @@ One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorC
 
 Every error body is JSON `{error: <code>}`, so a client can parse it with `errorBodySchema`. The one exception is `left_story`, whose body also carries `displayName` and `opening` (see "Leaving and rejoining"). Every `/api/*` response carries `Cache-Control: no-store` (except a WebSocket upgrade).
 
-Order of checks on a mutating route: Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409).
+- **426:** `client_outdated`, an `X-Api-Level` below the Worker's minimum. See "Versioning". A live upgrade without `Upgrade: websocket` is also 426, with a different body.
+
+Order of checks on a mutating route: API level (400 malformed, 426 too low), Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409).
 
 ## Things a client or reviewer might not expect
 
@@ -75,10 +77,26 @@ A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone 
 - **A refused write is explained by a re-read.** When `addParticipant` or `rejoinStory` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
 - A refused join writes nothing, bumps no `turnVersion` and sends no live message.
 
-## Guards on every mutating request
+## Guards
 
-- `Origin` must equal the request's own origin; a missing `Origin` fails. `GET`, `HEAD` and `OPTIONS` are exempt. The live upgrade is a `GET` but runs the same check (`requireSameOrigin`).
-- `Content-Type` must be `application/json`, parameters allowed.
+- **API level, on every `/api/*` request:** see "Versioning". It runs first, so a stale client gets `client_outdated` whatever else is wrong with its request.
+- **On a mutating request:** `Origin` must equal the request's own origin; a missing `Origin` fails. `GET`, `HEAD` and `OPTIONS` are exempt. The live upgrade is a `GET` but runs the same check (`requireSameOrigin`).
+- **On a mutating request:** `Content-Type` must be `application/json`, parameters allowed.
+
+## Versioning
+
+The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is bumped by hand, and only for a change that breaks a client that already shipped, such as removing or renaming a field. The Worker also has `MIN_API_LEVEL`, the oldest level it serves.
+
+- **Header:** the client sends `X-Api-Level: <API_LEVEL>` on every request. `call` in `src/client/api.ts` adds it, GETs included.
+- **Accepted values:** a plain positive decimal integer. An empty value, whitespace, a sign, a fraction, `0`, leading zeros or a number too large to be exact is 400 `bad_request`.
+- **Missing header:** accepted. curl, uptime checks and clients built before the header existed send none, and refusing them would break them for no gain. A browser app always sends it.
+- **Too low:** a level below `MIN_API_LEVEL` is 426 `client_outdated`, checked before every other guard (`requireApiLevel` in `src/worker/http.ts`). A level above the Worker's is accepted.
+- **Exempt:** `/api/health`, so a monitor works whatever it sends.
+- **Live sockets** carry no header, because a browser's WebSocket can't set one. The upgrade is checked like any other `/api/*` request, but a socket that is already open is not. What carries the check is the refetch the client makes on every open: it is an ordinary request with the header.
+- **The client's reaction:** `call` turns a `client_outdated` answer into the failure `{type: "client_outdated"}` and sets the flag in `src/client/clientOutdated.ts`. The root layout then shows `UpdateRequired` (heading "Update to continue", one "Update now" button that reloads the page) in place of the routed page. Unmounting the page closes its live socket, so nothing keeps retrying.
+- **Only add.** A change that keeps `API_LEVEL` may add an optional response field, a route or an error code, and nothing else. A client ignores a field it doesn't know. An error code it doesn't know becomes the failure `{type: "unknown_code", status, code}` with the generic message, and a live message of a shape it doesn't know still triggers a refetch.
+- **Fixtures:** `src/shared/fixtures/level1/` holds a frozen sample of every message of level 1, and `src/shared/compat.test.ts` checks that the current schemas still parse them. The fixtures are append-only: never edit one to make a test pass.
+- **Shipping a break:** raise `API_LEVEL`, add a `src/shared/fixtures/level2/` folder with the new messages (keep `level1/`, so the test still shows what changed), and set `MIN_API_LEVEL` to the new level only once old clients must be locked out. See "Raising `MIN_API_LEVEL`" in `deployment.md`.
 
 ## Suggestions
 
@@ -104,9 +122,9 @@ A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone 
 `GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
 
 - **Checks, in order:** `Upgrade: websocket`, any case (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), participant cookie (403 `not_participant`). Only then is the request forwarded to the room.
-- **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, rejoin, leave, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any valid message and does not need the version.
+- **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, rejoin, leave, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any message that is JSON text, whatever its shape, so a message kind from a newer Worker still triggers a refetch. It ignores text that isn't JSON and binary frames, and does not need the version.
 - **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds. It hands the room's `notify` RPC call to `waitUntil` and returns at once, so a slow or hung room can't delay a committed write. A failure is logged and swallowed, never turned into an error response: clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
-- **Client:** the live logic in `src/client/live.ts` says when to refetch: on every open, every valid message and a second after `turn.endsAt` (a turn that times out sends no message). The hook that mounts it is not in the new app yet.
+- **Client:** the live logic in `src/client/live.ts` says when to refetch: on every open, every JSON message and a second after `turn.endsAt` (a turn that times out sends no message). `useStoryLive` mounts it on the story page. The socket sends no `X-Api-Level`; the refetch on open does (see "Versioning").
   - The `endsAt` timer re-arms every 5 seconds until `endsAt` changes, because a client clock ahead of the server's would otherwise fire early and never try again.
   - Reconnects back off from 0.5 s to 30 s. The backoff restarts only after a socket stays open 10 s or delivers a live message, so a server that accepts and drops the socket is retried ever more slowly.
   - A `ping` every 25 s; no `pong` within 10 s marks the socket dead and reconnects.
@@ -126,8 +144,8 @@ Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEM
 
 ## Testing
 
-- `createApp({ now, newStoryId, suggestionProvider })` in `src/worker/app.ts` takes the clock, the ID source and a function from `env` to a `SuggestionProvider`. `app` is the real-clock default; `index.ts` re-exports it.
-- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider)` and `createBrowser(app, env)`, a browser with its own cookie jar that sends a same-origin `Origin` and `Content-Type: application/json` by default. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
+- `createApp({ now, newStoryId, suggestionProvider, minApiLevel })` in `src/worker/app.ts` takes the clock, the ID source, a function from `env` to a `SuggestionProvider` and, optionally, the minimum API level (`MIN_API_LEVEL` by default), which a test raises to get `client_outdated`. `app` is the real-clock default; `index.ts` re-exports it.
+- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider)` and `createBrowser(app, env)`, a browser with its own cookie jar that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
 - `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200). A browser's `backgroundWork` holds what the app gave `waitUntil`.
 - `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It reads `wrangler.jsonc` and drops `assets` (which needs a built `dist/`). `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
 - `test/support/gatedDb.ts`: `gateLoads(db, n)` holds `n` concurrent requests at their story load until all have loaded, so they race on one stored version. Pass it as `{ env: { DB: gateLoads(...) } }` in the request options.

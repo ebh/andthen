@@ -137,12 +137,14 @@ describe("useAppUpdate", () => {
     await startAppUpdates();
     const worker = serwists.instances[0];
 
-    await result.current.applyUpdate();
-
-    expect(worker?.messageSkipWaiting).toHaveBeenCalledTimes(1);
+    const applied = result.current.applyUpdate();
+    await vi.waitFor(() => {
+      expect(worker?.messageSkipWaiting).toHaveBeenCalledTimes(1);
+    });
     expect(reload).not.toHaveBeenCalled();
 
     worker?.listeners.get("controlling")?.();
+    await applied;
 
     expect(reload).toHaveBeenCalledTimes(1);
   });

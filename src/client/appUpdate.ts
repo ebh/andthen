@@ -6,8 +6,9 @@ export interface AppUpdate {
   /** Registers the web app's service worker and starts looking for a newer version. */
   start: () => Promise<void>;
   /**
-   * Switches to the newer version and reloads. With none waiting, it clears the service worker and
-   * its caches and reloads, so the page comes fresh from the network.
+   * Switches to the newer version and reloads. With none waiting, or one that does not take over
+   * in time, it clears the service worker and its caches and reloads, so the page comes fresh from
+   * the network.
    */
   apply: () => Promise<void>;
   subscribe: (listener: () => void) => () => void;
@@ -39,6 +40,11 @@ export interface ServiceWorkerRegistrationHandle {
   waiting: object | null;
   unregister: () => Promise<boolean>;
 }
+
+// "Update now" must never leave the user with a dead button. Taking over, once the waiting build is
+// told to, is local work that finishes in well under a second. Ten seconds is long enough for a slow
+// phone and short enough that a user who has tapped is not left staring at a page that does nothing.
+const HANDOVER_TIMEOUT_MS = 10_000;
 
 // A page that stays open for days still finds out about a new build. Hourly is often enough to
 // notice a release within a working session and rare enough to cost almost nothing.
@@ -84,11 +90,8 @@ export function createAppUpdate(environment: AppUpdateEnvironment): AppUpdate {
     if (worker !== undefined && registration !== undefined) {
       await checkForUpdate();
 
-      if (registration.waiting) {
-        worker.addEventListener("controlling", () => {
-          environment.reload();
-        });
-        worker.messageSkipWaiting();
+      if (registration.waiting && (await handOver(worker))) {
+        environment.reload();
 
         return;
       }
@@ -111,6 +114,16 @@ export function createAppUpdate(environment: AppUpdateEnvironment): AppUpdate {
     },
     getSnapshot: () => waiting,
   };
+}
+
+/** Tells the waiting build to take over. False if it has not done so in time, such as when it vanished. */
+async function handOver(handle: ServiceWorkerHandle): Promise<boolean> {
+  const tookOver = new Promise<void>((resolve) => {
+    handle.addEventListener("controlling", resolve);
+  });
+  handle.messageSkipWaiting();
+
+  return settlesWithin(tookOver, HANDOVER_TIMEOUT_MS);
 }
 
 /** Registers the service worker, in a production build of a browser that has them. */
@@ -153,6 +166,21 @@ function browserEnvironment(): AppUpdateEnvironment {
       });
     },
   };
+}
+
+async function settlesWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<false>((resolve) => {
+    timer = setTimeout(() => {
+      resolve(false);
+    }, ms);
+  });
+
+  try {
+    return await Promise.race([promise.then(() => true as const), timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function deleteAllCaches(): Promise<void> {

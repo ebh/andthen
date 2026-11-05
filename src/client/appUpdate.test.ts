@@ -8,6 +8,7 @@ import {
 } from "./appUpdate";
 
 const HOUR_MS = 60 * 60 * 1000;
+const HANDOVER_TIMEOUT_MS = 10_000;
 
 type Listener = () => void;
 
@@ -152,24 +153,61 @@ describe("createAppUpdate", () => {
     });
     await appUpdate.start();
 
-    await appUpdate.apply();
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(worker.update).toHaveBeenCalledTimes(1);
     expect(worker.messageSkipWaiting).toHaveBeenCalledTimes(1);
-    expect(registration.unregister).not.toHaveBeenCalled();
-    expect(environment.deleteCaches).not.toHaveBeenCalled();
     expect(environment.reload).not.toHaveBeenCalled();
 
     fire("controlling");
+    await applied;
 
+    expect(environment.reload).toHaveBeenCalledTimes(1);
+    expect(registration.unregister).not.toHaveBeenCalled();
+    expect(environment.deleteCaches).not.toHaveBeenCalled();
+  });
+
+  it("clears the worker and the caches instead if the waiting build does not take over in time", async () => {
+    const { appUpdate, registration, environment } = setUp({ waitingAtRegister: true });
+    await appUpdate.start();
+
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(HANDOVER_TIMEOUT_MS - 1);
+
+    expect(environment.reload).not.toHaveBeenCalled();
+    expect(registration.unregister).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await applied;
+
+    expect(registration.unregister).toHaveBeenCalledTimes(1);
+    expect(environment.deleteCaches).toHaveBeenCalledTimes(1);
     expect(environment.reload).toHaveBeenCalledTimes(1);
   });
 
-  it("still applies a waiting update when the check for a newer one fails", async () => {
-    const { appUpdate, worker } = setUp({ waitingAtRegister: true, updateFails: true });
+  it("reloads once when the build takes over just before the timeout", async () => {
+    const { appUpdate, registration, environment, fire } = setUp({ waitingAtRegister: true });
     await appUpdate.start();
 
-    await appUpdate.apply();
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(HANDOVER_TIMEOUT_MS - 1);
+    fire("controlling");
+    await applied;
+    await vi.advanceTimersByTimeAsync(HANDOVER_TIMEOUT_MS);
+
+    expect(environment.reload).toHaveBeenCalledTimes(1);
+    expect(registration.unregister).not.toHaveBeenCalled();
+  });
+
+  it("still applies a waiting update when the check for a newer one fails", async () => {
+    const { appUpdate, worker, fire } = setUp({ waitingAtRegister: true, updateFails: true });
+    await appUpdate.start();
+
+    const applied = appUpdate.apply();
+    await vi.advanceTimersByTimeAsync(0);
+    fire("controlling");
+    await applied;
 
     expect(worker.messageSkipWaiting).toHaveBeenCalledTimes(1);
   });

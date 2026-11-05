@@ -89,7 +89,13 @@ export function NewStory() {
           </H2>
           <YStack gap="2">
             <Label htmlFor={nameId}>Your name</Label>
-            <Input id={nameId} size="xl" value={name} onChangeText={setName} />
+            <Input
+              id={nameId}
+              size="xl"
+              autoComplete="nickname"
+              value={name}
+              onChangeText={setName}
+            />
           </YStack>
           <YStack gap="2">
             <Label htmlFor={openingId}>Opening passage</Label>

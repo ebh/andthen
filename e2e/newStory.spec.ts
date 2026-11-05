@@ -20,7 +20,7 @@ test("an address with no page shows the not-found page, which leads back to the 
   await page.goto("/nowhere");
   await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 
-  await page.getByText("Start a new story").click();
+  await page.getByRole("link", { name: "Start a new story" }).click();
 
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: "Start a story" })).toBeVisible();

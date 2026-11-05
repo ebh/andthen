@@ -1,17 +1,11 @@
 // @vitest-environment jsdom
 import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { NotFound } from "./NotFound";
-import { push } from "./routerStub";
 import { renderPage } from "./testRender";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
-
-beforeEach(() => {
-  push.mockClear();
-});
 
 describe("NotFound", () => {
   it("says there is nothing here, under the wordmark's level-1 heading", () => {
@@ -22,11 +16,9 @@ describe("NotFound", () => {
     expect(screen.getByText("There's nothing at this address.")).toBeInTheDocument();
   });
 
-  it("offers a way back to starting a story", async () => {
+  it("links back to starting a story", () => {
     renderPage(<NotFound />);
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Start a new story" }));
-
-    expect(push).toHaveBeenCalledWith("/");
+    expect(screen.getByRole("link", { name: "Start a new story" })).toHaveAttribute("href", "/");
   });
 });

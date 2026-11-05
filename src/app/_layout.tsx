@@ -1,3 +1,4 @@
+import "@tamagui/core/reset.css";
 import "../../tamagui.generated.css";
 import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";

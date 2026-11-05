@@ -1,8 +1,8 @@
 ---
 paths:
   - "src/app/**"
+  - "src/ui/**"
   - "src/client/**"
-  - "index.html"
 ---
 
 # UI rules

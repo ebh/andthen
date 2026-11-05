@@ -39,7 +39,7 @@ export function LeaveDialog({
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
-        <AlertDialog.Overlay />
+        <AlertDialog.Overlay bg="scrim" />
         <AlertDialog.Content gap="3" maxW="narrow">
           <AlertDialog.Title fontFamily="story" fontSize="2xl" lineHeight="2xl" fontWeight="600">
             Leave this story?
@@ -54,7 +54,9 @@ export function LeaveDialog({
           </Paragraph>
           <XStack flexWrap="wrap" justify="flex-end" gap="3">
             <AlertDialog.Cancel asChild>
-              <Button size="xl">Cancel</Button>
+              <Button size="xl" variant="outlined" theme="transparent">
+                Cancel
+              </Button>
             </AlertDialog.Cancel>
             {/* Not AlertDialog.Action: that closes the dialog, and a failed leave keeps it open. */}
             <Button size="xl" disabled={leaving} onPress={onConfirm}>

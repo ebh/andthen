@@ -19,19 +19,20 @@ export function MyStories({ stories }: MyStoriesProps) {
 
   return (
     <YStack role="region" aria-label="Your stories" gap={media.md ? "10" : "6"}>
-      <H2
-        fontFamily="story"
-        fontSize={media.md ? "5xl" : "3xl"}
-        lineHeight={media.md ? "5xl" : "3xl"}
-        fontWeight="600"
-      >
+      <H2 fontFamily="story" fontSize="3xl" lineHeight="3xl" fontWeight="600">
         Your stories
       </H2>
       <YStack role="list" borderTopWidth={1} borderColor="base-300">
         {stories.map((story) => (
           <YStack key={story.id} role="listitem" borderBottomWidth={1} borderColor="base-300">
             <Link href={`/${story.id}`} asChild>
-              <Anchor display="flex" flexDirection="column" gap="1" py="4">
+              <Anchor
+                display="flex"
+                flexDirection="column"
+                gap="1"
+                py="4"
+                textDecorationLine="none"
+              >
                 <Paragraph
                   fontFamily="story"
                   fontSize={media.md ? "2xl" : "lg"}

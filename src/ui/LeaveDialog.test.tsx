@@ -31,8 +31,8 @@ function renderDialog(
   return { onOpen, onConfirm };
 }
 
-// Tamagui's `DialogClose` hard-codes its accessible name to "Dialog Close", so the buttons inside
-// the dialog are found by visible text.
+// Tamagui's `DialogClose` hard-codes its accessible name to "Dialog Close" (#26), so the buttons
+// inside the dialog are found by visible text.
 async function openDialog() {
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Leave story" }));

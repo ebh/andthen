@@ -31,7 +31,7 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - The pitch column has padding `16` at the sides and `12` above. The wordmark sits at its top, and the headline `28` below it.
   - The headline is `4xl` on a phone and `6xl` from `md`. The intro line under it is at most `narrow` wide.
   - From `md` the three steps sit under the intro as a list with hairline rules. A phone drops them.
-  - When the writer has stories, their list replaces the pitch and the form heading reads "Start a new story". While the list loads, the column shows neither, and the form is there at once.
+  - When the writer has stories, their list replaces the pitch and the form heading reads "Start a new story". The list's "Your stories" heading is `3xl`, the same as the form heading. A row is a link without an underline. While the list loads, the column shows neither, and the form is there at once.
   - If the list fails to load, the column shows an alert "Couldn't load your stories." with a "Retry" button, and the form stays.
   - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
@@ -112,7 +112,7 @@ Links and buttons:
 - A button may move the route when it finishes an action. "Start the story" creates a story and then moves to `/<id>`. It is still a button, because it submits a form.
 - A link under 24px tall, such as `Anchor` at 20px, needs the spacing exception from the touch rule above. A link with neither the size nor the spacing is left as it is and an issue is filed.
 
-Inside Tamagui's `Dialog` and `AlertDialog`, tests find a close button, such as the leave dialog's "Cancel", by its visible text scoped to the dialog, because `Dialog.Close` names itself "Dialog Close". A plain `Button` inside the dialog keeps its own name, so tests find it by role. Tests find the dialog itself by its role, `alertdialog`.
+Inside Tamagui's `Dialog` and `AlertDialog`, tests find a close button, such as the leave dialog's "Cancel", by its visible text scoped to the dialog, because `Dialog.Close` names itself "Dialog Close" ([#26](https://github.com/ebh/andthen/issues/26)). A plain `Button` inside the dialog keeps its own name, so tests find it by role. Tests find the dialog itself by its role, `alertdialog`.
 
 ## Done
 

@@ -480,8 +480,8 @@ describe("a writer who left in another tab", () => {
   });
 });
 
-// Tamagui's `DialogClose` names every close button "Dialog Close", so the dialog's Cancel is found
-// by its visible text. The plain "Leave story" button inside the dialog keeps its own name.
+// Tamagui's `DialogClose` names every close button "Dialog Close" (#26), so the dialog's Cancel is
+// found by its visible text. The plain "Leave story" button inside the dialog keeps its own name.
 async function openDialog() {
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Leave story" }));

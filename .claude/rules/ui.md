@@ -23,6 +23,7 @@ The app exists to be read. Every visual decision serves the story text first.
 Pages are built from `YStack` and `XStack` and their documented style props. Spacing uses the space tokens; widths use the content-width tokens in the config (`simplePage` 672px, `narrow` 448px, `story` 796px, `passage` 620px). A page needs no other pixel value.
 
 - The root layout wraps every page in one `ScrollView`, so a page taller than the screen scrolls. A page's root fills a short screen with `grow={1}`, never `flex={1}`: its zero basis clamps the page to the screen height while the content overflows.
+- The root layout puts the update notice in a bar under the `ScrollView`, in the page flow and not over it. It takes the space it needs from the bottom, so the story text and the controls never move or hide. The bar is a `base-200` fill with a `base-300` hairline above it, padding `5` at the sides and `3` above and below, with `muted` text.
 - Design for a 375px-wide phone first, then widen. `md` is Tamagui's built-in 768px breakpoint, and it is the only breakpoint a layout changes at.
 - Page padding is `5` on a phone. Sections of a page are `8` apart; the parts inside a section are `2` to `4` apart.
 - A simple page (loading, error, not found, join form) is one column, centred on the screen, at most `simplePage` wide. The wordmark sits at the top-left of the column, `8` above the content.
@@ -112,6 +113,7 @@ Tests find elements by role, accessible name, label and visible text. The role i
 - the "Couldn't load your stories." alert with its "Retry" button, and the "You left the story." status, on the landing page
 - the "Your stories" link in the story rail
 - the "Leave story" button, and the leave dialog: role `alertdialog`, named "Leave this story?", with an `alert` for failures and two buttons. "Cancel" is an `AlertDialog.Cancel` and "Leave story" is a plain `Button`, not `AlertDialog.Action`, because `Action` closes the dialog and a failed leave keeps it open. The "Leave story" button reads "Leaving…" and is disabled while the request is in flight.
+- the update notice in `UpdateReady`: an always-present `status` region under the page, which holds the text "A new version is ready." and a plain "Update" button once a new build is waiting. It is absent on the update screen.
 - the "You left this story" screen: its opening quote, a "Rejoin as …" button that reads "Rejoining…" while it sends, an alert for failures, and a "← Your stories" link
 
 Links and buttons:

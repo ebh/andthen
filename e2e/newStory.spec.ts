@@ -12,6 +12,7 @@ test("a writer starts a story and the Worker creates it", async ({ page }) => {
 
   expect((await created).status()).toBe(201);
   await expect(page).toHaveURL(/\/[a-z0-9]{5}$/);
+  await expect(page.getByLabel("Invite link")).toBeVisible();
 });
 
 test("an address with no page shows the not-found page, which leads back to the start", async ({

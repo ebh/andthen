@@ -16,6 +16,13 @@ describe("NotFound", () => {
     expect(screen.getByText("There's nothing at this address.")).toBeInTheDocument();
   });
 
+  it("shows the message it is given", () => {
+    renderPage(<NotFound message="That story doesn't exist." />);
+
+    expect(screen.getByText("That story doesn't exist.")).toBeInTheDocument();
+    expect(screen.queryByText("There's nothing at this address.")).not.toBeInTheDocument();
+  });
+
   it("links back to starting a story", () => {
     renderPage(<NotFound />);
 

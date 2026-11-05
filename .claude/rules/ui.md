@@ -31,10 +31,12 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 - Allowed, because the docs describe it:
   - theme tokens and the Tamagui config
   - a component's documented props and state props
-  - the props of the React Native or react-native-web component that the Tamagui docs page says it wraps and links to. `Input` and `TextArea` wrap `TextInput`, so `autoComplete` is allowed. A prop that neither the Tamagui docs nor those linked docs list is still not allowed.
+  - a prop that the [React Native docs](https://reactnative.dev/docs) or [react-native-web docs](https://necolas.github.io/react-native-web/docs/) list for the component underneath, whether or not the Tamagui page links to them. Two examples:
+    - `autoComplete` on `Input` and `TextArea`, which wrap React Native's `TextInput`.
+    - `aria-pressed` on `Button`, from react-native-web's [accessibility props](https://necolas.github.io/react-native-web/docs/accessibility/), which every View accepts.
   - a component's parts composed in the documented structure, such as the Dialog "skin" from the docs
 - Not allowed:
-  - a prop the docs do not list for that component, such as an `aria-label` or `role` override that changes what a component exposes
+  - a prop that none of those docs (Tamagui, React Native, react-native-web) list for that component, such as an `aria-label` or `role` override that changes what a component exposes
   - a handler that works around a component's behaviour, such as one that restores focus
   - a wrapper that adds behaviour, a patched package, or a hand-built replacement for a component Tamagui has
 - A bug in a stock component is filed as a GitHub issue. It is not fixed in our code. A test that has to avoid the bug links the issue.
@@ -55,8 +57,13 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
 
 ## Touch
 
-- Interactive elements are at least 44px tall.
-- That size comes from Tamagui's documented `size` prop and the size tokens in the config, never from a pixel value on one element. A stock component that cannot reach 44px that way is left as it is and filed as an issue.
+- Touch targets follow WCAG 2.2 AA [Target Size (Minimum)](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) (2.5.8). A target meets it in one of two ways:
+  - It is at least 24×24px.
+  - Or it has enough spacing: a 24px-diameter circle centred on it overlaps no other target and no other target's circle.
+- A link inside a sentence of text is exempt.
+- Size comes from Tamagui's documented `size` prop and the size tokens in the config, never from a pixel value on one element.
+- A stock component that meets neither the size nor the spacing is left as it is and filed as an issue.
+- Measured today: stock `Switch` and `Checkbox` at `size="xl"` are 28px tall. `Button` at `size="xl"` is 50px. `Anchor` links are 20px tall, so they pass only through the spacing exception.
 - Everything a user needs is visible, or reachable by tap and keyboard.
 - Every interactive element shows a focus ring. Tamagui draws it; check it in both themes.
 
@@ -80,7 +87,7 @@ Links and buttons:
 - Use a link when the action changes the route (the URL). Use a button when it does not, such as submitting a form, leaving a story or toggling something.
 - A link is a stock `Anchor` inside an Expo Router `Link` with `asChild`, as in `Wordmark.tsx`. A `Button` is never given an `href`.
 - A button may move the route when it finishes an action. "Start the story" creates a story and then moves to `/<id>`. It is still a button, because it submits a form.
-- A link may be shorter than 44px, because `Anchor` has no documented `size` prop. That follows the touch rule above: it is left as it is and an issue is filed.
+- A link under 24px tall, such as `Anchor` at 20px, needs the spacing exception from the touch rule above. A link with neither the size nor the spacing is left as it is and an issue is filed.
 
 Inside Tamagui's `Dialog`, tests find the buttons by visible text, because `Dialog.Close` names itself "Dialog Close".
 

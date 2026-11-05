@@ -18,9 +18,10 @@ export function UpdateReady() {
     <YStack role="status">
       {updateReady && !outdated && (
         <XStack
-          bg="base-200"
+          theme="level2"
+          bg="background"
           borderTopWidth={1}
-          borderColor="base-300"
+          borderColor="border-color"
           px="5"
           py="3"
           gap="3"

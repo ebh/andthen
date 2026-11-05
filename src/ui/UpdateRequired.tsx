@@ -16,7 +16,7 @@ export function UpdateRequired() {
         <Paragraph>This version of And then… is out of date.</Paragraph>
         <Button
           size="xl"
-          theme="primary"
+          theme="brand"
           onPress={() => {
             void applyUpdate();
           }}

@@ -25,7 +25,13 @@
   // Always remote. `pnpm dev` runs wrangler with remote bindings off unless `AI_REMOTE=1`, so local runs
   // use the fake provider unless you start dev with `AI_REMOTE=1` after `wrangler login`.
   "ai": { "binding": "AI" },
-  "vars": { "AI_PROVIDER": "fake" },
+  // The dev VAPID key's private half is not committed. To receive real pushes locally, put your
+  // own pair in `.dev.vars` (see `.dev.vars.example`). Preview and production set the private key
+  // as a Worker secret.
+  "vars": {
+    "AI_PROVIDER": "fake",
+    "VAPID_PUBLIC_KEY": "BMKmnIYvuMU7CeHx-XL6Va7VB5DfB67mrMFPeWw4cOPU8sbWdFyHtscVcF1B2k4Hh6fFZbUNpX9KH_ehknKvn1E",
+  },
   "env": {
     "preview": {
       "name": "andthen-preview",
@@ -43,7 +49,10 @@
       },
       "ai": { "binding": "AI" },
       // `vars` aren't inherited from the top level.
-      "vars": { "AI_PROVIDER": "workers-ai" },
+      "vars": {
+        "AI_PROVIDER": "workers-ai",
+        "VAPID_PUBLIC_KEY": "BNbNBYmgShK2QjU5i70V-xwUsQuBs989ekvSVXp2J7Dt2iO2GXV7v7vNgpqIxCNi76FgAR08R-Vl9EHH-1jbYBI",
+      },
     },
     "production": {
       "name": "andthen",
@@ -62,7 +71,10 @@
       },
       "ai": { "binding": "AI" },
       // `vars` aren't inherited from the top level.
-      "vars": { "AI_PROVIDER": "workers-ai" },
+      "vars": {
+        "AI_PROVIDER": "workers-ai",
+        "VAPID_PUBLIC_KEY": "BNqSWSuX5Uv2Zq162Ea7DLp0MANwRW-XMzmbqsZI3ngfEBmeVKgWXnbYxFokQBJzDHXDeTaY8zDCn7hgJTto3o0",
+      },
     },
   },
 }

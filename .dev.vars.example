@@ -11,3 +11,10 @@ AI_PROVIDER=fake
 # The Workers AI model, used only when AI_PROVIDER=workers-ai. It must support JSON-schema output.
 # Optional: the default is @cf/meta/llama-3.3-70b-instruct-fp8-fast.
 # AI_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
+
+# Web Push. wrangler.jsonc carries a public key for local dev whose private half is not committed.
+# To receive real pushes locally, make your own pair with `pnpm vapid-keys` and set both lines here.
+# The public line overrides the one in wrangler.jsonc. Without the private line, the "your turn"
+# push is skipped and the Worker logs why.
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=

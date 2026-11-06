@@ -12,6 +12,7 @@ import { ScrollView, TamaguiProvider, YStack } from "tamagui";
 
 import { tamaguiConfig } from "../../tamagui.config";
 import { startAppUpdates } from "../client/appUpdate";
+import { startTurnAlerts } from "../client/turnAlerts";
 import { UpdateGate } from "../ui/UpdateGate";
 import { UpdateReady } from "../ui/UpdateReady";
 
@@ -28,6 +29,7 @@ export default function Layout() {
 
   useEffect(() => {
     void startAppUpdates();
+    void startTurnAlerts();
   }, []);
 
   return (

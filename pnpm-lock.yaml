@@ -166,6 +166,9 @@ importers:
 
   .:
     dependencies:
+      '@block65/webcrypto-web-push':
+        specifier: 2.0.0
+        version: 2.0.0
       '@expo-google-fonts/inter':
         specifier: 0.4.2
         version: 0.4.2
@@ -891,6 +894,10 @@ packages:
   '@babel/types@8.0.8':
     resolution: {integrity: sha512-iXSSZAKQWmaeAwGtFw10v9fg5hUiUs0L+w+Z2K11kym3pDNK+SF0VcAQPsEFvWcTSZ7LMgClMXDBvTbH0IlICg==}
     engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@block65/webcrypto-web-push@2.0.0':
+    resolution: {integrity: sha512-BMrw8hABq5krABWPy3zFJvBC73HeRkyT/GTZ2AD7wqzo9hd9vO56MstBqjGMIxIw3e4lbRUbYxgihCcfhoTI2g==}
+    engines: {node: '>=22.0.0'}
 
   '@bramus/specificity@2.4.3':
     resolution: {integrity: sha512-0GEz8qJWokkUVYQYRukmkSHIFNoBH8QTreeHrAFbvz1XFYc3Y+puhMs8PQ5x8GNugiC2l5jvDBXKLbBIByeSBw==}
@@ -6345,6 +6352,10 @@ packages:
     resolution: {integrity: sha512-LbBDqdIC5s8iROCUjMbW1f5dJQTEFB1+KO9ogbvlb3nm9n4YHa5p4KTvFPWvh2Hs8gZMBuiB1/8+pdfe/tDPug==}
     hasBin: true
 
+  uint8array-extras@1.6.0:
+    resolution: {integrity: sha512-8iAasVS4wUx0gPLjH8Xtz2PeDzTSiy8QiLGu2DT3X5GU+egFEQhpnbtkehbAwjvDcxIERmCYcysiODFmE3Ud0Q==}
+    engines: {node: '>=18'}
+
   underscore@1.13.8:
     resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
 
@@ -7423,6 +7434,10 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 8.0.8
       '@babel/helper-validator-identifier': 8.0.6
+
+  '@block65/webcrypto-web-push@2.0.0':
+    dependencies:
+      uint8array-extras: 1.6.0
 
   '@bramus/specificity@2.4.3':
     dependencies:
@@ -14581,6 +14596,8 @@ snapshots:
       '@typescript/typescript-win32-x64': 7.0.2
 
   ua-parser-js@1.0.41: {}
+
+  uint8array-extras@1.6.0: {}
 
   underscore@1.13.8: {}
 

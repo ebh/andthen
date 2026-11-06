@@ -1,5 +1,6 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
 
+import type { TurnPushPayload } from "../shared/api";
 import { parseVapidConfig, type VapidConfig } from "./config";
 import type { PushSubscriptionRow } from "./db/pushRepo";
 
@@ -10,21 +11,8 @@ import type { PushSubscriptionRow } from "./db/pushRepo";
  */
 export type PushOutcome = "delivered" | "gone" | "failed";
 
-/**
- * The declarative Web Push shape, whose `web_push` marker is 8030. Safari shows it without running
- * a script; other browsers hand it to the service worker's `push` handler.
- */
-export type PushData = {
-  web_push: 8030;
-  notification: {
-    title: string;
-    body: string;
-    /** The absolute address that opens when the notification is tapped. */
-    navigate: string;
-    /** A newer notification with the same tag replaces the older one on screen. */
-    tag: string;
-  };
-};
+/** The declarative Web Push shape; `turnPushPayloadSchema` is the contract with the service worker. */
+export type PushData = TurnPushPayload;
 
 export interface PushMessage {
   data: PushData;

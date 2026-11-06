@@ -152,6 +152,24 @@ export type RemovePushSubscriptionRequest = z.infer<typeof removePushSubscriptio
 export const pushKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
 export type PushKeyResponse = z.infer<typeof pushKeyResponseSchema>;
 
+/**
+ * The push message the Worker sends and the service worker shows: the declarative Web Push shape
+ * (RFC 8030's `web_push` marker), which Safari shows by itself and other browsers pass to the
+ * service worker's `push` handler.
+ */
+export const turnPushPayloadSchema = z.object({
+  web_push: z.literal(8030),
+  notification: z.object({
+    title: z.string(),
+    body: z.string(),
+    /** The address to open on a tap: the story's page. */
+    navigate: z.url(),
+    /** A newer notification with the same tag replaces the older one. */
+    tag: z.string(),
+  }),
+});
+export type TurnPushPayload = z.infer<typeof turnPushPayloadSchema>;
+
 // Every error code the API sends. A suggestions request from a non-holder is `not_your_turn`.
 export const errorCodeSchema = z.enum([
   "bad_request", // malformed JSON or body, or a Content-Type other than application/json

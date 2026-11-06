@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { turnPushPayloadSchema } from "../shared/api";
+
 import {
   excerpt,
   MAX_EXCERPT_LENGTH,
@@ -18,6 +20,10 @@ const input = {
 };
 
 describe("turnNotification", () => {
+  it("builds what the service worker parses", () => {
+    expect(turnPushPayloadSchema.safeParse(turnNotification(input).data).success).toBe(true);
+  });
+
   it("is a declarative push that opens the story and replaces the story's earlier one", () => {
     expect(turnNotification(input)).toEqual({
       data: {

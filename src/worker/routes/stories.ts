@@ -56,9 +56,11 @@ import {
 } from "../http";
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
+import type { PushSender } from "../push";
 import { buildStoryView } from "../storyView";
 import { summariseMyStories } from "../storySummaries";
 import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
+import { notifyTurnHolder } from "../turnPush";
 
 export interface StoryDeps {
   /** The clock, in epoch milliseconds. Tests set it to control turn expiry. */
@@ -67,6 +69,8 @@ export interface StoryDeps {
   newStoryId: () => string;
   /** The provider for this request's bindings; throws when the AI config is invalid. */
   suggestionProvider: (env: Env) => SuggestionProvider;
+  /** The sender for this request's bindings; throws when the VAPID keys are missing or invalid. */
+  pushSender: (env: Env) => PushSender;
 }
 
 export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
@@ -167,6 +171,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     notifyRoom(c, storyId, joinedState.turnVersion);
+    notifyTurnHolder(c, deps.pushSender, {
+      storyId,
+      loaded,
+      saved: joinedState,
+      requesterPosition: loaded.nextPosition,
+      now,
+    });
 
     const response: JoinResponse = { participantId: participant.id };
     return c.json(response, 201);
@@ -192,6 +203,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     notifyRoom(c, storyId, next.turnVersion);
+    notifyTurnHolder(c, deps.pushSender, {
+      storyId,
+      loaded,
+      saved: next,
+      requesterPosition: me.position,
+      now,
+    });
 
     return c.body(null, 204);
   });
@@ -211,10 +229,11 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("story_full");
     }
 
+    const now = deps.now();
     const next = onRejoin(
       loaded.state,
       { previousPosition: me.position, position: loaded.nextPosition },
-      deps.now(),
+      now,
     );
     const saved = await rejoinStory(c.env.DB, {
       storyId,
@@ -228,6 +247,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     notifyRoom(c, storyId, next.turnVersion);
+    notifyTurnHolder(c, deps.pushSender, {
+      storyId,
+      loaded,
+      saved: next,
+      requesterPosition: loaded.nextPosition,
+      now,
+    });
 
     return c.body(null, 204);
   });
@@ -268,6 +294,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     notifyRoom(c, storyId, result.state.turnVersion);
+    notifyTurnHolder(c, deps.pushSender, {
+      storyId,
+      loaded,
+      saved: result.state,
+      requesterPosition: me.position,
+      now,
+    });
 
     return c.body(null, 204);
   });
@@ -278,7 +311,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const loaded = await requireStory(c, storyId);
     const me = await requireParticipant(c, loaded);
 
-    const result = skip(loaded.state, deps.now(), {
+    const now = deps.now();
+    const result = skip(loaded.state, now, {
       skipperPosition: me.position,
       turnVersion: body.turnVersion,
     });
@@ -292,6 +326,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     notifyRoom(c, storyId, result.state.turnVersion);
+    notifyTurnHolder(c, deps.pushSender, {
+      storyId,
+      loaded,
+      saved: result.state,
+      requesterPosition: me.position,
+      now,
+    });
 
     return c.body(null, 204);
   });

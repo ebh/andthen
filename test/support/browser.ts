@@ -8,8 +8,10 @@ import {
 } from "../../src/shared/api";
 import { API_LEVEL, API_LEVEL_HEADER } from "../../src/shared/apiLevel";
 import { createApp } from "../../src/worker/app";
+import type { PushSender } from "../../src/worker/push";
 import { fakeProvider } from "../../src/worker/suggestions/fake";
 import type { SuggestionProvider } from "../../src/worker/suggestions/provider";
+import { createFakePushSender } from "./fakePushSender";
 
 export const T0 = 1_700_000_000_000;
 
@@ -58,6 +60,7 @@ export function createTestApp(
   newStoryId?: () => string,
   suggestionProvider: SuggestionProvider = fakeProvider,
   minApiLevel?: number,
+  pushSender: PushSender = createFakePushSender(),
 ): TestApp {
   let counter = 0;
 
@@ -70,6 +73,7 @@ export function createTestApp(
         return counter.toString(36).padStart(5, "0");
       }),
     suggestionProvider: () => suggestionProvider,
+    pushSender: () => pushSender,
     minApiLevel,
   });
 }

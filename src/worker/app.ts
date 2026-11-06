@@ -11,6 +11,7 @@ import {
   requireApiLevel,
 } from "./http";
 import { newStoryId } from "./ids";
+import { selectPushSender } from "./push";
 import { pushSubscriptionRoutes } from "./routes/pushSubscriptions";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
 import { selectSuggestionProvider } from "./suggestions/select";
@@ -52,4 +53,5 @@ export const app = createApp({
   now: () => Date.now(),
   newStoryId: () => newStoryId(),
   suggestionProvider: selectSuggestionProvider,
+  pushSender: selectPushSender,
 });

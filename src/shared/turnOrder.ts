@@ -244,6 +244,20 @@ export function onLeave(state: TurnState, leaverPosition: number, now: number): 
   return { ...left, currentPosition: next, turnStartedAt: now };
 }
 
+/**
+ * The position that holds the turn after a change that did not hold it before, or null when the
+ * turn did not change hands: the same person keeps it, or the story waits. `before` should be the
+ * turn as it stood at the request's time, with any expiry applied (`resolveTurn`), so a lapsed
+ * turn that nobody acted on is not counted as passed by an unrelated change.
+ */
+export function turnPassedTo(before: TurnState, after: TurnState): number | null {
+  if (after.currentPosition === null || after.currentPosition === before.currentPosition) {
+    return null;
+  }
+
+  return after.currentPosition;
+}
+
 // The next position in the rotation after `from`, passing over the last contributor. Returns
 // `from` itself when nobody else is eligible.
 function nextHolder(state: TurnState, from: number): number {

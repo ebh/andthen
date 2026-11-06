@@ -6,5 +6,10 @@
     "lib": ["ES2024", "WebWorker"],
     "types": []
   },
-  "include": ["src/serviceWorker"]
+  "include": [
+    "src/serviceWorker",
+    "src/client/pushHandlers.ts",
+    "src/shared/api.ts",
+    "src/shared/validation.ts"
+  ]
 }

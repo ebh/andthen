@@ -23,7 +23,7 @@ describe("TurnBanner", () => {
     expect(screen.queryByRole("button", { name: /skip/i })).not.toBeInTheDocument();
   });
 
-  it("names the holder, the time left and the rotation, and offers a skip", () => {
+  it("names the holder, the time left and the turn order, and offers a skip", () => {
     renderBanner(
       storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }),
     );

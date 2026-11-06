@@ -1,7 +1,6 @@
 # Story API
 
 Routes live in `src/worker/routes/stories.ts` (and `src/worker/routes/pushSubscriptions.ts`), SQL in `src/worker/db/storyRepo.ts` (and `src/worker/db/pushRepo.ts`). Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved.
-
 ## Routes
 
 | Route                                 | Success                        | Notes                                                                                       |
@@ -63,10 +62,10 @@ Order of checks on a mutating route: API level (400 malformed, 426 too low), Ori
 
 Leaving is soft. `POST /api/stories/:id/leave` sets `participants.left_at` and keeps the row, because passages join to their author and a name stays reserved in its story.
 
-- **Turn:** `onLeave` takes the position out of the rotation and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
+- **Turn:** `onLeave` takes the position out of the turn order and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
 - **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the name the writer had there and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the old name and cookie stay on the row, so a leaver gets back only through rejoin.
 - **Names:** a leaver's name stays taken in that story, so a new joiner can't reuse it.
-- **Rejoin:** `POST /api/stories/:id/rejoin` clears `left_at` and gives the row the position at the end of the rotation (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a browser that was never in the story, 409 `already_joined` for one that is in it, 409 `story_full` when the story filled while they were away.
+- **Rejoin:** `POST /api/stories/:id/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a browser that was never in the story, 409 `already_joined` for one that is in it, 409 `story_full` when the story filled while they were away.
 - **Races:** both routes are guarded by the loaded `turn_version` like every write, so one that loses a race answers 409 `stale_turn`.
 - **Body:** `{}` and nothing else; a body with anything in it is 400 `bad_request` (`emptyRequestSchema`).
 
@@ -155,7 +154,7 @@ A browser that allows notifications is told when a change hands it the turn. Thi
   - A push goes to every subscription of the browser of the writer who newly holds the turn.
   - No push when the same person keeps the turn, when the story goes to waiting, or when the new holder is the requester (a joiner or rejoiner who takes a waiting story).
   - "Before" is the stored turn with expiry applied (`resolveTurn`). If the holder's window had already lapsed, an unrelated change such as a join does not count as handing the turn to the person it had already moved to. A turn that only lapses is handled by the room's alarm; see "Turn timeout" below.
-  - A requester's position is the one in the saved rotation. A joiner or rejoiner takes a new position at the end, so it is not `me.position`.
+  - A requester's position is the one in the saved turn order. A joiner or rejoiner takes a new position at the end, so it is not `me.position`.
 - **Sending.** The work runs under `waitUntil`, like `notifyRoom`: it never delays or fails the response, and a failure is logged. The holder's subscriptions and the story's opening are read in the background, and the sender (`selectPushSender` in `src/worker/push.ts`, which needs `VAPID_PRIVATE_KEY`) is built only when there is a subscription to send to. A missing or bad key is logged as "Turn push failed" and the write is unaffected.
   - **Outcomes:** the push service answers 2xx (delivered), 404 or 410 (the subscription is gone, so it is deleted), or anything else (logged with the push service's host, never the endpoint; the subscription is kept). A network error is logged and counts as failed.
   - **Payload,** encrypted for the browser (RFC 8291, `aes128gcm`) and signed with VAPID (RFC 8292): the declarative Web Push shape, which Safari shows by itself and other browsers pass to the service worker's `push` handler.

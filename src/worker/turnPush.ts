@@ -17,7 +17,7 @@ export interface TurnChange {
   /** The turn the request's write saved. */
   saved: TurnState;
   /**
-   * The requester's position in `saved`'s rotation. It is not the position they held when they
+   * The requester's position in `saved`'s turn order. It is not the position they held when they
    * loaded the story if they joined or rejoined: both take a new place at the end. The requester
    * is never pushed; they just acted and have the story open.
    */

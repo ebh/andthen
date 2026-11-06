@@ -7,7 +7,7 @@ export const THIRD = "p-third";
 const NAMES: { [participantId: string]: string } = { [ME]: "Me", [OTHER]: "Sam", [THIRD]: "Kim" };
 
 interface ViewOptions {
-  /** Participant IDs in rotation order. */
+  /** Participant IDs in turn order. */
   participants: readonly string[];
   /** Null for a waiting story. */
   holderId: string | null;

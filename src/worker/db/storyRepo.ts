@@ -29,9 +29,9 @@ export type Db = Pick<D1Database, "prepare" | "batch">;
 
 export interface LoadedStory {
   story: StoryRow;
-  /** Everyone who ever joined, in rotation order. A leaver keeps their row, and their name stays taken. */
+  /** Everyone who ever joined, in turn order. A leaver keeps their row, and their name stays taken. */
   participants: ParticipantRow[];
-  /** The participants who have not left, in rotation order. They hold the turn and fill the cap. */
+  /** The participants who have not left, in turn order. They hold the turn and fill the cap. */
   activeParticipants: ParticipantRow[];
   /** One past the highest position anyone has held, a leaver's included, so a new one never collides. */
   nextPosition: number;
@@ -42,7 +42,7 @@ export interface LoadedStory {
 /** What the list of one browser's stories is built from. */
 export interface MyStoryRows {
   stories: MyStoryRow[];
-  /** The writers of those stories who have not left, in rotation order. */
+  /** The writers of those stories who have not left, in turn order. */
   writers: StoryWriterRow[];
   passages: StoryPassageRow[];
 }
@@ -90,7 +90,7 @@ export interface RejoinStoryInput {
   loadedVersion: number;
   next: TurnState;
   participantId: string;
-  /** The place at the end of the rotation: `LoadedStory.nextPosition`. */
+  /** The place at the end of the turn order: `LoadedStory.nextPosition`. */
   position: number;
 }
 
@@ -311,7 +311,7 @@ export async function leaveStory(db: Db, input: LeaveStoryInput): Promise<boolea
 }
 
 /**
- * Brings a participant who left back into the story, at the end of the rotation, and saves the
+ * Brings a participant who left back into the story, at the end of the turn order, and saves the
  * turn that follows. False when the story moved on or already has MAX_PARTICIPANTS; nothing is
  * written then, so the route tells the two apart.
  */

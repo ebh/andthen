@@ -200,7 +200,7 @@ describe("concurrent writes to one story", () => {
     expect(view.turn.version).toBe(2);
   });
 
-  it("fails a contribution that raced a join, because the join changes the rotation", async () => {
+  it("fails a contribution that raced a join, because the join changes the turn order", async () => {
     const { as, storyId } = await storyWith(["Ben"]);
     const ben = as("Ben");
     const cat = newBrowser();

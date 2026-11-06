@@ -275,7 +275,7 @@ describe("POST /api/stories/:id/suggestions", () => {
     });
 
     it("follows the resolved turn when the stored holder has timed out", async () => {
-      // Ben's turn runs out and passes to Cat, the next in rotation (Ana wrote last).
+      // Ben's turn runs out and passes to Cat, the next in turn order (Ana wrote last).
       const { storyId, ben } = await twoPersonStory();
       const cat = newBrowser();
       await joinStory(cat, storyId, "Cat");

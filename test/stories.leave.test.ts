@@ -266,7 +266,7 @@ describe("leaving and rejoining a story", () => {
   });
 
   describe("POST /api/stories/:id/rejoin", () => {
-    it("puts a writer back at the end of the rotation under their old name", async () => {
+    it("puts a writer back at the end of the turn order under their old name", async () => {
       const { storyId, as } = await storyWith(["Ben", "Cal"]);
       const ana = as("Ana");
       const ben = as("Ben");

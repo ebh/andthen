@@ -43,7 +43,7 @@ export const contributionRowSchema = z.object({
 });
 export type ContributionRow = z.infer<typeof contributionRowSchema>;
 
-/** A story the caller is in, with the position they hold in its rotation. */
+/** A story the caller is in, with the position they hold in its turn order. */
 export const myStoryRowSchema = z.intersection(
   storyRowSchema,
   z.object({ myPosition: countSchema }),

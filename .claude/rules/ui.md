@@ -41,11 +41,12 @@ Pages are built from `YStack` and `XStack` and their documented style props. Spa
   - After the writer leaves a story, the column shows a quiet "You left the story." status, once. A reload or a later visit shows nothing.
   - The form is centred in its panel, at most `narrow` wide, with padding `16`. On a phone the panel follows the pitch, padded `5` at the sides and `10` above and below.
 - The story page is a rail beside the story from `md`.
-  - The rail is `80` wide with a `border-color` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
+  - The rail is `80` wide with a `border-color` hairline on its right and padding `8`. The wordmark and the link to the writer's stories sit at its top, the turn banner `14` below them with the "Notify me when it's my turn" switch `4` under it, and the invite link at its bottom, with the quiet "Leave story" button under it. "Leave story" is a `quiet` `Button`, the quietest action on the page, and it is the trigger of the leave dialog.
   - The story column has padding `16` at the sides and `14` above. Its content is left-aligned and at most `story` wide.
   - A paragraph is at most `passage` wide. Its authors' margin sits beside it and is at most `36` wide.
   - The composer's counter sits at the left of one row, with "Suggest continuations" and "Add to the story" at the right.
   - "Add to the story" is the page's one primary button; "Suggest continuations" is secondary, an `outlined` `Button`.
+- The notify switch is a stock `Switch` at `size="xl"` with a `Label`, as "Show authors" is. It sits in the rail on a phone and a desktop alike. Where the browser cannot offer notifications it is absent. In an iOS or iPadOS browser tab the line "Add to Home Screen to get notified" takes its place, since Safari has no Push API until the app is on the Home Screen. When the user has blocked notifications the switch is disabled and a `muted` line says so; when turning on or off fails, an `error` alert says so. The switch is disabled while a request is in flight.
 - On a phone the story page is three blocks, each padded `5`: the rail with a `border-color` hairline under it, the story, and the invite link with the "Leave story" button under it. The composer's buttons are full width and stacked.
 - The turn headline is `xl` on a phone and `3xl` from `md`. The turn order is a wrapping row on a phone and a column from `md`. The current writer's name sits on a `highlight` pill.
 - Authors shown on a phone sit in one wrapping row above their paragraph, with no left padding.
@@ -102,6 +103,7 @@ Tests find elements by role, accessible name, label and visible text. The role i
 - the list, item, button structure in `Suggestions`
 - the "Show authors" `Switch` (role `switch`) and the author buttons (`aria-pressed`) in `StoryText`
 - the "New paragraph" checkbox in `Composer`
+- the "Notify me when it's my turn" `Switch` (role `switch`) in `TurnAlertsSwitch`, its "Add to Home Screen to get notified" and "Notifications are blocked in this browser's settings." lines, and its `alert` "Notifications couldn't be turned on in this browser." ("…turned off…" when turning off fails)
 - the "Your stories" region on the landing page, headed "Your stories", whose rows are links named by the opening passage and the turn status
 - the "Couldn't load your stories." alert with its "Retry" button, and the "You left the story." status, on the landing page
 - the "Your stories" link in the story rail

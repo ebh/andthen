@@ -11,6 +11,7 @@ import {
   requireApiLevel,
 } from "./http";
 import { newStoryId } from "./ids";
+import { pushSubscriptionRoutes } from "./routes/pushSubscriptions";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
 import { selectSuggestionProvider } from "./suggestions/select";
 
@@ -41,6 +42,7 @@ export function createApp(
     return c.json(body);
   });
 
+  app.route("/", pushSubscriptionRoutes(deps));
   app.route("/", storyRoutes(deps));
 
   return app;

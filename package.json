@@ -7,6 +7,7 @@
     "dev": "node scripts/dev.ts",
     "build": "tamagui build --target web ./src/ui -- expo export --platform web --output-dir dist && node scripts/buildServiceWorker.ts",
     "cf-typegen": "wrangler types",
+    "vapid-keys": "node scripts/generateVapidKeys.ts",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "format": "oxfmt",
     "format:check": "oxfmt --check",

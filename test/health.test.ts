@@ -30,6 +30,7 @@ describe("GET /api/health", () => {
     expect(tables.results).toEqual([
       { name: "contributions" },
       { name: "participants" },
+      { name: "push_subscriptions" },
       { name: "stories" },
       { name: "suggestion_requests" },
     ]);

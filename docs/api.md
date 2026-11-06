@@ -142,7 +142,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 
 ## Web Push
 
-A browser that allows notifications is told when a change hands it the turn. The service worker side (asking permission, calling these routes, showing the notification) is not part of the Worker; this section is the server's half.
+A browser that allows notifications is told when a change hands it the turn. This section is the server's half. The app's half is `src/client/turnAlerts.ts` (see "How the app uses these routes" below) and the service worker's handlers in `src/client/pushHandlers.ts`.
 
 - **One subscription per browser and endpoint, for every story.** `push_subscriptions` is keyed on the push service's `endpoint` and carries the browser's token hash (`participants.browser_token_hash`), so one subscription covers every story the browser is in. A browser may hold several (one per device profile or push service).
 - **`PUT /api/push-subscription`:** body `{endpoint, keys: {p256dh, auth}}`, which is what `PushSubscription.toJSON()` returns (other fields, such as `expirationTime`, are ignored; `pushSubscriptionSchema`). Saves it for the cookie's browser and answers 204. The endpoint must be `https`, at most 2048 characters, and on a known push service host: `fcm.googleapis.com`, `updates.push.services.mozilla.com`, or a subdomain of `push.apple.com` or `notify.windows.com`. Any other host, a port, or userinfo in the URL is 400 `bad_request`, so the Worker cannot be made to post to other sites. To support a new push service, add its host to `PUSH_SERVICE_HOSTS` or `PUSH_SERVICE_HOST_SUFFIXES` in `src/shared/api.ts`. `p256dh` and `auth` must be unpadded base64url of the length a browser produces (87 and 22 characters).
@@ -174,6 +174,16 @@ A browser that allows notifications is told when a change hands it the turn. The
   - **Headers:** `Topic: turn-<storyId>` (a newer message for the story replaces an undelivered older one), `Urgency: high`, and `TTL` the seconds left in the new holder's turn window, never under 60.
 - **Config:** `VAPID_PUBLIC_KEY` (a var in `wrangler.jsonc`, per environment) and `VAPID_PRIVATE_KEY` (a Worker secret) are parsed with Zod by `parseVapidConfig` and `parseVapidPublicKey` in `src/worker/config.ts`. The subject is the constant `VAPID_SUBJECT`. The private key is not in the generated `Env` type, because `wrangler types` runs in CI without secrets. `docs/deployment.md` says how to make and set the keys.
 - **Only added:** no `API_LEVEL` bump. The routes are new and no existing message changed.
+
+### How the app uses these routes
+
+All three calls go through `src/client/api.ts` (`fetchPushKey`, `savePushSubscription`, `removePushSubscription`), so a failure comes back as a value.
+
+- **Turning on** (the "Notify me when it's my turn" switch in the story rail): the page asks for notification permission first, because browsers allow the prompt only inside the user's tap. It then calls `pushManager.subscribe({userVisibleOnly: true, applicationServerKey})` with the key from `GET /api/push-subscription/key`, parses `toJSON()` with `pushSubscriptionSchema` and `PUT`s it. The key is fetched when the app loads, while permission is still undecided, so the tap goes from the prompt to subscribing with no network wait. If the `PUT` fails, or the browser's subscription is not one the schema accepts, the page unsubscribes in the browser again, so the browser never holds a subscription the Worker doesn't know. A browser that cannot subscribe (Brave with "Use Google services for push messaging" off throws here) shows an error and stays off.
+- **Turning off:** the page unsubscribes in the browser, then `DELETE`s the endpoint. If only the `DELETE` fails, the switch still shows off: the browser no longer receives pushes, and the Worker deletes its copy the next time a push to that endpoint answers 404 or 410.
+- **On every app load** (`startTurnAlerts` in `src/app/_layout.tsx`), if notifications are allowed and the browser holds a subscription, the page `PUT`s it again, so a Worker that lost the row (or a browser whose cookie changed) is brought back in step. A failure is ignored; the next load tries again. A page with no cookie gets 403 `not_participant`, which is also ignored.
+- **No Push API.** iOS and iPadOS Safari has the Push API only for an app added to the Home Screen (16.4 and later). In a browser tab the page shows "Add to Home Screen to get notified" instead of the switch. Where the browser has no service worker or Push API at all, and in a development build (which registers no service worker), the switch is absent.
+- **The service worker** shows the payload with `showNotification`, using the payload's `tag` so a newer notification for the story replaces an older one, and on a tap focuses a tab already on `navigate` or opens it. It ignores a message that does not parse as `turnPushPayloadSchema`, and never opens an address outside its own origin.
 
 ## Cookie
 

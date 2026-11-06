@@ -1,6 +1,7 @@
 # Story API
 
-Routes live in `src/worker/routes/stories.ts` (and `src/worker/routes/pushSubscriptions.ts`), SQL in `src/worker/db/storyRepo.ts` (and `src/worker/db/pushRepo.ts`). Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved.
+Routes live in `src/worker/routes/stories.ts` (and `src/worker/routes/pushSubscriptions.ts`), SQL in `src/worker/db/storyRepo.ts` (and `src/worker/db/pushRepo.ts`). Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved. `.claude/rules/api.md` has the rules for adding a route, and `docs/domain.md` the words its path uses.
+
 ## Routes
 
 | Route                                 | Success                        | Notes                                                                                       |

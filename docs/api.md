@@ -1,6 +1,6 @@
 # Story API
 
-Routes live in `src/worker/routes/stories.ts`, SQL in `src/worker/db/storyRepo.ts`. Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved.
+Routes live in `src/worker/routes/stories.ts` (and `src/worker/routes/pushSubscriptions.ts`), SQL in `src/worker/db/storyRepo.ts` (and `src/worker/db/pushRepo.ts`). Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved.
 
 ## Routes
 
@@ -16,6 +16,9 @@ Routes live in `src/worker/routes/stories.ts`, SQL in `src/worker/db/storyRepo.t
 | `POST /api/stories/:id/rejoin`        | 204                            | Body `{}`. Only for a browser that left. See "Leaving and rejoining".                       |
 | `POST /api/stories/:id/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                        |
 | `GET /api/stories/:id/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                      |
+| `PUT /api/push-subscription`          | 204                            | Body is a `PushSubscription.toJSON()`. See "Web Push".                                      |
+| `DELETE /api/push-subscription`       | 204                            | Body `{endpoint}`. See "Web Push".                                                          |
+| `GET /api/push-subscription/key`      | 200 `{publicKey}`              | The VAPID public key. See "Web Push".                                                       |
 
 Mutating routes send no body back, except suggestions, which is a read. Clients refetch `GET /api/stories/:id`; the live socket tells them when.
 
@@ -132,6 +135,41 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 - **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
 - **A cookie is read at the upgrade only.** An open socket is not rechecked. A writer who leaves keeps their sockets, so they go on receiving version numbers (nothing else is sent) until the socket closes; a refetch then answers 403 `left_story`. Closing them would need the room to tag sockets by participant, which it does not do.
 
+## Web Push
+
+A browser that allows notifications is told when a change hands it the turn. The service worker side (asking permission, calling these routes, showing the notification) is not part of the Worker; this section is the server's half.
+
+- **One subscription per browser and endpoint, for every story.** `push_subscriptions` is keyed on the push service's `endpoint` and carries the browser's token hash (`participants.browser_token_hash`), so one subscription covers every story the browser is in. A browser may hold several (one per device profile or push service).
+- **`PUT /api/push-subscription`:** body `{endpoint, keys: {p256dh, auth}}`, which is what `PushSubscription.toJSON()` returns (other fields, such as `expirationTime`, are ignored; `pushSubscriptionSchema`). Saves it for the cookie's browser and answers 204. The endpoint must be `https` and at most 2048 characters. `p256dh` and `auth` must be unpadded base64url of the length a browser produces (87 and 22 characters).
+  - **Same endpoint again:** an upsert. The keys and owner are replaced and `created_at` keeps its first value, so a browser that resubscribes, or a second browser that registers the same endpoint, takes it over.
+  - **No cookie:** 403 `not_participant`, nothing saved, no cookie issued. A browser with no cookie is in no story, so there is nothing to push to it, and every cookieless browser would otherwise share the hash of the empty token.
+  - **Order of checks:** the guards in "Guards", then the body (400 `bad_request`), then the cookie.
+- **`DELETE /api/push-subscription`:** body `{endpoint}`. Removes this browser's own subscription to that endpoint and answers 204 whether or not one was stored. Another browser's subscription is never touched. A browser with no cookie owns nothing, so it gets 204 and no cookie.
+- **`GET /api/push-subscription/key`:** `{publicKey}`, the VAPID public key (87 base64url characters) for `pushManager.subscribe({applicationServerKey})`. It needs no cookie and reads only `VAPID_PUBLIC_KEY`, so it works before the private key is set. A missing or malformed key is 500 `internal_error`.
+- **Who is pushed.** After each join, rejoin, leave, contribution and skip is saved, `notifyTurnHolder` (`src/worker/turnPush.ts`) compares the turn before and after with `turnPassedTo` (`src/shared/turnOrder.ts`).
+  - A push goes to every subscription of the browser of the writer who newly holds the turn.
+  - No push when the same person keeps the turn, when the story goes to waiting, or when the new holder is the requester (a joiner or rejoiner who takes a waiting story).
+  - "Before" is the stored turn with expiry applied (`resolveTurn`). If the holder's window had already lapsed, an unrelated change such as a join does not count as handing the turn to the person it had already moved to. Nothing in the Worker pushes for a turn that only lapses; that needs a timer and is not built yet.
+  - A requester's position is the one in the saved rotation. A joiner or rejoiner takes a new position at the end, so it is not `me.position`.
+- **Sending.** The work runs under `waitUntil`, like `notifyRoom`: it never delays or fails the response, and a failure is logged. The holder's subscriptions and the story's opening are read in the background, and the sender (`selectPushSender` in `src/worker/push.ts`, which needs `VAPID_PRIVATE_KEY`) is built only when there is a subscription to send to. A missing or bad key is logged as "Turn push failed" and the write is unaffected.
+  - **Outcomes:** the push service answers 2xx (delivered), 404 or 410 (the subscription is gone, so it is deleted), or anything else (logged with the push service's host, never the endpoint; the subscription is kept). A network error is logged and counts as failed.
+  - **Payload,** encrypted for the browser (RFC 8291, `aes128gcm`) and signed with VAPID (RFC 8292): the declarative Web Push shape, which Safari shows by itself and other browsers pass to the service worker's `push` handler.
+    ```json
+    {
+      "web_push": 8030,
+      "notification": {
+        "title": "Your turn",
+        "body": "Once upon a time, in a village by the sea, a lantern went…",
+        "navigate": "https://app.andthen.page/abc12",
+        "tag": "turn-abc12"
+      }
+    }
+    ```
+    `body` is the start of the story's opening: whitespace collapsed to single spaces, at most 60 characters, cut at a word and ended with `…` when shortened. `navigate` uses the origin of the request that made the change. `web_push` is the number 8030.
+  - **Headers:** `Topic: turn-<storyId>` (a newer message for the story replaces an undelivered older one), `Urgency: high`, and `TTL` the seconds left in the new holder's turn window, never under 60.
+- **Config:** `VAPID_PUBLIC_KEY` (a var in `wrangler.jsonc`, per environment) and `VAPID_PRIVATE_KEY` (a Worker secret) are parsed with Zod by `parseVapidConfig` and `parseVapidPublicKey` in `src/worker/config.ts`. The subject is the constant `VAPID_SUBJECT`. The private key is not in the generated `Env` type, because `wrangler types` runs in CI without secrets. `docs/deployment.md` says how to make and set the keys.
+- **Only added:** no `API_LEVEL` bump. The routes are new and no existing message changed.
+
 ## Cookie
 
 `__Host-andthen_bt` (HttpOnly, Secure, SameSite=Lax, Path=/, 1 year) everywhere except `http://localhost`, where it is `andthen_bt` without `Secure`. The value is 32 random bytes in hex; only its SHA-256 hash is stored in `participants.browser_token_hash`. `readBrowserToken` returns `""` for no cookie, which matches no participant.
@@ -144,9 +182,10 @@ Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEM
 
 ## Testing
 
-- `createApp({ now, newStoryId, suggestionProvider, minApiLevel })` in `src/worker/app.ts` takes the clock, the ID source, a function from `env` to a `SuggestionProvider` and, optionally, the minimum API level (`MIN_API_LEVEL` by default), which a test raises to get `client_outdated`. `app` is the real-clock default; `index.ts` re-exports it.
-- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider)` and `createBrowser(app, env)`, a browser with its own cookie jar that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
+- `createApp({ now, newStoryId, suggestionProvider, pushSender, minApiLevel })` in `src/worker/app.ts` takes the clock, the ID source, a function from `env` to a `SuggestionProvider`, a function from `env` to a `PushSender` and, optionally, the minimum API level (`MIN_API_LEVEL` by default), which a test raises to get `client_outdated`. `app` is the real-clock default; `index.ts` re-exports it.
+- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider, minApiLevel?, pushSender = createFakePushSender())` and `createBrowser(app, env)`, a browser with its own cookie jar (`get`, `post`, `put` and `delete`) that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
 - `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200). A browser's `backgroundWork` holds what the app gave `waitUntil`.
 - `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It reads `wrangler.jsonc` and drops `assets` (which needs a built `dist/`). `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
+- `test/support/fakePushSender.ts`: `createFakePushSender()` records every `send` in `sent` and answers `delivered` unless `outcomes` or `throwing` says otherwise. `test/turnPush.test.ts` uses it to check who is pushed. The real sender is tested in `src/worker/push.test.ts` against the real encryption library, with an injected `fetch`.
 - `test/support/gatedDb.ts`: `gateLoads(db, n)` holds `n` concurrent requests at their story load until all have loaded, so they race on one stored version. Pass it as `{ env: { DB: gateLoads(...) } }` in the request options.
 - A route that touches no D1 can be tested with a stand-in `DB`: repo functions take `Db`, a `Pick<D1Database, "prepare" | "batch">`.

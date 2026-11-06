@@ -67,6 +67,27 @@ Run `wrangler` steps from a checkout, with `pnpm wrangler …`.
 5. **workers.dev subdomain.** The first preview deploy needs the account to have a `workers.dev` subdomain: dashboard, Workers & Pages, Subdomain. Preview is then served at `andthen-preview.<account-subdomain>.workers.dev`.
 6. **Workers AI budget.** Not needed on the Free plan; set one if you upgrade (see "Accepted risks"). Dashboard, Manage Account, Notifications, Add: pick the Workers AI usage (or billing) alert and set a threshold you are comfortable with.
 
+## Web Push keys
+
+"Your turn" notifications are signed with a VAPID key pair (RFC 8292). Each environment has its own pair, so a leak in preview cannot send as production. The public key is a plain var in `wrangler.jsonc` (`VAPID_PUBLIC_KEY`, set under each environment because `vars` do not inherit). The private key is a Worker secret (`VAPID_PRIVATE_KEY`) and never goes in the repo.
+
+Make a pair, print it and keep the private line out of shell history and logs:
+
+```sh
+pnpm vapid-keys
+```
+
+Then, for each of `preview` and `production`:
+
+1. Put the `VAPID_PUBLIC_KEY` line's value in that environment's `vars` in `wrangler.jsonc`.
+2. Store the private key, pasting it at the prompt: `pnpm wrangler secret put VAPID_PRIVATE_KEY --env preview` (or `production`).
+3. Run `pnpm cf-typegen` and commit `worker-configuration.d.ts` if it changed. Run it without a `.dev.vars` file, or the secret would be written into the generated types and CI's `wrangler types --check` would fail.
+
+- **Set the secret before the Worker with the push code deploys.** Without it nothing crashes: the key route and every story route keep working, and each push that would be sent is skipped with a "Turn push failed" error in the logs that names `VAPID_PRIVATE_KEY`. But no one is notified until the secret is set. `wrangler secret put` on an environment whose Worker does not exist yet offers to create it.
+- **The public and private key must be a pair.** A mismatch is not detected here: the push service rejects the signature (usually 401 or 403) and the Worker logs `Push to <host> answered <status>`. Change both together.
+- **Changing a key** invalidates every stored subscription, because browsers bind a subscription to the public key they subscribed with. The routes need no change, but each browser must subscribe again. Rotate only when the private key leaks.
+- **Local.** `wrangler.jsonc` carries a public key for `pnpm dev` whose private half is not kept, so the "your turn" push is skipped locally and logs why. To receive a real push locally, run `pnpm vapid-keys` and put both lines in `.dev.vars` (see `.dev.vars.example`); `.dev.vars` overrides the var in `wrangler.jsonc`. Browsers only accept a push service from a secure origin, which includes `http://localhost`.
+
 ## The domain
 
 The app lives on `app.andthen.page`. The bare `andthen.page` is left free for a later marketing page and, until then, redirects to the app.
@@ -91,7 +112,7 @@ Dashboard steps:
 
 ## First deploy, in order
 
-1. Do the setup above: the databases, the API token, the GitHub environments and secrets.
+1. Do the setup above: the databases, the API token, the GitHub environments and secrets, and the Web Push keys (the `VAPID_PRIVATE_KEY` secret of each environment).
 2. Open the pull request. `deploy.yml` applies the migrations to `andthen-preview` and deploys `andthen-preview`. Its log prints the `workers.dev` URL.
 3. Run the preview smoke test below.
 4. Merge. CI runs on `main`; when it passes, `deploy.yml` migrates `andthen-prod` and deploys `andthen`, which also creates `app.andthen.page`. If you set a required reviewer on `production`, approve the deployment in the Actions run.
@@ -121,6 +142,7 @@ Preview, on the `workers.dev` URL, with two browsers (or a normal and a private 
 - [ ] B writes a passage. A shows it without a reload, and the turn moves to A.
 - [ ] B asks for suggestions on a later turn: three real suggestions appear and fill the composer, and nothing is sent. A fourth request in an hour shows the rate-limit message.
 - [ ] With a third window, skip the turn holder.
+- [ ] `GET /api/push-subscription/key` returns the environment's `VAPID_PUBLIC_KEY`. Then, with a real subscription (the notification setup in the app, once it ships, or `PUT /api/push-subscription` from a browser console), have another window pass the turn to the subscribed one: the push arrives, and the Workers logs show no "Turn push failed" or `Push to … answered` line.
 - [ ] Reload every window: the story and the turn are unchanged.
 - [ ] Leave a window open for a few minutes with nothing happening, then have the other window write. The idle window still updates (the Durable Object woke from hibernation).
 - [ ] The Workers logs (dashboard, Workers, `andthen-preview`, Logs) show no `internal_error`.
@@ -167,6 +189,8 @@ These were chosen for the first release. None has a mitigation in the code.
 - **Clearing cookies loses every story at once.** There are no accounts: the cookie is the only link between a writer and their stories, and it is HttpOnly, so it can't be exported or restored. The stories stay, and the writer can only come back as a new participant through an invite link.
 - **A story with no writers left is on no one's list.** Leaving keeps the story open to anyone with its link, but nobody's list shows it, so only someone holding the link can reach it. A writer who left can still get back through the link they used.
 - **A story holds at most 50 participants** (`MAX_PARTICIPANTS`), so a link that leaks cannot grow a story without bound, but it can still fill one. Only writers still in the story count, so a leaver frees a place.
+- **Any browser with a cookie can register any https endpoint.** When that browser is handed the turn, the Worker posts an encrypted message to the endpoint, with a VAPID token naming the endpoint's origin. The body is fixed, small and encrypted for keys the registrant chose, and Workers cannot reach private networks, so the reach is limited to public https hosts. Nothing limits how many endpoints one browser registers, or checks that an endpoint belongs to a real push service. A rate limit on `PUT /api/push-subscription`, or an allowlist of push service hosts, is the fix when it matters.
+- **A push can be lost without the app knowing.** A push service that fails or rejects a message is logged and not retried, and a turn that lapses on its own sends nothing until the timer that handles it exists. The page still shows the turn on the next visit.
 - **`suggestion_requests` rows are never deleted.** The table grows by one row per suggestion request. Each is small, and D1's free storage is large, but it needs a cleanup job before heavy use.
 
 ## Proven only locally
@@ -174,6 +198,7 @@ These were chosen for the first release. None has a mitigation in the code.
 Everything below passed against Miniflare, workerd or test doubles, never against Cloudflare. Check each on the real preview after the first deploy, and fix this page with what you find.
 
 - **Workers AI.** The real output shape (`{response}` as an object or as JSON text), the `response_format: { type: "json_schema", … }` input, the exact `JSON Mode couldn't be met` error text, quota and rate-limit error shapes, latency against the 25 s timeout, and billing.
+- **Web Push through real push services.** The encryption and VAPID signing are tested against the real library in Node, and it was run once in local workerd without `nodejs_compat`, but no message has been delivered to a real push service. Check on preview that FCM (Chrome), Mozilla and Apple accept the signature, that a 404 or 410 really removes the subscription, and that `TTL`, `Topic` and `Urgency` are honoured.
 - **Story ID collision retry on real D1.** The code tells a collision from other failures by re-reading the row, not by the error text, because Miniflare and D1 word the error differently. A collision cannot be provoked by hand at this ID size, so this stays a code-reading check.
 - **Durable Object hibernation and eviction.** Locally the object is never evicted. Confirm that an idle socket still gets a message after the object has been evicted, and that a reconnect refetches.
 - **The `__Host-` cookie over real HTTPS.** Checked on `http://localhost` only, where the cookie has a different name and no `Secure`. Confirm that the cookie is set, kept and sent on `workers.dev` and on `app.andthen.page`, and that a second browser gets a different participant.

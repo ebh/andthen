@@ -8,6 +8,9 @@ import {
   errorBodySchema,
   errorCodeSchema,
   plainErrorCodeSchema,
+  pushKeyResponseSchema,
+  pushSubscriptionSchema,
+  removePushSubscriptionRequestSchema,
   joinRequestSchema,
   liveMessageSchema,
   myStoriesResponseSchema,
@@ -292,5 +295,53 @@ describe("errorBodySchema", () => {
 
   it("rejects an unknown code", () => {
     expect(errorBodySchema.safeParse({ error: "teapot" }).success).toBe(false);
+  });
+});
+
+const P256DH = "B".repeat(87);
+const AUTH = "a-_".repeat(7) + "A";
+const ENDPOINT = "https://push.example/send/abc";
+
+describe("pushSubscriptionSchema", () => {
+  it("accepts a subscription as a browser writes it, ignoring other fields", () => {
+    const body = { endpoint: ENDPOINT, expirationTime: null, keys: { p256dh: P256DH, auth: AUTH } };
+
+    expect(pushSubscriptionSchema.parse(body)).toEqual({
+      endpoint: ENDPOINT,
+      keys: { p256dh: P256DH, auth: AUTH },
+    });
+  });
+
+  it.each([
+    ["an http endpoint", { endpoint: "http://push.example/x" }],
+    ["a non-URL endpoint", { endpoint: "not a url" }],
+    ["an endpoint over 2048 characters", { endpoint: `https://push.example/${"x".repeat(2048)}` }],
+    ["a p256dh of the wrong length", { keys: { p256dh: P256DH.slice(1), auth: AUTH } }],
+    ["a p256dh that is not base64url", { keys: { p256dh: `+${P256DH.slice(1)}`, auth: AUTH } }],
+    ["an auth of the wrong length", { keys: { p256dh: P256DH, auth: `${AUTH}A` } }],
+    ["an auth with padding", { keys: { p256dh: P256DH, auth: `${AUTH.slice(2)}==` } }],
+    ["no keys", { keys: undefined }],
+  ])("rejects %s", (_name, override) => {
+    const body = { endpoint: ENDPOINT, keys: { p256dh: P256DH, auth: AUTH }, ...override };
+
+    expect(pushSubscriptionSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+describe("removePushSubscriptionRequestSchema", () => {
+  it("takes an https endpoint only", () => {
+    expect(removePushSubscriptionRequestSchema.parse({ endpoint: ENDPOINT })).toEqual({
+      endpoint: ENDPOINT,
+    });
+    expect(
+      removePushSubscriptionRequestSchema.safeParse({ endpoint: "http://push.example/x" }).success,
+    ).toBe(false);
+  });
+});
+
+describe("pushKeyResponseSchema", () => {
+  it("needs a non-empty key", () => {
+    expect(pushKeyResponseSchema.parse({ publicKey: "BKey" })).toEqual({ publicKey: "BKey" });
+    expect(pushKeyResponseSchema.safeParse({ publicKey: "" }).success).toBe(false);
   });
 });

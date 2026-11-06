@@ -101,6 +101,32 @@ export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;
 export const liveMessageSchema = z.object({ version: turnVersionSchema });
 export type LiveMessage = z.infer<typeof liveMessageSchema>;
 
+const MAX_PUSH_ENDPOINT_LENGTH = 2048;
+
+// Unpadded base64url, as a browser's `PushSubscription.toJSON()` writes it. A P-256 public key is
+// 65 bytes (87 characters) and the authentication secret is 16 bytes (22 characters).
+const pushKeySchema = (length: number) =>
+  z
+    .string()
+    .length(length)
+    .regex(/^[A-Za-z0-9_-]+$/);
+
+const pushEndpointSchema = z.url({ protocol: /^https$/ }).max(MAX_PUSH_ENDPOINT_LENGTH);
+
+/** A browser's Web Push subscription, as `PushSubscription.toJSON()` gives it. */
+export const pushSubscriptionSchema = z.object({
+  endpoint: pushEndpointSchema,
+  keys: z.object({ p256dh: pushKeySchema(87), auth: pushKeySchema(22) }),
+});
+export type PushSubscriptionRequest = z.infer<typeof pushSubscriptionSchema>;
+
+export const removePushSubscriptionRequestSchema = z.object({ endpoint: pushEndpointSchema });
+export type RemovePushSubscriptionRequest = z.infer<typeof removePushSubscriptionRequestSchema>;
+
+/** The server's VAPID public key, which a browser passes to `pushManager.subscribe`. */
+export const pushKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
+export type PushKeyResponse = z.infer<typeof pushKeyResponseSchema>;
+
 // Every error code the API sends. A suggestions request from a non-holder is `not_your_turn`.
 export const errorCodeSchema = z.enum([
   "bad_request", // malformed JSON or body, or a Content-Type other than application/json

@@ -186,7 +186,7 @@ describe("story journeys", () => {
     expect(row).toEqual({ p: 0, t: T0 + TURN_WINDOW_MS + 5, v: 4, l: 2 });
   });
 
-  // Ana wrote first, Ben holds from T0 at version 2, Cat is third in the rotation.
+  // Ana wrote first, Ben holds from T0 at version 2, Cat is third in the turn order.
   async function threeAtT0() {
     clock.now = T0;
     const [ana, ben, cat] = [newBrowser(), newBrowser(), newBrowser()];

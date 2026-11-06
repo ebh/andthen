@@ -28,7 +28,7 @@ import { useMyStories } from "../client/useMyStories";
 import { MyStories } from "./MyStories";
 import { Wordmark } from "./Wordmark";
 
-/** `/`: pick a name, write the opening passage, get a story link. */
+/** `/`: pick a name, write the opening passage, get an invite link. */
 export function NewStory() {
   const router = useRouter();
   const media = useMedia();

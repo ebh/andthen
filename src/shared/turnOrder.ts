@@ -2,15 +2,15 @@
  * Whose turn it is, worked out from a story's stored state and the current time.
  *
  * Rules every caller relies on:
- * - The rotation is participants in ascending `position` order, wrapping around.
+ * - The turn order is participants in ascending `position` order, wrapping around.
  * - Nobody takes two turns in a row: the turn passes over the last contributor. A story whose
  *   only participant is the last contributor waits, with no timer, until someone joins. In a
  *   two-person story the other person keeps the turn, a fresh window at a time, until they write.
  * - Turns expire lazily. Each whole TURN_WINDOW_MS that passes moves the turn on one place.
  *
- * `turnVersion` identifies one holder for one window over one rotation. It goes up by exactly one
+ * `turnVersion` identifies one holder for one window over one turn order. It goes up by exactly one
  * for each contribution, skip, expired window, join and leave. A join or leave must bump it even
- * when the turn stays put: an action that loaded the old rotation would otherwise pass the
+ * when the turn stays put: an action that loaded the old turn order would otherwise pass the
  * storage guard and hand the turn to the wrong person.
  *
  * Every action takes the state as loaded from storage and resolves expiry itself.
@@ -55,7 +55,7 @@ export interface SkipAction {
 export interface RejoinAction {
   /** The position the rejoiner held before they left. */
   previousPosition: number;
-  /** Their new place at the end of the rotation. */
+  /** Their new place at the end of the turn order. */
   position: number;
 }
 
@@ -174,8 +174,8 @@ export function skip(state: TurnState, now: number, request: SkipAction): TurnRe
 
 /**
  * Whether the holder's turn has anywhere to go: someone other than the holder and the last
- * contributor is in the rotation. False while the story waits. A caller that only knows the
- * rotation order can pass positions 0..n-1.
+ * contributor is in the turn order. False while the story waits. A caller that only knows the
+ * turn order can pass positions 0..n-1.
  */
 export function canSkip(state: TurnState): boolean {
   return (
@@ -185,7 +185,7 @@ export function canSkip(state: TurnState): boolean {
 }
 
 /**
- * Adds a joiner at `joinerPosition`, which the caller picks at the end of the rotation. A joiner
+ * Adds a joiner at `joinerPosition`, which the caller picks at the end of the turn order. A joiner
  * to a waiting story takes the turn, unless they wrote last: then the story keeps waiting, as
  * nobody takes two turns in a row. Either way the version goes up by exactly one.
  */
@@ -204,7 +204,7 @@ export function onJoin(state: TurnState, joinerPosition: number, now: number): T
 }
 
 /**
- * A joiner coming back to the story they left, at a new place in the rotation. Someone who wrote
+ * A joiner coming back to the story they left, at a new place in the turn order. Someone who wrote
  * last stays the last contributor under their new position; otherwise a rejoin would let them
  * take the next turn too.
  */
@@ -219,7 +219,7 @@ export function onRejoin(state: TurnState, rejoin: RejoinAction, now: number): T
 }
 
 /**
- * Takes `leaverPosition` out of the rotation. When the leaver held the turn it passes on with a
+ * Takes `leaverPosition` out of the turn order. When the leaver held the turn it passes on with a
  * fresh window; if nobody else is eligible (they were alone, or the one left wrote last) the story
  * waits. The version goes up by exactly one.
  */
@@ -236,7 +236,7 @@ export function onLeave(state: TurnState, leaverPosition: number, now: number): 
     return left;
   }
 
-  // An empty rotation has no next holder, and nextHolder would take the minimum of nothing.
+  // An empty turn order has no next holder, and nextHolder would take the minimum of nothing.
   const next = remaining.length === 0 ? null : nextHolder(left, leaverPosition);
   if (next === null || next === left.lastContributorPosition) {
     return { ...left, currentPosition: null, turnStartedAt: null };
@@ -258,7 +258,7 @@ export function turnPassedTo(before: TurnState, after: TurnState): number | null
   return after.currentPosition;
 }
 
-// The next position in the rotation after `from`, passing over the last contributor. Returns
+// The next position in the turn order after `from`, passing over the last contributor. Returns
 // `from` itself when nobody else is eligible.
 function nextHolder(state: TurnState, from: number): number {
   const candidate = following(state.participantPositions, from);

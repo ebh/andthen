@@ -11,7 +11,7 @@ interface TurnBannerProps {
   onSkip: () => void;
 }
 
-/** Whose turn it is, how long is left, the rotation, and a skip button when the server would accept one. */
+/** Whose turn it is, how long is left, the turn order, and a skip button when the server would accept one. */
 export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
   const media = useMedia();
   const holder = turnHolder(view);

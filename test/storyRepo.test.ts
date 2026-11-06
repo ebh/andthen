@@ -44,7 +44,7 @@ describe("storyRepo", () => {
     ).rejects.toThrow("D1 batch returned no result at index 1");
   });
 
-  it("takes a participant who has left out of the rotation but keeps their row", async () => {
+  it("takes a participant who has left out of the turn order but keeps their row", async () => {
     const creator = {
       id: "p0",
       displayName: "Ana",

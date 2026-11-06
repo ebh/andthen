@@ -65,7 +65,7 @@ export const contributionViewSchema = z.object({
 });
 export type ContributionView = z.infer<typeof contributionViewSchema>;
 
-/** Contributions oldest first; participants in rotation order; `me` is the caller's participant ID. */
+/** Contributions oldest first; participants in turn order; `me` is the caller's participant ID. */
 export const storyViewSchema = z.object({
   contributions: z.array(contributionViewSchema),
   participants: z.array(participantViewSchema),

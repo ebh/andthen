@@ -26,7 +26,7 @@ interface InTurnOverrides {
   participantPositions?: readonly number[];
 }
 
-// By default A, B and C are in rotation, A wrote last and B holds the turn from T0 at version 5.
+// By default A, B and C are in turn order, A wrote last and B holds the turn from T0 at version 5.
 function bHolds(overrides: InTurnOverrides = {}): TurnState {
   return {
     turnVersion: 5,
@@ -119,7 +119,7 @@ describe("resolveTurn", () => {
     },
   );
 
-  it("wraps around the rotation to the lowest position", () => {
+  it("wraps around the turn order to the lowest position", () => {
     const cHolds = bHolds({ currentPosition: C, lastContributorPosition: B });
     expect(resolveTurn(cHolds, T0 + WINDOW).state.currentPosition).toBe(A);
   });
@@ -304,7 +304,7 @@ describe("skip", () => {
     });
   });
 
-  // Rotation 1, 3, 7, 9 given out of order; 3 wrote last.
+  // Turn order 1, 3, 7, 9 given out of order; 3 wrote last.
   it.each([
     [7, 9],
     [9, 1],
@@ -399,7 +399,7 @@ describe("onJoin", () => {
     });
   });
 
-  // An action that loaded the rotation before the join must fail the storage guard.
+  // An action that loaded the turn order before the join must fail the storage guard.
   it("adds the joiner at the given position, keeps the holder and bumps the version", () => {
     expect(onJoin(bHolds(), 3, T0 + 1)).toEqual({
       ...bHolds(),
@@ -483,7 +483,7 @@ describe("onRejoin", () => {
 });
 
 describe("onLeave", () => {
-  it("takes a writer who does not hold the turn out of the rotation and bumps the version", () => {
+  it("takes a writer who does not hold the turn out of the turn order and bumps the version", () => {
     expect(onLeave(bHolds(), C, T0 + 1)).toEqual({
       ...bHolds(),
       participantPositions: [A, B],

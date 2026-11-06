@@ -158,7 +158,7 @@ Installed app, after the production smoke test, on a real Android phone (Chrome)
 
 - [ ] Android Chrome: the browser offers "Install app", and the installed app opens full screen with the right name and icon.
 - [ ] iPhone Safari: "Add to Home Screen" gives the right name and icon, and the app opens full screen.
-- [ ] With the app open once, switch on airplane mode and reopen it: the start page loads, and a story link opens the app, which says the story is unavailable.
+- [ ] With the app open once, switch on airplane mode and reopen it: the start page loads, and an invite link opens the app, which says the story is unavailable.
 - [ ] After the next deploy, reopen the installed app: "A new version is ready." appears, "Update" reloads the app, and the notice does not return.
 - [ ] After a deploy that raises `MIN_API_LEVEL`, an app opened from before it shows the update screen, and "Update now" brings the new version.
 

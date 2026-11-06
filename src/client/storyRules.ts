@@ -12,8 +12,8 @@ export function isMyTurn(view: StoryView): boolean {
 
 /**
  * Whether the server would accept a skip from this participant: they aren't the holder and the
- * shared `canSkip` rule finds someone to take the turn. The participants arrive in rotation
- * order, so their indexes stand in for the stored positions.
+ * shared `canSkip` rule finds someone to take the turn. The participants arrive in turn order,
+ * so their indexes stand in for the stored positions.
  */
 export function canSkipTurn(view: StoryView): boolean {
   const { holderId } = view.turn;
@@ -22,7 +22,7 @@ export function canSkipTurn(view: StoryView): boolean {
   }
 
   return canSkip(
-    rotationState(
+    turnOrderState(
       view,
       view.participants.findIndex(({ id }) => id === holderId),
     ),
@@ -37,7 +37,7 @@ export type TurnAfterLeaving =
 
 /**
  * What would happen to the turn if the viewer left, as the shared `onLeave` rule decides it. The
- * participants arrive in rotation order, so their indexes stand in for the stored positions.
+ * participants arrive in turn order, so their indexes stand in for the stored positions.
  */
 export function turnAfterLeaving(view: StoryView): TurnAfterLeaving {
   if (!isMyTurn(view)) {
@@ -45,7 +45,7 @@ export function turnAfterLeaving(view: StoryView): TurnAfterLeaving {
   }
 
   const myPosition = view.participants.findIndex(({ id }) => id === view.me);
-  const { currentPosition } = onLeave(rotationState(view, myPosition), myPosition, 0);
+  const { currentPosition } = onLeave(turnOrderState(view, myPosition), myPosition, 0);
   if (currentPosition === null) {
     return { type: "waits" };
   }
@@ -59,7 +59,7 @@ export function turnAfterLeaving(view: StoryView): TurnAfterLeaving {
 }
 
 // The view's turn as the shared rules take it. Only the order matters to them, so the clock is 0.
-function rotationState(view: StoryView, currentPosition: number): TurnState {
+function turnOrderState(view: StoryView, currentPosition: number): TurnState {
   const lastWriterId = view.contributions.at(-1)?.authorId;
   const lastWriterIndex = view.participants.findIndex(({ id }) => id === lastWriterId);
 

@@ -4,6 +4,7 @@ import {
   loadPushSubscriptions,
   type PushSubscriptionRow,
 } from "./db/pushRepo";
+import type { ParticipantRow } from "./db/rows";
 import { loadOpeningText, type Db, type LoadedStory } from "./db/storyRepo";
 import type { AppContext } from "./http";
 import type { PushMessage, PushSender } from "./push";
@@ -24,11 +25,14 @@ export interface TurnChange {
   now: number;
 }
 
-interface HolderPush {
-  change: TurnChange;
+export interface HolderPush {
+  storyId: string;
+  /** The story's writers who have not left; the holder is one of them. */
+  activeParticipants: readonly ParticipantRow[];
   holderPosition: number;
   /** The app's origin, so the notification opens the story on the host that sent it. */
   origin: string;
+  now: number;
   turnEndsAt: number;
 }
 
@@ -53,42 +57,51 @@ export function notifyTurnHolder(
     return;
   }
 
-  const origin = new URL(c.req.url).origin;
   c.executionCtx.waitUntil(
-    pushToHolder(c.env, pushSender, { change, holderPosition, origin, turnEndsAt: endsAt }),
+    pushToHolder(c.env.DB, () => pushSender(c.env), {
+      storyId: change.storyId,
+      activeParticipants: change.loaded.activeParticipants,
+      holderPosition,
+      origin: new URL(c.req.url).origin,
+      now: change.now,
+      turnEndsAt: endsAt,
+    }),
   );
 }
 
-// The sender is built only once there is someone to send to, so an environment without VAPID
-// keys fails (logged) only for a browser that subscribed.
-async function pushToHolder(
-  env: Env,
-  pushSender: (env: Env) => PushSender,
-  { change, holderPosition, origin, turnEndsAt: endsAt }: HolderPush,
+/**
+ * Sends "your turn" to every subscription of the browser of the writer at `holderPosition`. A
+ * failure is logged and swallowed, never thrown.
+ *
+ * `buildSender` is called only once there is someone to send to, so an environment without VAPID
+ * keys fails (logged) only for a browser that subscribed.
+ */
+export async function pushToHolder(
+  db: Db,
+  buildSender: () => PushSender,
+  { storyId, activeParticipants, holderPosition, origin, now, turnEndsAt: endsAt }: HolderPush,
 ): Promise<void> {
   try {
-    const holder = change.loaded.activeParticipants.find((p) => p.position === holderPosition);
+    const holder = activeParticipants.find((p) => p.position === holderPosition);
     if (holder === undefined) {
-      throw new Error(
-        `Story ${change.storyId} has no writer at position ${String(holderPosition)}`,
-      );
+      throw new Error(`Story ${storyId} has no writer at position ${String(holderPosition)}`);
     }
 
-    const subscriptions = await loadPushSubscriptions(env.DB, holder.browserTokenHash);
+    const subscriptions = await loadPushSubscriptions(db, holder.browserTokenHash);
     if (subscriptions.length === 0) {
       return;
     }
 
-    const sender = pushSender(env);
+    const sender = buildSender();
     const message = turnNotification({
-      storyId: change.storyId,
-      opening: await loadOpeningText(env.DB, change.storyId),
+      storyId,
+      opening: await loadOpeningText(db, storyId),
       origin,
-      now: change.now,
+      now,
       turnEndsAt: endsAt,
     });
     await Promise.all(
-      subscriptions.map((subscription) => sendAndForgetGone(env.DB, sender, subscription, message)),
+      subscriptions.map((subscription) => sendAndForgetGone(db, sender, subscription, message)),
     );
   } catch (error) {
     console.error("Turn push failed", error);

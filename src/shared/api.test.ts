@@ -300,7 +300,7 @@ describe("errorBodySchema", () => {
 
 const P256DH = "B".repeat(87);
 const AUTH = "a-_".repeat(7) + "A";
-const ENDPOINT = "https://push.example/send/abc";
+const ENDPOINT = "https://fcm.googleapis.com/fcm/send/abc";
 
 describe("pushSubscriptionSchema", () => {
   it("accepts a subscription as a browser writes it, ignoring other fields", () => {
@@ -313,9 +313,12 @@ describe("pushSubscriptionSchema", () => {
   });
 
   it.each([
-    ["an http endpoint", { endpoint: "http://push.example/x" }],
+    ["an http endpoint", { endpoint: "http://fcm.googleapis.com/x" }],
     ["a non-URL endpoint", { endpoint: "not a url" }],
-    ["an endpoint over 2048 characters", { endpoint: `https://push.example/${"x".repeat(2048)}` }],
+    [
+      "an endpoint over 2048 characters",
+      { endpoint: `https://fcm.googleapis.com/${"x".repeat(2048)}` },
+    ],
     ["a p256dh of the wrong length", { keys: { p256dh: P256DH.slice(1), auth: AUTH } }],
     ["a p256dh that is not base64url", { keys: { p256dh: `+${P256DH.slice(1)}`, auth: AUTH } }],
     ["an auth of the wrong length", { keys: { p256dh: P256DH, auth: `${AUTH}A` } }],
@@ -325,6 +328,37 @@ describe("pushSubscriptionSchema", () => {
     const body = { endpoint: ENDPOINT, keys: { p256dh: P256DH, auth: AUTH }, ...override };
 
     expect(pushSubscriptionSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+const accepts = (endpoint: string) =>
+  pushSubscriptionSchema.safeParse({ endpoint, keys: { p256dh: P256DH, auth: AUTH } }).success;
+
+describe("pushSubscriptionSchema endpoint host", () => {
+  it.each([
+    "https://fcm.googleapis.com/fcm/send/abc",
+    "https://updates.push.services.mozilla.com/wpush/v2/abc",
+    "https://web.push.apple.com/abc",
+    "https://wns2-par02p.notify.windows.com/w/?token=abc",
+    "https://FCM.GoogleAPIs.com/fcm/send/abc",
+  ])("accepts %s", (endpoint) => {
+    expect(accepts(endpoint)).toBe(true);
+  });
+
+  it.each([
+    ["another host", "https://push.example/send/abc"],
+    ["a subdomain of an exact host", "https://evil.fcm.googleapis.com/x"],
+    ["a suffix without the dot boundary", "https://xpush.apple.com/x"],
+    ["the bare Apple domain", "https://push.apple.com/x"],
+    ["a lookalike with the host as a prefix", "https://web.push.apple.com.attacker.net/x"],
+    ["a lookalike with the suffix inside the name", "https://evilpush.apple.com.attacker.net/x"],
+    ["userinfo naming a push host", "https://fcm.googleapis.com@evil.com/"],
+    ["userinfo before a push host", "https://evil.com@fcm.googleapis.com/"],
+    ["a port", "https://fcm.googleapis.com:8443/x"],
+    ["a trailing-dot host", "https://fcm.googleapis.com./x"],
+    ["http", "http://fcm.googleapis.com/x"],
+  ])("rejects %s", (_name, endpoint) => {
+    expect(accepts(endpoint)).toBe(false);
   });
 });
 

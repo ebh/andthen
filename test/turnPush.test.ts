@@ -23,7 +23,7 @@ const OPENING = "Once upon a time, in a village by the sea, a lantern went out."
 const P256DH = "B".repeat(87);
 const AUTH = "a".repeat(22);
 
-const endpointOf = (name: string) => `https://push.example.test/send/${name}`;
+const endpointOf = (name: string) => `https://fcm.googleapis.com/send/${name}`;
 
 describe("pushing the turn", () => {
   let testEnv: TestEnv;

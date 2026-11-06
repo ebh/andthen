@@ -113,9 +113,34 @@ const pushKeySchema = (length: number) =>
 
 const pushEndpointSchema = z.url({ protocol: /^https$/ }).max(MAX_PUSH_ENDPOINT_LENGTH);
 
+// The hosts of the push services browsers use: Chrome and Edge (FCM), Firefox, Safari and
+// Windows. Without a limit the Worker would POST to any https host a client names.
+const PUSH_SERVICE_HOSTS = new Set(["fcm.googleapis.com", "updates.push.services.mozilla.com"]);
+const PUSH_SERVICE_HOST_SUFFIXES = [".push.apple.com", ".notify.windows.com"];
+
+/**
+ * Whether `endpoint` is an https URL on a known push service: an exact host, or a subdomain of
+ * an Apple or Windows push domain (matched on the dot, so `xpush.apple.com` is not one). A port
+ * or userinfo is refused because no push service uses either.
+ */
+export function isPushServiceEndpoint(endpoint: string): boolean {
+  const url = URL.parse(endpoint);
+  if (url === null || url.protocol !== "https:") {
+    return false;
+  }
+  if (url.port !== "" || url.username !== "" || url.password !== "") {
+    return false;
+  }
+
+  return (
+    PUSH_SERVICE_HOSTS.has(url.hostname) ||
+    PUSH_SERVICE_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix))
+  );
+}
+
 /** A browser's Web Push subscription, as `PushSubscription.toJSON()` gives it. */
 export const pushSubscriptionSchema = z.object({
-  endpoint: pushEndpointSchema,
+  endpoint: pushEndpointSchema.refine(isPushServiceEndpoint, "not a known push service"),
   keys: z.object({ p256dh: pushKeySchema(87), auth: pushKeySchema(22) }),
 });
 export type PushSubscriptionRequest = z.infer<typeof pushSubscriptionSchema>;

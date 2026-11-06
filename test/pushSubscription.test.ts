@@ -16,7 +16,7 @@ import { createTestEnv, type TestEnv } from "./support/testEnv";
 
 const P256DH = "B".repeat(87);
 const AUTH = "a".repeat(22);
-const ENDPOINT = "https://push.example.test/send/one";
+const ENDPOINT = "https://fcm.googleapis.com/send/one";
 const SUBSCRIPTION = { endpoint: ENDPOINT, keys: { p256dh: P256DH, auth: AUTH } };
 const PATH = "/api/push-subscription";
 
@@ -59,7 +59,7 @@ describe("push subscription routes", () => {
 
     it("records the time of the first save and ignores a browser's extra fields", async () => {
       const { browser } = await browserWithCookie();
-      const endpoint = "https://push.example.test/send/timed";
+      const endpoint = "https://fcm.googleapis.com/send/timed";
 
       await browser.put(PATH, { ...SUBSCRIPTION, endpoint, expirationTime: null });
       clock.now = T0 + 5000;
@@ -76,7 +76,7 @@ describe("push subscription routes", () => {
 
     it("saving the same endpoint again keeps one row and takes the new keys", async () => {
       const { browser, hash } = await browserWithCookie();
-      const endpoint = "https://push.example.test/send/again";
+      const endpoint = "https://fcm.googleapis.com/send/again";
 
       await browser.put(PATH, { ...SUBSCRIPTION, endpoint });
       const newAuth = "z".repeat(22);
@@ -91,7 +91,7 @@ describe("push subscription routes", () => {
 
     it("keeps one browser's several endpoints", async () => {
       const { browser, hash } = await browserWithCookie();
-      const [first, second] = ["https://push.example.test/a", "https://push.example.test/b"];
+      const [first, second] = ["https://fcm.googleapis.com/a", "https://fcm.googleapis.com/b"];
 
       await browser.put(PATH, { ...SUBSCRIPTION, endpoint: first });
       await browser.put(PATH, { ...SUBSCRIPTION, endpoint: second });
@@ -102,7 +102,7 @@ describe("push subscription routes", () => {
     it("moves an endpoint to the browser that saves it last", async () => {
       const [{ browser: first, hash: firstHash }, { browser: second, hash: secondHash }] =
         await Promise.all([browserWithCookie(), browserWithCookie()]);
-      const endpoint = "https://push.example.test/send/shared";
+      const endpoint = "https://fcm.googleapis.com/send/shared";
 
       await first.put(PATH, { ...SUBSCRIPTION, endpoint });
       await second.put(PATH, { ...SUBSCRIPTION, endpoint });
@@ -113,7 +113,7 @@ describe("push subscription routes", () => {
 
     it("answers 403 not_participant to a browser with no cookie, and saves nothing", async () => {
       const browser = newBrowser();
-      const endpoint = "https://push.example.test/send/cookieless";
+      const endpoint = "https://fcm.googleapis.com/send/cookieless";
 
       const response = await browser.put(PATH, { ...SUBSCRIPTION, endpoint });
 
@@ -129,7 +129,8 @@ describe("push subscription routes", () => {
     });
 
     it.each([
-      ["an http endpoint", { ...SUBSCRIPTION, endpoint: "http://push.example.test/x" }],
+      ["an http endpoint", { ...SUBSCRIPTION, endpoint: "http://fcm.googleapis.com/x" }],
+      ["an unknown push host", { ...SUBSCRIPTION, endpoint: "https://push.example.test/x" }],
       ["a malformed key", { ...SUBSCRIPTION, keys: { p256dh: "short", auth: AUTH } }],
       ["no keys", { endpoint: ENDPOINT }],
       ["a non-object body", []],
@@ -176,7 +177,7 @@ describe("push subscription routes", () => {
 
     it("leaves the browser's other subscriptions alone", async () => {
       const { browser, hash } = await browserWithCookie();
-      const keep = "https://push.example.test/keep";
+      const keep = "https://fcm.googleapis.com/keep";
       await browser.put(PATH, SUBSCRIPTION);
       await browser.put(PATH, { ...SUBSCRIPTION, endpoint: keep });
 
@@ -190,10 +191,10 @@ describe("push subscription routes", () => {
         browserWithCookie(),
         browserWithCookie(),
       ]);
-      const endpoint = "https://push.example.test/send/owned";
+      const endpoint = "https://fcm.googleapis.com/send/owned";
       await owner.put(PATH, { ...SUBSCRIPTION, endpoint });
 
-      const unknown = await other.delete(PATH, { endpoint: "https://push.example.test/none" });
+      const unknown = await other.delete(PATH, { endpoint: "https://fcm.googleapis.com/none" });
       const notYours = await other.delete(PATH, { endpoint });
 
       expect([unknown.status, notYours.status]).toEqual([204, 204]);
@@ -215,7 +216,7 @@ describe("push subscription routes", () => {
     it("answers 400 bad_request for a body without an https endpoint", async () => {
       const { browser } = await browserWithCookie();
 
-      for (const body of [{}, { endpoint: "http://push.example.test/x" }, { endpoint: 5 }]) {
+      for (const body of [{}, { endpoint: "http://fcm.googleapis.com/x" }, { endpoint: 5 }]) {
         const response = await browser.delete(PATH, body);
 
         expect(response.status).toBe(400);

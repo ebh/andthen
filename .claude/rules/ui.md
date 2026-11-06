@@ -66,6 +66,7 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
   - a prop that none of those docs (Tamagui, React Native, react-native-web) list for that component, such as an `aria-label` or `role` override that changes what a component exposes
   - a handler that works around a bug in a stock component, such as restoring focus that a `Dialog` drops when it closes. Our own behaviour built with documented methods, such as `focus()` on a `TextInput`, is allowed.
   - a wrapper that adds behaviour, a patched package, or a hand-built replacement for a component Tamagui has
+- The root layout imports `@tamagui/core/reset.css` before `tamagui.generated.css`. It sets `all: unset` on buttons, inputs, textareas, paragraphs, lists, `pre` and `dialog`. Without it the browser's default 2px outset border shows on the `Switch`'s `<button>` and the thumb sits over it. Keep the import; the only visible side effect found is that a `TextArea` loses its browser resize grip.
 - A bug in a stock component is filed as a GitHub issue. It is not fixed in our code. A test that has to avoid the bug links the issue.
 - Custom UI code is limited to the story text layout: paragraphs, and the authors in a margin from `md` up.
 - Each page has one level-1 heading, the wordmark, and a level-2 heading for its own title where it has one.

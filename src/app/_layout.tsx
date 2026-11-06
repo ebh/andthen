@@ -1,3 +1,5 @@
+// The stock Switch skin doesn't reset the browser's default button border, so it shows as a 2px outset.
+import "@tamagui/core/reset.css";
 import "../../tamagui.generated.css";
 import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";

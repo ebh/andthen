@@ -1,6 +1,6 @@
 # andthen.page
 
-A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, static assets serve the Expo web export, D1 holds all story data, and the `StoryRoom` Durable Object only fans out live updates.
+A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, static assets serve the Expo web export, D1 holds all story data, and the `StoryRoom` Durable Object fans out live updates and runs the story's turn timeout alarm.
 
 ## Rules
 

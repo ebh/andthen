@@ -12,6 +12,7 @@ import {
   storyViewSchema,
   type StoryView,
 } from "../src/shared/api";
+import { TURN_WINDOW_MS } from "../src/shared/validation";
 
 // The workerd-side socket the harness hands back, which isn't the DOM WebSocket type.
 type Socket = NonNullable<Awaited<ReturnType<TestHarness["fetch"]>>["webSocket"]>;
@@ -165,6 +166,55 @@ describe("StoryRoom in workerd", () => {
     });
   });
 
+  describe("turn timeout alarm", () => {
+    it("saves the lapsed turn and tells open sockets when the alarm fires", async () => {
+      const ana = await createStory("Ana");
+      await join(ana.storyId, "Ben");
+      await join(ana.storyId, "Cy");
+      const env = await server.getWorker<Env>().getEnv();
+      const { turnVersion } = await readTurn(env.DB, ana.storyId);
+      // Ben's window ended a second ago. Nothing is saved until the room's alarm fires.
+      await env.DB.prepare("UPDATE stories SET turn_started_at = ? WHERE id = ?")
+        .bind(Date.now() - TURN_WINDOW_MS - 1000, ana.storyId)
+        .run();
+      const socket = await openSocket(ana.storyId, ana.cookie);
+      // The notify itself is announced first, at the version it carries; the alarm's is the next.
+      const heard = nextMessages(socket, 2);
+
+      await env.STORY_ROOM.getByName(ana.storyId).notify(
+        { version: turnVersion },
+        { storyId: ana.storyId, origin, deadline: Date.now() + 50 },
+      );
+
+      const versions = (await heard).map(
+        (text) => liveMessageSchema.parse(JSON.parse(text)).version,
+      );
+      expect(versions).toEqual([turnVersion, turnVersion + 1]);
+      expect((await readTurn(env.DB, ana.storyId)).turnVersion).toBe(turnVersion + 1);
+    }, 15_000);
+
+    it("does not fire after a notification without a deadline", async () => {
+      const ana = await createStory("Ana");
+      await join(ana.storyId, "Ben");
+      await join(ana.storyId, "Cy");
+      const env = await server.getWorker<Env>().getEnv();
+      const { turnVersion } = await readTurn(env.DB, ana.storyId);
+      await env.DB.prepare("UPDATE stories SET turn_started_at = ? WHERE id = ?")
+        .bind(Date.now() - TURN_WINDOW_MS - 1000, ana.storyId)
+        .run();
+      const room = env.STORY_ROOM.getByName(ana.storyId);
+      await room.notify(
+        { version: turnVersion },
+        { storyId: ana.storyId, origin, deadline: Date.now() + 50 },
+      );
+
+      await room.notify({ version: turnVersion }, { storyId: ana.storyId, origin, deadline: null });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      expect((await readTurn(env.DB, ana.storyId)).turnVersion).toBe(turnVersion);
+    }, 15_000);
+  });
+
   async function createStory(displayName: string): Promise<{ storyId: string; cookie: string }> {
     const response = await post("/api/stories", { displayName, opening: "Once upon a time." });
     expect(response.status).toBe(201);
@@ -224,6 +274,27 @@ function nextMessage(socket: Socket): Promise<string> {
   return new Promise((resolve) => {
     socket.addEventListener("message", (event) => {
       resolve(messageText(event.data));
+    });
+  });
+}
+
+async function readTurn(db: D1Database, storyId: string): Promise<{ turnVersion: number }> {
+  const row = await db
+    .prepare("SELECT turn_version AS turnVersion FROM stories WHERE id = ?")
+    .bind(storyId)
+    .first();
+
+  return z.object({ turnVersion: z.number() }).parse(row);
+}
+
+function nextMessages(socket: Socket, count: number): Promise<string[]> {
+  return new Promise((resolve) => {
+    const heard: string[] = [];
+    socket.addEventListener("message", (event) => {
+      heard.push(messageText(event.data));
+      if (heard.length === count) {
+        resolve(heard);
+      }
     });
   });
 }

@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { TURN_WINDOW_MS } from "../src/shared/validation";
 import { noStore } from "../src/worker/http";
+import type { RoomTimer } from "../src/worker/live";
 import {
   createBrowser,
   createStory,
@@ -20,7 +22,7 @@ import { createTestEnv, type TestEnv } from "./support/testEnv";
 interface FakeRooms {
   env: { DB: D1Database; STORY_ROOM: object };
   upgrades: { storyId: string; url: string }[];
-  notifications: { storyId: string; version: number }[];
+  notifications: { storyId: string; version: number; timer: RoomTimer }[];
 }
 
 describe("GET /api/stories/:id/live", () => {
@@ -50,8 +52,8 @@ describe("GET /api/stories/:id/live", () => {
           rooms.upgrades.push({ storyId, url: request.url });
           return Promise.resolve(new Response("room"));
         },
-        notify: (message: { version: number }) => {
-          rooms.notifications.push({ storyId, version: message.version });
+        notify: (message: { version: number }, timer: RoomTimer) => {
+          rooms.notifications.push({ storyId, version: message.version, timer });
           return notify(message.version);
         },
       }),
@@ -206,6 +208,53 @@ describe("GET /api/stories/:id/live", () => {
         afterWrite,
         afterWrite + 1,
       ]);
+    });
+
+    it("sends the saved turn's deadline, the story and the origin with every kind of write", async () => {
+      const { ana, ben, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+      const env = { env: rooms.env };
+      const post = (browser: Browser, path: string, body: object) =>
+        browser.post(`/api/stories/${storyId}/${path}`, body, env);
+      const carol = newBrowser();
+
+      // A join keeps the running turn, so its deadline stays Ben's.
+      clock.now = T0 + 1000;
+      await post(carol, "participants", { displayName: "Carol" });
+      // A contribution starts the next writer's window now.
+      clock.now = T0 + 2000;
+      await post(ben, "contributions", {
+        text: "Then.",
+        turnVersion: (await readStory(ben, storyId)).turn.version,
+        startsParagraph: false,
+      });
+      // A skip does too.
+      clock.now = T0 + 3000;
+      await post(ana, "skip", { turnVersion: (await readStory(ana, storyId)).turn.version });
+      // A leave and a rejoin by a writer who isn't the holder keep it.
+      clock.now = T0 + 4000;
+      await post(ben, "leave", {});
+      await post(ben, "rejoin", {});
+
+      expect(rooms.notifications.map((n) => n.timer)).toEqual(
+        [
+          T0 + TURN_WINDOW_MS,
+          T0 + 2000 + TURN_WINDOW_MS,
+          T0 + 3000 + TURN_WINDOW_MS,
+          T0 + 3000 + TURN_WINDOW_MS,
+          T0 + 3000 + TURN_WINDOW_MS,
+        ].map((deadline) => ({ storyId, origin: "http://localhost", deadline })),
+      );
+    });
+
+    it("sends no deadline when the write leaves the story waiting", async () => {
+      const { ben, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+
+      // Ana wrote last, so with Ben gone nobody can hold the turn.
+      await ben.post(`/api/stories/${storyId}/leave`, {}, { env: rooms.env });
+
+      expect(rooms.notifications.map((n) => n.timer.deadline)).toEqual([null]);
     });
 
     it("sends nothing for a write that was refused", async () => {

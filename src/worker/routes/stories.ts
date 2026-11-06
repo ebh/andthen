@@ -170,7 +170,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw await joinRefusal(c, storyId);
     }
 
-    notifyRoom(c, storyId, joinedState.turnVersion);
+    notifyRoom(c, storyId, joinedState);
     notifyTurnHolder(c, deps.pushSender, {
       storyId,
       loaded,
@@ -202,7 +202,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("stale_turn");
     }
 
-    notifyRoom(c, storyId, next.turnVersion);
+    notifyRoom(c, storyId, next);
     notifyTurnHolder(c, deps.pushSender, {
       storyId,
       loaded,
@@ -246,7 +246,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw await joinRefusal(c, storyId);
     }
 
-    notifyRoom(c, storyId, next.turnVersion);
+    notifyRoom(c, storyId, next);
     notifyTurnHolder(c, deps.pushSender, {
       storyId,
       loaded,
@@ -293,7 +293,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("stale_turn");
     }
 
-    notifyRoom(c, storyId, result.state.turnVersion);
+    notifyRoom(c, storyId, result.state);
     notifyTurnHolder(c, deps.pushSender, {
       storyId,
       loaded,
@@ -325,7 +325,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("stale_turn");
     }
 
-    notifyRoom(c, storyId, result.state.turnVersion);
+    notifyRoom(c, storyId, result.state);
     notifyTurnHolder(c, deps.pushSender, {
       storyId,
       loaded,

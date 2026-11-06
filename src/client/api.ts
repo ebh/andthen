@@ -139,8 +139,12 @@ function storyPath(storyId: string): string {
 }
 
 function postJson(body: object): Init {
+  return jsonRequest("POST", body);
+}
+
+function jsonRequest(method: "POST" | "PUT" | "DELETE", body: object): Init {
   return {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };

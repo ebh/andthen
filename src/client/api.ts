@@ -7,6 +7,7 @@ import {
   errorCodeSchema,
   joinResponseSchema,
   myStoriesResponseSchema,
+  pushKeyResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
   type ContributeRequest,
@@ -16,6 +17,8 @@ import {
   type JoinResponse,
   type MyStoriesResponse,
   type PlainErrorCode,
+  type PushKeyResponse,
+  type PushSubscriptionRequest,
   type StoryView,
   type SuggestionsResponse,
 } from "../shared/api";
@@ -70,6 +73,20 @@ export function rejoinStory(storyId: string): Promise<ApiResult<null>> {
 
 export function requestSuggestions(storyId: string): Promise<ApiResult<SuggestionsResponse>> {
   return call(`${storyPath(storyId)}/suggestions`, postJson({}), suggestionsResponseSchema);
+}
+
+export function fetchPushKey(): Promise<ApiResult<PushKeyResponse>> {
+  return call("/api/push-subscription/key", { method: "GET" }, pushKeyResponseSchema);
+}
+
+export function savePushSubscription(
+  subscription: PushSubscriptionRequest,
+): Promise<ApiResult<null>> {
+  return call("/api/push-subscription", jsonRequest("PUT", subscription), noBodySchema);
+}
+
+export function removePushSubscription(endpoint: string): Promise<ApiResult<null>> {
+  return call("/api/push-subscription", jsonRequest("DELETE", { endpoint }), noBodySchema);
 }
 
 // Mutating routes answer 204, so reading the body fails and yields null.
@@ -139,8 +156,12 @@ function storyPath(storyId: string): string {
 }
 
 function postJson(body: object): Init {
+  return jsonRequest("POST", body);
+}
+
+function jsonRequest(method: "POST" | "PUT" | "DELETE", body: object): Init {
   return {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };

@@ -11,6 +11,7 @@ import {
   skip,
   type TurnState,
   turnEndsAt,
+  turnPassedTo,
 } from "./turnOrder";
 import { TURN_WINDOW_MS as WINDOW } from "./validation";
 
@@ -590,5 +591,37 @@ describe("canSkip", () => {
       ok: false,
       reason: "no_one_to_skip_to",
     });
+  });
+});
+
+describe("turnPassedTo", () => {
+  it("names the new holder when the turn moves to another person", () => {
+    const result = afterContribution(bHolds(), T0 + 1, { contributorPosition: B, turnVersion: 5 });
+
+    expect(result.ok && turnPassedTo(bHolds(), result.state)).toBe(C);
+  });
+
+  it("is null when the same person keeps the turn", () => {
+    const joined = onJoin(bHolds(), 3, T0 + 1);
+
+    expect(turnPassedTo(bHolds(), joined)).toBeNull();
+  });
+
+  it("is null when the story goes to waiting", () => {
+    const alone = bHolds({ participantPositions: [B] });
+    const result = afterContribution(alone, T0 + 1, { contributorPosition: B, turnVersion: 5 });
+
+    expect(result.ok && result.state.currentPosition).toBeNull();
+    expect(result.ok && turnPassedTo(alone, result.state)).toBeNull();
+  });
+
+  it("names the joiner who starts a waiting story", () => {
+    expect(turnPassedTo(waiting(), onJoin(waiting(), 1, T0))).toBe(1);
+  });
+
+  it("is null for a waiting story that stays waiting", () => {
+    expect(
+      turnPassedTo(waiting(), onJoin({ ...waiting(), lastContributorPosition: 1 }, 1, T0)),
+    ).toBeNull();
   });
 });

@@ -4,13 +4,16 @@ import { API_LEVEL } from "../shared/apiLevel";
 import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
   contribute,
+  fetchPushKey,
   createStory,
   fetchStory,
   joinStory,
   leaveStory,
   listMyStories,
   rejoinStory,
+  removePushSubscription,
   requestSuggestions,
+  savePushSubscription,
   skipTurn,
 } from "./api";
 import { jsonResponse, noContentResponse, storyView, ME, OTHER } from "./testFixtures";
@@ -242,6 +245,54 @@ describe("my stories, leaving and rejoining", () => {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
       body: "{}",
+    });
+  });
+});
+
+describe("push subscription", () => {
+  const subscription = {
+    endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+    keys: { p256dh: "p".repeat(87), auth: "a".repeat(22) },
+  };
+
+  it("reads the public key", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { publicKey: "key" }));
+
+    expect(await fetchPushKey()).toEqual({ ok: true, value: { publicKey: "key" } });
+    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription/key", {
+      method: "GET",
+      headers: { "X-Api-Level": "1" },
+    });
+  });
+
+  it("puts the subscription as JSON and accepts a 204", async () => {
+    const fetchMock = stubFetch(noContentResponse());
+
+    expect(await savePushSubscription(subscription)).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
+      body: JSON.stringify(subscription),
+    });
+  });
+
+  it("deletes by endpoint and accepts a 204", async () => {
+    const fetchMock = stubFetch(noContentResponse());
+
+    expect(await removePushSubscription(subscription.endpoint)).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
+      body: JSON.stringify({ endpoint: subscription.endpoint }),
+    });
+  });
+
+  it("reports a rejected save as a failure value", async () => {
+    stubFetch(jsonResponse(403, { error: "not_participant" }));
+
+    expect(await savePushSubscription(subscription)).toEqual({
+      ok: false,
+      failure: { type: "rejected", status: 403, code: "not_participant" },
     });
   });
 });

@@ -15,6 +15,7 @@ import { InviteLink } from "./InviteLink";
 import { LeaveDialog } from "./LeaveDialog";
 import { StoryText } from "./StoryText";
 import { SuggestButton, SuggestionList, useSuggestions } from "./Suggestions";
+import { TurnAlertsSwitch } from "./TurnAlertsSwitch";
 import { TurnBanner } from "./TurnBanner";
 import { Wordmark } from "./Wordmark";
 
@@ -159,7 +160,10 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           <Anchor>← Your stories</Anchor>
         </Link>
       </YStack>
-      <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
+      <YStack gap="4" items="flex-start">
+        <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
+        <TurnAlertsSwitch />
+      </YStack>
     </YStack>
   );
   const main = (

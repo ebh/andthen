@@ -4,8 +4,10 @@
     "composite": true,
     "tsBuildInfoFile": "node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "lib": ["ES2024"],
-    "types": ["node"]
+    "types": ["node"],
+    // Node runs scripts/*.ts as they are and needs the extension on an import. Nothing is emitted.
+    "allowImportingTsExtensions": true
   },
-  "include": ["*.config.ts", "eslint.config.ts", "scripts"],
+  "include": ["*.config.ts", "eslint.config.ts", "scripts", "src/worker/vapidKeys.ts"],
   "exclude": ["tamagui.config.ts"]
 }

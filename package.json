@@ -7,6 +7,7 @@
     "dev": "node scripts/dev.ts",
     "build": "tamagui build --target web ./src/ui -- expo export --platform web --output-dir dist && node scripts/buildServiceWorker.ts",
     "cf-typegen": "wrangler types",
+    "vapid-keys": "node scripts/generateVapidKeys.ts",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
@@ -18,6 +19,7 @@
     "stryker": "stryker run"
   },
   "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0",
     "@expo-google-fonts/inter": "0.4.2",
     "@expo-google-fonts/source-serif-4": "0.4.2",
     "@expo/metro-runtime": "58.0.17",

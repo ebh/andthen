@@ -23,6 +23,7 @@ import {
   type Browser,
   type Clock,
 } from "./support/browser";
+import { createFakePushSender } from "./support/fakePushSender";
 import { gateLoads } from "./support/gatedDb";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -530,6 +531,7 @@ describe("POST /api/stories/:id/suggestions", () => {
         return `cfg${String(storyCount).padStart(2, "0")}`;
       },
       suggestionProvider: selectSuggestionProvider,
+      pushSender: () => createFakePushSender(),
     });
 
     async function holder(vars: object): Promise<{ ben: Browser; storyId: string; env: Env }> {

@@ -101,6 +101,75 @@ export type SuggestionsResponse = z.infer<typeof suggestionsResponseSchema>;
 export const liveMessageSchema = z.object({ version: turnVersionSchema });
 export type LiveMessage = z.infer<typeof liveMessageSchema>;
 
+const MAX_PUSH_ENDPOINT_LENGTH = 2048;
+
+// Unpadded base64url, as a browser's `PushSubscription.toJSON()` writes it. A P-256 public key is
+// 65 bytes (87 characters) and the authentication secret is 16 bytes (22 characters).
+const pushKeySchema = (length: number) =>
+  z
+    .string()
+    .length(length)
+    .regex(/^[A-Za-z0-9_-]+$/);
+
+const pushEndpointSchema = z.url({ protocol: /^https$/ }).max(MAX_PUSH_ENDPOINT_LENGTH);
+
+// The hosts of the push services browsers use: Chrome and Edge (FCM), Firefox, Safari and
+// Windows. Without a limit the Worker would POST to any https host a client names.
+const PUSH_SERVICE_HOSTS = new Set(["fcm.googleapis.com", "updates.push.services.mozilla.com"]);
+const PUSH_SERVICE_HOST_SUFFIXES = [".push.apple.com", ".notify.windows.com"];
+
+/**
+ * Whether `endpoint` is an https URL on a known push service: an exact host, or a subdomain of
+ * an Apple or Windows push domain (matched on the dot, so `xpush.apple.com` is not one). A port
+ * or userinfo is refused because no push service uses either.
+ */
+export function isPushServiceEndpoint(endpoint: string): boolean {
+  const url = URL.parse(endpoint);
+  if (url === null || url.protocol !== "https:") {
+    return false;
+  }
+  if (url.port !== "" || url.username !== "" || url.password !== "") {
+    return false;
+  }
+
+  return (
+    PUSH_SERVICE_HOSTS.has(url.hostname) ||
+    PUSH_SERVICE_HOST_SUFFIXES.some((suffix) => url.hostname.endsWith(suffix))
+  );
+}
+
+/** A browser's Web Push subscription, as `PushSubscription.toJSON()` gives it. */
+export const pushSubscriptionSchema = z.object({
+  endpoint: pushEndpointSchema.refine(isPushServiceEndpoint, "not a known push service"),
+  keys: z.object({ p256dh: pushKeySchema(87), auth: pushKeySchema(22) }),
+});
+export type PushSubscriptionRequest = z.infer<typeof pushSubscriptionSchema>;
+
+export const removePushSubscriptionRequestSchema = z.object({ endpoint: pushEndpointSchema });
+export type RemovePushSubscriptionRequest = z.infer<typeof removePushSubscriptionRequestSchema>;
+
+/** The server's VAPID public key, which a browser passes to `pushManager.subscribe`. */
+export const pushKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
+export type PushKeyResponse = z.infer<typeof pushKeyResponseSchema>;
+
+/**
+ * The push message the Worker sends and the service worker shows: the declarative Web Push shape
+ * (RFC 8030's `web_push` marker), which Safari shows by itself and other browsers pass to the
+ * service worker's `push` handler.
+ */
+export const turnPushPayloadSchema = z.object({
+  web_push: z.literal(8030),
+  notification: z.object({
+    title: z.string(),
+    body: z.string(),
+    /** The address to open on a tap: the story's page. */
+    navigate: z.url(),
+    /** A newer notification with the same tag replaces the older one. */
+    tag: z.string(),
+  }),
+});
+export type TurnPushPayload = z.infer<typeof turnPushPayloadSchema>;
+
 // Every error code the API sends. A suggestions request from a non-holder is `not_your_turn`.
 export const errorCodeSchema = z.enum([
   "bad_request", // malformed JSON or body, or a Content-Type other than application/json

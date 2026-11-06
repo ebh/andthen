@@ -8,8 +8,10 @@ import {
 } from "../../src/shared/api";
 import { API_LEVEL, API_LEVEL_HEADER } from "../../src/shared/apiLevel";
 import { createApp } from "../../src/worker/app";
+import type { PushSender } from "../../src/worker/push";
 import { fakeProvider } from "../../src/worker/suggestions/fake";
 import type { SuggestionProvider } from "../../src/worker/suggestions/provider";
+import { createFakePushSender } from "./fakePushSender";
 
 export const T0 = 1_700_000_000_000;
 
@@ -45,6 +47,8 @@ export interface GetOptions {
 export interface Browser {
   get: (path: string, options?: GetOptions) => Promise<Response>;
   post: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
+  put: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
+  delete: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
   /** Raw cookie values by name. */
   cookies: Map<string, string>;
   /** Promises the app passed to `waitUntil`, in order. A hung one stays pending forever. */
@@ -56,6 +60,7 @@ export function createTestApp(
   newStoryId?: () => string,
   suggestionProvider: SuggestionProvider = fakeProvider,
   minApiLevel?: number,
+  pushSender: PushSender = createFakePushSender(),
 ): TestApp {
   let counter = 0;
 
@@ -68,6 +73,7 @@ export function createTestApp(
         return counter.toString(36).padStart(5, "0");
       }),
     suggestionProvider: () => suggestionProvider,
+    pushSender: () => pushSender,
     minApiLevel,
   });
 }
@@ -108,11 +114,9 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
     return response;
   };
 
-  return {
-    cookies,
-    backgroundWork: background,
-    get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options),
-    post: (path, body, options = {}) => {
+  const sendWithBody =
+    (method: string): Browser["post"] =>
+    (path, body, options = {}) => {
       const headers = new Headers();
       const sentOrigin = options.origin === undefined ? origin : options.origin;
       if (sentOrigin !== null) {
@@ -127,13 +131,21 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
       return send(
         path,
         {
-          method: "POST",
+          method,
           headers,
           body: new TextEncoder().encode(options.rawBody ?? JSON.stringify(body)),
         },
         options,
       );
-    },
+    };
+
+  return {
+    cookies,
+    backgroundWork: background,
+    get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options),
+    post: sendWithBody("POST"),
+    put: sendWithBody("PUT"),
+    delete: sendWithBody("DELETE"),
   };
 }
 

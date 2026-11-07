@@ -52,6 +52,7 @@ The kit is Tamagui. Its components are used as they come, doing what its docs sa
   - a wrapper that adds behaviour, a patched package, or a hand-built replacement for a component Tamagui has
 - A bug in a stock component is filed as a GitHub issue, not fixed in our code. A test that has to avoid the bug links the issue.
 - Custom UI code is limited to the story text layout: paragraphs, and the authors' margin.
+- One exception: the sign-in page (`src/ui/SignIn.tsx`) hosts Clerk's own `<SignIn/>` component and passes it `appearance` colour values taken from our theme roles. Clerk draws its form with its own CSS, so it takes values, not theme keys. Nothing else on the page, and no other page, uses Clerk's components.
 - Each page has one level-1 heading, the wordmark, and a level-2 heading for its own title where it has one.
 - Keep the root layout's import of `@tamagui/core/reset.css` before `tamagui.generated.css`. Without it the browser's default 2px outset border shows on the `Switch`'s `<button>` and the thumb sits over it. Its one known side effect: a `TextArea` loses its resize grip.
 

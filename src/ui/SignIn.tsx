@@ -44,7 +44,8 @@ export function SignIn() {
 }
 
 // Clerk draws its form with its own CSS, so it takes colour values rather than our theme keys.
-// Each is the value of the theme role named beside it, so light and dark follow the app.
+// Each is the value of a theme role, so light and dark follow the app. `colorBorder` is the text
+// colour, not our border role, because Clerk draws its borders at a fixed 11% opacity of it.
 function useClerkAppearance() {
   const theme = useTheme();
 
@@ -57,7 +58,6 @@ function useClerkAppearance() {
       colorPrimary: theme.primary.val,
       colorPrimaryForeground: theme.background.val,
       colorDanger: theme.error.val,
-      // Clerk draws every border at about 11% of this colour, so our `border-color` would vanish.
       colorBorder: theme.color.val,
       colorInput: theme.background.val,
       colorInputForeground: theme.color.val,

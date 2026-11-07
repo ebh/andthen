@@ -6,14 +6,14 @@ import type { StorySummary } from "../shared/api";
 import { jsonResponse } from "./testFixtures";
 import { useMyStories } from "./useMyStories";
 
-const synced = vi.hoisted((): { listener: (() => void) | null } => ({ listener: null }));
+const added = vi.hoisted((): { listener: (() => void) | null } => ({ listener: null }));
 
 vi.mock("./account", () => ({
-  onAccountSynced: (listener: () => void) => {
-    synced.listener = listener;
+  onDeviceUserAdded: (listener: () => void) => {
+    added.listener = listener;
 
     return () => {
-      synced.listener = null;
+      added.listener = null;
     };
   },
 }));
@@ -86,7 +86,7 @@ describe("useMyStories", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("refetches without going back to loading when the account has synced", async () => {
+  it("refetches without going back to loading when a device user has been added to the account", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse(200, { stories: [] }))
@@ -98,7 +98,7 @@ describe("useMyStories", () => {
     });
 
     act(() => {
-      synced.listener?.();
+      added.listener?.();
     });
     expect(result.current.load).toEqual({ type: "loaded", stories: [] });
 
@@ -107,13 +107,13 @@ describe("useMyStories", () => {
     });
   });
 
-  it("stops listening for account syncs on unmount", () => {
+  it("stops listening for added device users on unmount", () => {
     vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(200, { stories: [] })));
     const { unmount } = renderHook(() => useMyStories());
 
     unmount();
 
-    expect(synced.listener).toBeNull();
+    expect(added.listener).toBeNull();
   });
 
   it("drops the reply of a request that a reload has overtaken", async () => {

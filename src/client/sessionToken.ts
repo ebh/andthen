@@ -7,7 +7,7 @@ export interface SessionSource {
 
 // Long enough for a slow clerk-js download, short enough that a blocked or down Clerk delays an
 // anonymous reader's first request by a few seconds and no more.
-export const CLERK_WAIT_MS = 3000;
+export const SIGN_IN_STATE_WAIT_MS = 3000;
 
 let source: SessionSource | null = null;
 let gaveUpWaiting = false;
@@ -73,7 +73,7 @@ function clerkIsLoaded(): Promise<boolean> {
     const timer = setTimeout(() => {
       gaveUpWaiting = true;
       finish(false);
-    }, CLERK_WAIT_MS);
+    }, SIGN_IN_STATE_WAIT_MS);
     waiting.add(wake);
   });
 }

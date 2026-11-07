@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { StorySummary } from "../shared/api";
-import { onAccountSynced } from "./account";
+import { onDeviceUserAdded } from "./account";
 import { listMyStories, type ApiFailure } from "./api";
 
 export type MyStoriesLoad =
@@ -43,7 +43,7 @@ export function useMyStories(): { load: MyStoriesLoad; reload: () => void } {
 
   // Joining an account can add stories from its other devices. Refetched in place, so a list on
   // screen doesn't flash back to loading.
-  useEffect(() => onAccountSynced(fetchStories), [fetchStories]);
+  useEffect(() => onDeviceUserAdded(fetchStories), [fetchStories]);
 
   const reload = (): void => {
     setLoad(LOADING);

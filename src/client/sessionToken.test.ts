@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  CLERK_WAIT_MS,
+  SIGN_IN_STATE_WAIT_MS,
   getSessionToken,
   resetSessionSource,
   setSessionSource,
@@ -67,7 +67,7 @@ describe("getSessionToken", () => {
 
   it("waits for a source that is not registered yet", async () => {
     const pending = getSessionToken();
-    await vi.advanceTimersByTimeAsync(CLERK_WAIT_MS - 1);
+    await vi.advanceTimersByTimeAsync(SIGN_IN_STATE_WAIT_MS - 1);
     setSessionSource(source());
 
     expect(await pending).toBe("token-1");
@@ -76,7 +76,7 @@ describe("getSessionToken", () => {
   it("waits for a source that is registered but not loaded", async () => {
     setSessionSource(source({ isLoaded: false }));
     const pending = getSessionToken();
-    await vi.advanceTimersByTimeAsync(CLERK_WAIT_MS - 1);
+    await vi.advanceTimersByTimeAsync(SIGN_IN_STATE_WAIT_MS - 1);
     setSessionSource(source());
 
     expect(await pending).toBe("token-1");
@@ -87,7 +87,7 @@ describe("getSessionToken", () => {
     setSessionSource(source({ isLoaded: false, getToken }));
     const pending = getSessionToken();
 
-    await vi.advanceTimersByTimeAsync(CLERK_WAIT_MS - 1);
+    await vi.advanceTimersByTimeAsync(SIGN_IN_STATE_WAIT_MS - 1);
     const settled = vi.fn<() => void>();
     void pending.finally(settled);
     await vi.advanceTimersByTimeAsync(0);
@@ -101,7 +101,7 @@ describe("getSessionToken", () => {
 
   it("does not wait again after giving up", async () => {
     const first = getSessionToken();
-    await vi.advanceTimersByTimeAsync(CLERK_WAIT_MS);
+    await vi.advanceTimersByTimeAsync(SIGN_IN_STATE_WAIT_MS);
     await first;
 
     expect(await getSessionToken()).toBeNull();
@@ -109,7 +109,7 @@ describe("getSessionToken", () => {
 
   it("uses Clerk if it finishes loading after the wait ran out", async () => {
     const first = getSessionToken();
-    await vi.advanceTimersByTimeAsync(CLERK_WAIT_MS);
+    await vi.advanceTimersByTimeAsync(SIGN_IN_STATE_WAIT_MS);
     await first;
     setSessionSource(source());
 

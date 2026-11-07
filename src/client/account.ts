@@ -7,7 +7,7 @@ const listeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
 
 /**
- * Brings this device's stories into the signed-in account, and tells `onAccountSynced` listeners
+ * Brings this device's stories into the signed-in account, and tells `onDeviceUserAdded` listeners
  * once it worked. Call it whenever a session is known to be there: after sign-in, and on every
  * app load, so a merge that was cut short heals.
  *
@@ -22,8 +22,8 @@ export function syncAccount(): Promise<void> {
   return inFlight;
 }
 
-/** Calls `listener` after each successful sync, when the account's stories may have changed. */
-export function onAccountSynced(listener: () => void): () => void {
+/** Calls `listener` after each successful add, when the account's stories may have changed. */
+export function onDeviceUserAdded(listener: () => void): () => void {
   listeners.add(listener);
 
   return () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { STALE_TURN_RETRY_DELAY_MS, onAccountSynced, syncAccount } from "./account";
+import { STALE_TURN_RETRY_DELAY_MS, onDeviceUserAdded, syncAccount } from "./account";
 import { jsonResponse, noContentResponse } from "./testFixtures";
 
 function stubFetch(...responses: Response[]) {
@@ -38,7 +38,7 @@ describe("syncAccount", () => {
   it("tells listeners once it worked", async () => {
     stubFetch(noContentResponse());
     const listener = vi.fn<() => void>();
-    const stop = onAccountSynced(listener);
+    const stop = onDeviceUserAdded(listener);
 
     await syncAccount();
     stop();
@@ -49,7 +49,7 @@ describe("syncAccount", () => {
   it("stops telling a listener that unsubscribed", async () => {
     stubFetch(noContentResponse());
     const listener = vi.fn<() => void>();
-    onAccountSynced(listener)();
+    onDeviceUserAdded(listener)();
 
     await syncAccount();
 
@@ -59,7 +59,7 @@ describe("syncAccount", () => {
   it("retries once after a stale_turn clash, waiting first", async () => {
     const fetchMock = stubFetch(staleTurn(), noContentResponse());
     const listener = vi.fn<() => void>();
-    const stop = onAccountSynced(listener);
+    const stop = onDeviceUserAdded(listener);
 
     const pending = syncAccount();
     await vi.advanceTimersByTimeAsync(STALE_TURN_RETRY_DELAY_MS - 1);
@@ -76,7 +76,7 @@ describe("syncAccount", () => {
   it("gives up quietly when the retry clashes again", async () => {
     const fetchMock = stubFetch(staleTurn(), staleTurn(), noContentResponse());
     const listener = vi.fn<() => void>();
-    const stop = onAccountSynced(listener);
+    const stop = onDeviceUserAdded(listener);
 
     const pending = syncAccount();
     await vi.advanceTimersByTimeAsync(STALE_TURN_RETRY_DELAY_MS);
@@ -90,7 +90,7 @@ describe("syncAccount", () => {
   it("ignores any other failure without retrying", async () => {
     const fetchMock = stubFetch(jsonResponse(401, { error: "invalid_session_token" }));
     const listener = vi.fn<() => void>();
-    const stop = onAccountSynced(listener);
+    const stop = onDeviceUserAdded(listener);
 
     await expect(syncAccount()).resolves.toBeUndefined();
     stop();

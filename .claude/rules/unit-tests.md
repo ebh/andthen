@@ -1,8 +1,7 @@
 ---
 paths:
-  - "src/shared/**/*.test.ts"
-  - "src/client/**/*.test.ts"
-  - "src/ui/**/*.test.ts"
+  - "src/**/*.test.ts"
+  - "!src/**/*.integration.test.ts"
 ---
 
 # Unit test rules

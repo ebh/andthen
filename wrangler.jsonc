@@ -34,7 +34,7 @@
   // key replaces it; the dev instance's key serves local and preview, production has its own.
   "vars": {
     "AI_PROVIDER": "fake",
-    "CLERK_JWT_KEY": "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
+    "CLERK_JWT_KEY": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0tCAv+NMQD8ZIEQx1DQe\nltHZ2cHdI/9OIobyaZ5nr/+HhNzZQV21azV5C7MXMdWY1SnlkcSjkwT1NfKAg/9F\njAiYOlEWWwZ41vzBiD+hZ2jGR5UhMaf/glec9lG1ZAStqO+FJKuWmrNuWJ+ZE3/G\nwsfoA2F4i3vymbKYz3aqUPQnxNjoZz6Cm9AbP9C3qHvIggY047GWtwIeY9uOz1gQ\nhUQSZQAc+KOUmJGZh9SJgMQxjNzIRQ7lSRa/87Dj/QL4k5N/9uaenc1WB3THr9lx\n0YE43PZsG0/WVQ3ze6ky40hQvHp5cNYjCabKpoLyg91tENSqbGMOB7xyih6GKere\nIQIDAQAB\n-----END PUBLIC KEY-----",
     "VAPID_PUBLIC_KEY": "BMKmnIYvuMU7CeHx-XL6Va7VB5DfB67mrMFPeWw4cOPU8sbWdFyHtscVcF1B2k4Hh6fFZbUNpX9KH_ehknKvn1E",
   },
   "env": {
@@ -56,7 +56,7 @@
       // `vars` aren't inherited from the top level.
       "vars": {
         "AI_PROVIDER": "workers-ai",
-        "CLERK_JWT_KEY": "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
+        "CLERK_JWT_KEY": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0tCAv+NMQD8ZIEQx1DQe\nltHZ2cHdI/9OIobyaZ5nr/+HhNzZQV21azV5C7MXMdWY1SnlkcSjkwT1NfKAg/9F\njAiYOlEWWwZ41vzBiD+hZ2jGR5UhMaf/glec9lG1ZAStqO+FJKuWmrNuWJ+ZE3/G\nwsfoA2F4i3vymbKYz3aqUPQnxNjoZz6Cm9AbP9C3qHvIggY047GWtwIeY9uOz1gQ\nhUQSZQAc+KOUmJGZh9SJgMQxjNzIRQ7lSRa/87Dj/QL4k5N/9uaenc1WB3THr9lx\n0YE43PZsG0/WVQ3ze6ky40hQvHp5cNYjCabKpoLyg91tENSqbGMOB7xyih6GKere\nIQIDAQAB\n-----END PUBLIC KEY-----",
         "VAPID_PUBLIC_KEY": "BNbNBYmgShK2QjU5i70V-xwUsQuBs989ekvSVXp2J7Dt2iO2GXV7v7vNgpqIxCNi76FgAR08R-Vl9EHH-1jbYBI",
       },
     },

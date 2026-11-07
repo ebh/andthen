@@ -15,7 +15,7 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 
 ## People
 
-- **User:** one person across stories. A participant and a push subscription each belong to a user. A user is anonymous until it has an account. Lives in the `users` table.
+- **User:** one person across stories. A participant and a push subscription each belong to a user. A user is anonymous until it has an account. A user with an account is an account user. Lives in the `users` table.
 - **Participant:** someone who has joined a story. One row per user per story in the `participants` table; `ParticipantView`; `POST /api/stories/:id/participants`. The same person in two stories is two participants.
 - **Writer:** a participant who may write passages. Today every participant is a writer, so the role is not stored. A writer is the author of the passages they write. The word appears in the README, the docs, UI copy and `writerCount` in `StorySummary`.
 - **Display name:** the name shown beside a participant's passages. Chosen per story, up to `MAX_DISPLAY_NAME_LENGTH` (40 graphemes), unique in a story ignoring case (`display_name_key`). A leaver's name stays reserved.
@@ -27,7 +27,7 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
   - **Signing out:** the device is anonymous again. Its stories are not on it any more, because they belong to the account. Signing out first switches off turn notifications on that device.
   - **In the app:** the home page shows "Use your stories on all your devices" with a "Sign in" link to `/sign-in`. A signed-in user sees their email and a "Sign out" button.
   - `PUT /api/users/me/account`.
-- **Merge:** folding the device user into the user that holds the account (the account user). Participants and push subscriptions move to the account user, and the device user is deleted. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
+- **Merge:** folding the device user into the account user. Participants and push subscriptions move to the account user, and the device user is deleted. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
 - **`me`:** the reserved user ID in a path that means the user making the request, as in `/api/users/me/account`. See `.claude/rules/api.md`.
 - **Session token:** the short-lived proof that a request comes from a signed-in account. A signed-in client sends it as `Authorization: Bearer <token>` on every call. The Worker checks it (`src/worker/sessionToken.ts`). A request with a session token never falls back to the browser token. Error code `invalid_session_token`.
 - **My stories:** the stories a user is in and has not left, on every device that user is signed in on. `GET /api/stories`; `StorySummary`.

@@ -15,12 +15,21 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 
 ## People
 
-- **Participant:** someone who has joined a story. One row per browser per story in the `participants` table; `ParticipantView`; `POST /api/stories/:id/participants`. The same person in two stories is two participants.
+- **User:** one person across stories. A participant and a push subscription each belong to a user. A user is anonymous until it has an account. Lives in the `users` table.
+- **Participant:** someone who has joined a story. One row per user per story in the `participants` table; `ParticipantView`; `POST /api/stories/:id/participants`. The same person in two stories is two participants.
 - **Writer:** a participant who may write passages. Today every participant is a writer, so the role is not stored. A writer is the author of the passages they write. The word appears in the README, the docs, UI copy and `writerCount` in `StorySummary`.
 - **Display name:** the name shown beside a participant's passages. Chosen per story, up to `MAX_DISPLAY_NAME_LENGTH` (40 graphemes), unique in a story ignoring case (`display_name_key`). A leaver's name stays reserved.
 - **Invite link:** a story's URL, shared so others can join. Anyone with it can join, up to `MAX_PARTICIPANTS` (50).
-- **Browser token:** the random cookie `__Host-andthen_bt` (`andthen_bt` on `http://localhost`) that identifies a browser. Only its SHA-256 hash is stored, as `browser_token_hash`. It is the only identity today: there are no accounts, and a new browser is a new person.
-- **My stories:** the stories a browser is in and has not left. `GET /api/stories`; `StorySummary`.
+- **Browser token:** the random cookie `__Host-andthen_bt` (`andthen_bt` on `http://localhost`) that identifies an anonymous user. Only its SHA-256 hash is stored, as `users.browser_token_hash`. A user with an account has no browser token.
+- **Account:** a sign-in that a user can hold, so the same person reaches their stories from any device. It is optional: the app works without one. Stored as `users.clerk_user_id`. The sign-in page is `/sign-in`. A user with an account has no browser token, so the account, not the browser, decides who they are.
+  - **Signing in:** the first time an account signs in on a device, the account is attached to that device's user. The stories the device already had stay, and the user now has an account. When the account already belongs to another user, the two merge (see "Merge").
+  - **Signing out:** the device is anonymous again. Its stories are not on it any more, because they belong to the account. Signing out first switches off turn notifications on that device.
+  - **In the app:** the home page shows "Use your stories on all your devices" with a "Sign in" link to `/sign-in`. A signed-in user sees their email and a "Sign out" button.
+  - `PUT /api/users/me/account`.
+- **Merge:** folding the user that a device's browser token names (the device user) into the user that holds the account (the account user). Participants and push subscriptions move to the account user, and the device user is deleted. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
+- **`me`:** the reserved user ID in a path that means the user making the request, as in `/api/users/me/account`. See `.claude/rules/api.md`.
+- **Session token:** the short-lived proof that a request comes from a signed-in account. A signed-in client sends it as `Authorization: Bearer <token>` on every call. The Worker checks it (`src/worker/sessionToken.ts`). A request with a session token never falls back to the browser token. Error code `invalid_session_token`.
+- **My stories:** the stories a user is in and has not left, on every device that user is signed in on. `GET /api/stories`; `StorySummary`.
 - **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so passages keep an author and the name stays reserved. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:id/leave` and `/rejoin`.
 
 ## Turns
@@ -37,16 +46,13 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 
 - **Live update:** a message from the story's WebSocket telling clients to refetch. `GET /api/stories/:id/live`; `liveMessageSchema`.
 - **StoryRoom:** the Durable Object that fans out live updates and runs the turn window alarm. It holds no story data; D1 does.
-- **Push subscription:** a browser's Web Push endpoint, used to say "it's your turn". Belongs to a browser, not a story. `/api/push-subscription`.
+- **Push subscription:** a browser's Web Push endpoint, used to say "it's your turn". Belongs to a user, not a story. `/api/push-subscription`.
 - **API level:** the whole number in `src/shared/apiLevel.ts` that a client sends as `X-Api-Level`. Raised only for a change that breaks shipped clients. A client below `MIN_API_LEVEL` gets 426 `client_outdated`.
 
 ## Reserved
 
 Words kept for planned features. None exists in the code yet. Each links to the issue that holds the idea. If a reserved word fits something new, ask the owner whether to keep reserving it before using it.
 
-- **User:** one person across stories and devices. Participants, push subscriptions and blocks will point to it. It starts anonymous. [#47](https://github.com/ebh/andthen/issues/47)
-- **Account:** the sign-in identity attached to a user. [#47](https://github.com/ebh/andthen/issues/47)
-- **Merge:** folding a device's anonymous user into the signed-in user. [#48](https://github.com/ebh/andthen/issues/48)
 - **Role:** what a participant may do in a story: reader, writer, editor, admin, voter or commenter. All but possibly admin are participants. [#49](https://github.com/ebh/andthen/issues/49)
 - **Organisation:** a group of users, such as a company running a team exercise. [#50](https://github.com/ebh/andthen/issues/50)
 - **Block:** one user hides another user's content. [#51](https://github.com/ebh/andthen/issues/51)

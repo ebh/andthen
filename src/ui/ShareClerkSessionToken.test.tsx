@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getSessionToken, resetSessionSource } from "../client/sessionToken";
 import { clerk, resetClerk } from "./clerkStub";
-import { SessionTokenSource } from "./SessionTokenSource";
+import { ShareClerkSessionToken } from "./ShareClerkSessionToken";
 
 vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
 
@@ -13,18 +13,18 @@ beforeEach(() => {
   resetSessionSource();
 });
 
-describe("SessionTokenSource", () => {
+describe("ShareClerkSessionToken", () => {
   it("lets the API client fetch Clerk's token", async () => {
     vi.mocked(clerk.getToken).mockResolvedValue("tok-1");
     const pending = getSessionToken();
 
-    render(<SessionTokenSource />);
+    render(<ShareClerkSessionToken />);
 
     expect(await pending).toBe("tok-1");
   });
 
   it("passes the fresh-token option through to Clerk", async () => {
-    render(<SessionTokenSource />);
+    render(<ShareClerkSessionToken />);
 
     await getSessionToken({ fresh: true });
 
@@ -33,12 +33,12 @@ describe("SessionTokenSource", () => {
 
   it("keeps the API client waiting while Clerk is still loading", async () => {
     clerk.isLoaded = false;
-    const { rerender } = render(<SessionTokenSource />);
+    const { rerender } = render(<ShareClerkSessionToken />);
     const pending = getSessionToken();
     vi.mocked(clerk.getToken).mockResolvedValue("tok-2");
 
     clerk.isLoaded = true;
-    rerender(<SessionTokenSource />);
+    rerender(<ShareClerkSessionToken />);
 
     expect(await pending).toBe("tok-2");
   });

@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AccountLine } from "./AccountLine";
+import { SignInStatus } from "./SignInStatus";
 import { clerk, resetClerk } from "./clerkStub";
 import { renderPage } from "./testRender";
 
@@ -30,9 +30,9 @@ function signedIn() {
   clerk.email = "ana@example.com";
 }
 
-describe("AccountLine signed out", () => {
+describe("SignInStatus signed out", () => {
   it("offers a sign-in link to /sign-in with a line that says why", () => {
-    renderPage(<AccountLine onSignedOut={vi.fn<() => void>()} />);
+    renderPage(<SignInStatus onSignedOut={vi.fn<() => void>()} />);
 
     expect(screen.getByText("Use your stories on all your devices")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
@@ -42,18 +42,18 @@ describe("AccountLine signed out", () => {
   it("shows nothing until Clerk has loaded", () => {
     clerk.isLoaded = false;
 
-    renderPage(<AccountLine onSignedOut={vi.fn<() => void>()} />);
+    renderPage(<SignInStatus onSignedOut={vi.fn<() => void>()} />);
 
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
-describe("AccountLine signed in", () => {
+describe("SignInStatus signed in", () => {
   it("shows the account's email and a sign-out button, and no sign-in link", () => {
     signedIn();
 
-    renderPage(<AccountLine onSignedOut={vi.fn<() => void>()} />);
+    renderPage(<SignInStatus onSignedOut={vi.fn<() => void>()} />);
 
     expect(screen.getByText("ana@example.com")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
@@ -76,7 +76,7 @@ describe("AccountLine signed in", () => {
     const onSignedOut = vi.fn<() => void>(() => {
       order.push("page told");
     });
-    renderPage(<AccountLine onSignedOut={onSignedOut} />);
+    renderPage(<SignInStatus onSignedOut={onSignedOut} />);
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -89,7 +89,7 @@ describe("AccountLine signed in", () => {
     signedIn();
     const off = Promise.withResolvers<undefined>();
     alerts.turnOff.mockReturnValue(off.promise);
-    renderPage(<AccountLine onSignedOut={vi.fn<() => void>()} />);
+    renderPage(<SignInStatus onSignedOut={vi.fn<() => void>()} />);
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -107,7 +107,7 @@ describe("AccountLine signed in", () => {
     signedIn();
     vi.mocked(clerk.signOut).mockRejectedValue(new Error("offline"));
     const onSignedOut = vi.fn<() => void>();
-    renderPage(<AccountLine onSignedOut={onSignedOut} />);
+    renderPage(<SignInStatus onSignedOut={onSignedOut} />);
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
 

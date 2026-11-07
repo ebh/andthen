@@ -5,7 +5,7 @@ import { Anchor, Button, Paragraph, XStack, YStack } from "tamagui";
 
 import { useTurnAlerts } from "../client/turnAlerts";
 
-interface AccountLineProps {
+interface SignInStatusProps {
   /** Called after Clerk has signed out, so the page can reload what the account showed. */
   onSignedOut: () => void;
 }
@@ -14,7 +14,7 @@ interface AccountLineProps {
  * Where the home page offers sign-in, or shows who is signed in with a quiet way to sign out.
  * Shows nothing until Clerk has loaded, since until then it can't tell the two apart.
  */
-export function AccountLine({ onSignedOut }: AccountLineProps) {
+export function SignInStatus({ onSignedOut }: SignInStatusProps) {
   const { isLoaded, isSignedIn, signOut } = useAuth();
   const { user } = useUser();
   const { turnOff } = useTurnAlerts();

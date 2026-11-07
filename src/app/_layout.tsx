@@ -16,8 +16,8 @@ import { z } from "zod";
 import { tamaguiConfig } from "../../tamagui.config";
 import { startAppUpdates } from "../client/appUpdate";
 import { startTurnAlerts } from "../client/turnAlerts";
-import { AccountSync } from "../ui/AccountSync";
-import { SessionTokenSource } from "../ui/SessionTokenSource";
+import { AddDeviceUserOnLoad } from "../ui/AddDeviceUserOnLoad";
+import { ShareClerkSessionToken } from "../ui/ShareClerkSessionToken";
 import { UpdateGate } from "../ui/UpdateGate";
 import { UpdateReady } from "../ui/UpdateReady";
 
@@ -41,8 +41,8 @@ export default function Layout() {
 
   return (
     <ClerkProvider publishableKey={publishableKey} {...(tokenCache && { tokenCache })}>
-      <SessionTokenSource />
-      <AccountSync />
+      <ShareClerkSessionToken />
+      <AddDeviceUserOnLoad />
       <TamaguiProvider config={tamaguiConfig} defaultTheme={scheme === "dark" ? "dark" : "light"}>
         {/* Expo's web root fixes the body to the viewport, so the app scrolls inside this ScrollView
           (https://docs.expo.dev/router/reference/static-rendering/#root-html). flexGrow lets a short

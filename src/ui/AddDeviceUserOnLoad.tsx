@@ -8,7 +8,7 @@ import { syncAccount } from "../client/account";
  * when someone signs in. Running on load makes a merge that was cut short heal itself.
  * Renders nothing.
  */
-export function AccountSync() {
+export function AddDeviceUserOnLoad() {
   const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {

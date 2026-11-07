@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { syncAccount } from "../client/account";
-import { AccountSync } from "./AccountSync";
+import { AddDeviceUserOnLoad } from "./AddDeviceUserOnLoad";
 import { clerk, resetClerk } from "./clerkStub";
 
 vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
@@ -14,17 +14,17 @@ beforeEach(() => {
   vi.mocked(syncAccount).mockReset().mockResolvedValue(undefined);
 });
 
-describe("AccountSync", () => {
+describe("AddDeviceUserOnLoad", () => {
   it("syncs the account on load while signed in", () => {
     clerk.isSignedIn = true;
 
-    render(<AccountSync />);
+    render(<AddDeviceUserOnLoad />);
 
     expect(syncAccount).toHaveBeenCalledOnce();
   });
 
   it("does nothing while signed out", () => {
-    render(<AccountSync />);
+    render(<AddDeviceUserOnLoad />);
 
     expect(syncAccount).not.toHaveBeenCalled();
   });
@@ -33,16 +33,16 @@ describe("AccountSync", () => {
     clerk.isLoaded = false;
     clerk.isSignedIn = true;
 
-    render(<AccountSync />);
+    render(<AddDeviceUserOnLoad />);
 
     expect(syncAccount).not.toHaveBeenCalled();
   });
 
   it("syncs when someone signs in", () => {
-    const { rerender } = render(<AccountSync />);
+    const { rerender } = render(<AddDeviceUserOnLoad />);
 
     clerk.isSignedIn = true;
-    rerender(<AccountSync />);
+    rerender(<AddDeviceUserOnLoad />);
 
     expect(syncAccount).toHaveBeenCalledOnce();
   });

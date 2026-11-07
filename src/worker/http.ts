@@ -48,6 +48,7 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   already_joined: 409,
   left_story: 403,
   client_outdated: 426,
+  invalid_session_token: 401,
   no_one_to_skip_to: 409,
   ai_rate_limited: 429,
   ai_unavailable: 503,
@@ -56,6 +57,9 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 
 // `application/json`, optionally followed by parameters such as `; charset=utf-8`.
 const JSON_CONTENT_TYPE = /^application\/json\s*(;|$)/i;
+
+// Tells a client its session token was rejected, as opposed to absent (RFC 6750).
+const BEARER_CHALLENGE = 'Bearer error="invalid_token"';
 
 const HEALTH_PATH = "/api/health";
 
@@ -124,6 +128,10 @@ export async function parseJsonBody<T>(c: AppContext, schema: z.ZodType<T>): Pro
 
 export function handleError(error: Error, c: AppContext): Response {
   if (error instanceof ApiError) {
+    if (error.code === "invalid_session_token") {
+      c.header("WWW-Authenticate", BEARER_CHALLENGE);
+    }
+
     return c.json(errorBody(error.code), ERROR_STATUS[error.code]);
   }
   if (error instanceof LeftStoryError) {

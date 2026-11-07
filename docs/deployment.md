@@ -12,6 +12,7 @@ The app is one Cloudflare Worker with static assets, a D1 database, a `StoryRoom
 | D1               | local file in `.wrangler/state` | `andthen-preview`                                 | `andthen-prod`                         |
 | Suggestions      | `AI_PROVIDER=fake`              | `workers-ai`                                      | `workers-ai`                           |
 | Cookie           | `andthen_bt`, no `Secure`       | `__Host-andthen_bt`                               | `__Host-andthen_bt`                    |
+| Clerk instance   | development                     | development                                       | production                             |
 | Deployed by      | nobody                          | `deploy.yml` on a pull request                    | `deploy.yml` after CI passes on `main` |
 
 - **The build is the same for every environment; the environment is chosen when you deploy.** `pnpm build` exports the Expo web app into `dist/`: the wrapped command `tamagui build --target web ./src/ui -- expo export --platform web --output-dir dist`. Plain `expo export` leaves the app unstyled, because only `tamagui build` writes the CSS. `wrangler.jsonc` points `assets.directory` at `dist/`, and `pnpm wrangler deploy --env preview` (or `production`) uploads it with the Worker. `/api/*` reaches the Worker first; any other path that is not a file in `dist/` gets `index.html`, and the app shows its not-found page.
@@ -89,6 +90,28 @@ Then, for each of `preview` and `production`:
 - **Changing a key** invalidates every stored subscription, because browsers bind a subscription to the public key they subscribed with. The routes need no change, but each browser must subscribe again. Rotate only when the private key leaks.
 - **Local.** `wrangler.jsonc` carries a public key for `pnpm dev` whose private half is not kept, so the "your turn" push is skipped locally and logs why. To receive a real push locally, run `pnpm vapid-keys` and put both lines in `.dev.vars` (see `.dev.vars.example`); `.dev.vars` overrides the var in `wrangler.jsonc`. Browsers only accept a push service from a secure origin, which includes `http://localhost`.
 
+## Clerk accounts
+
+Accounts are optional and come from Clerk. The app works without one, and a fresh clone needs no Clerk setup. Two Clerk instances serve the three setups: the development instance serves local and preview, and the production instance serves `app.andthen.page`. No Clerk secret key is used anywhere.
+
+Where each key lives:
+
+- **Development publishable key:** committed in `.env` as `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<PUBLISHABLE_KEY>`. Expo reads it for `pnpm dev`, the CI build, the e2e run and the preview deploy. A publishable key is public: it only names the instance.
+- **Production publishable key:** the variable `CLERK_PUBLISHABLE_KEY` on the GitHub `production` environment. It is a variable, not a secret. The production Build step in `.github/workflows/deploy.yml` passes it as `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, which beats `.env`. An empty value beats `.env` too, and the app then throws on every load, so the step fails the build when the variable is empty.
+- **Instance public key:** `CLERK_JWT_KEY` in the `vars` of `wrangler.jsonc`, a public key in PEM form that the Worker uses to check session tokens without a network call. The development key is in the local and preview blocks. The production block holds a placeholder that rejects every token, until the production instance exists and its key replaces it.
+- **Wrangler reads `.env`.** `pnpm cf-typegen` and `wrangler dev` read the committed `.env`, so `worker-configuration.d.ts` lists `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` as a Worker var. That does no harm, because the key is public. This is how it works today; whether to change it is undecided.
+
+First-time Clerk setup:
+
+1. **Create the application** in the Clerk dashboard, with a development and a production instance.
+2. **Keep email verification on** for sign-up.
+3. **Production DNS.** Add the DNS records the production instance lists for `andthen.page`, each as DNS-only (grey cloud), not proxied.
+4. **GitHub variable.** Set `CLERK_PUBLISHABLE_KEY` to the production instance's publishable key, on the `production` environment.
+5. **Instance public keys.** The dashboard shows no "Show JWT public key" button. Fetch `/.well-known/jwks.json` from the instance's Frontend API domain and convert its RSA key to a PEM. In Node, `crypto.createPublicKey({ key: jwk, format: "jwk" }).export({ type: "spki", format: "pem" })` does it, where `jwk` is the entry of the `keys` array. Put the PEM in `CLERK_JWT_KEY`, with newlines written as `\n`, in the production block of `wrangler.jsonc`. The key must be an RSA-2048 key in SPKI form (`-----BEGIN PUBLIC KEY-----`).
+6. **Regenerate the types.** Run `pnpm cf-typegen` and commit `worker-configuration.d.ts` if it changed.
+
+Sign-ups from a clone land in the development instance, which the project owns.
+
 ## The domain
 
 The app lives on `app.andthen.page`. The bare `andthen.page` is left free for a later marketing page and, until then, redirects to the app.
@@ -113,7 +136,7 @@ Dashboard steps:
 
 ## First deploy, in order
 
-1. Do the setup above: the databases, the API token, the GitHub environments and secrets, and the Web Push keys (the `VAPID_PRIVATE_KEY` secret of each environment).
+1. Do the setup above: the databases, the API token, the GitHub environments and secrets, the Web Push keys (the `VAPID_PRIVATE_KEY` secret of each environment) and the Clerk setup (the production instance, the `CLERK_PUBLISHABLE_KEY` variable and the production `CLERK_JWT_KEY`).
 2. Open the pull request. `deploy.yml` applies the migrations to `andthen-preview` and deploys `andthen-preview`. Its log prints the `workers.dev` URL.
 3. Run the preview smoke test below.
 4. Merge. CI runs on `main`; when it passes, `deploy.yml` migrates `andthen-prod` and deploys `andthen`, which also creates `app.andthen.page`. If you set a required reviewer on `production`, approve the deployment in the Actions run.
@@ -128,7 +151,7 @@ pnpm build && pnpm wrangler deploy --env preview
 
 Use `production` in both places for production.
 
-A new D1 change is a new file in `migrations/`. `deploy.yml` applies it to the database before the Worker that needs it goes out, so write migrations that the previous Worker version can still run against.
+A new D1 change is a new file in `migrations/`. `deploy.yml` applies it to the database before the Worker that needs it goes out, so write migrations that the previous Worker version can still run against. `0005_users.sql` is the one exception; see "Accepted risks".
 
 ## Smoke tests
 
@@ -145,6 +168,7 @@ Preview, on the `workers.dev` URL, with two browsers (or a normal and a private 
 - [ ] With a third window, skip the turn holder.
 - [ ] `GET /api/push-subscription/key` returns the environment's `VAPID_PUBLIC_KEY`. Then, with a real subscription (the notification setup in the app, once it ships, or `PUT /api/push-subscription` from a browser console), have another window pass the turn to the subscribed one: the push arrives, and the Workers logs show no "Turn push failed" or `Push to … answered` line.
 - [ ] Reload every window: the story and the turn are unchanged.
+- [ ] Sign in with an email from the home page ("Sign in"). The stories started before signing in are still listed, and a second browser signed in to the same account lists them too. Sign out: the list is empty again.
 - [ ] Leave a window open for a few minutes with nothing happening, then have the other window write. The idle window still updates (the Durable Object woke from hibernation).
 - [ ] The Workers logs (dashboard, Workers, `andthen-preview`, Logs) show no `internal_error`.
 
@@ -184,13 +208,16 @@ These were chosen for the first release. None has a mitigation in the code.
 - **Pull request code runs with the preview token.** A same-repo pull request can change `deploy.yml` or the build and so use the `preview` environment's secrets. That is why they must be environment secrets, and why the preview token should be narrow. Only people with write access can open such a pull request.
 - **Story IDs are guessable.** 5 characters from `[a-z0-9]` is about 60 million values, and the link is the only secret. A guessed ID can be joined, and a 403 versus a 404 tells a prober whether a story exists.
 - **No rate limit on creating or joining stories.** Anyone can create stories or join them as fast as D1 allows, and every new cookie is a new participant. A Cloudflare rate-limiting rule on `POST /api/stories*` is the fix when it matters.
-- **The suggestion quota is per cookie.** Someone who clears cookies and joins again gets 3 fresh requests. On the Free plan, requests fail past the allowance; see "Cost exposure depends on the Cloudflare plan" below.
+- **The suggestion quota is per participant.** Someone who clears cookies and joins again gets 3 fresh requests. On the Free plan, requests fail past the allowance; see "Cost exposure depends on the Cloudflare plan" below.
 - **Cost exposure depends on the Cloudflare plan.** The account runs on the Free plan (check the plan under Workers & Pages, Plans in the dashboard). Past the daily or monthly allowances of Workers, D1, Durable Objects and Workers AI, requests fail instead of being billed, so the app can stop working but cannot produce a bill. A failed suggestion shows "suggestions unavailable". Cloudflare offers no hard spending cap on paid plans, only notifications, so moving to a paid plan removes this protection. Before doing so, add a global daily cap on suggestion requests, because the per-participant limit (3 per hour) can be bypassed by clearing cookies.
-- **A browser's list of stories is unbounded.** `GET /api/stories` returns every story the cookie is in, and nothing limits how many a browser can start (see "No rate limit on creating or joining stories"). Each home page load reads them all. Paging is the fix when it matters.
-- **Clearing cookies loses every story at once.** There are no accounts: the cookie is the only link between a writer and their stories, and it is HttpOnly, so it can't be exported or restored. The stories stay, and the writer can only come back as a new participant through an invite link.
+- **A user's list of stories is unbounded.** `GET /api/stories` returns every story the user is in, and nothing limits how many a user can start (see "No rate limit on creating or joining stories"). Each home page load reads them all. Paging is the fix when it matters.
+- **Clearing cookies loses an anonymous user's stories at once.** The cookie is the only link between an anonymous user and their stories, and it is HttpOnly, so it can't be exported or restored. The stories stay, and the writer can only come back as a new participant through an invite link. A user who signs in first keeps their stories, because the account, not the cookie, names them.
+- **Migration `0005_users.sql` breaks the rule that a migration works with the previous Worker.** It rebuilds `participants` and `push_subscriptions` around a new `users` table. Between the migration and the Worker deploy, the old Worker fails on its first query of those tables. That lasts the seconds the deploy takes. Other open pull requests' previews break the same way until they rebase onto this change and redeploy.
+- **Preview uses the Clerk development instance, which allows 100 users.** Sign-ups past that fail. Delete test users in the Clerk dashboard when it fills.
+- **Sessions last 7 days on Clerk's Hobby plan.** A signed-in user must sign in again after that, whatever the app does.
 - **A story with no writers left is on no one's list.** Leaving keeps the story open to anyone with its link, but nobody's list shows it, so only someone holding the link can reach it. A writer who left can still get back through the link they used.
 - **A story holds at most 50 participants** (`MAX_PARTICIPANTS`), so a link that leaks cannot grow a story without bound, but it can still fill one. Only writers still in the story count, so a leaver frees a place.
-- **Nothing limits how many push endpoints one browser registers.** `PUT /api/push-subscription` accepts only endpoints on the known push service hosts (`isPushServiceEndpoint` in `src/shared/api.ts`), so the Worker cannot be pointed at other sites. But a browser can still store any number of endpoints on those hosts, and each is posted to when that browser is handed the turn. A rate limit on the route, or a cap per browser, is the fix when it matters.
+- **Nothing limits how many push endpoints one user registers.** `PUT /api/push-subscription` accepts only endpoints on the known push service hosts (`isPushServiceEndpoint` in `src/shared/api.ts`), so the Worker cannot be pointed at other sites. But a user can still store any number of endpoints on those hosts, and each is posted to when that user is handed the turn. A rate limit on the route, or a cap per user, is the fix when it matters.
 - **"Update now" switches notifications off.** When no waiting build can take over, the update screen's fallback unregisters the service worker, and that drops the browser's push subscription. The load that follows re-checks, finds none and shows the switch off, so the user has to switch it on again. The Worker keeps its row until a push to it answers 404 or 410. Nothing in the code works around this.
 - **A push can be lost without the app knowing.** A push service that fails or rejects a message is logged and not retried. The page still shows the turn on the next visit.
 - **A story mid-turn when the alarm code deploys gets no timer until its next write.** The room arms its alarm only when a write notifies it, so a turn already running at deploy time lapses without a push. After that write the story is covered. There is no backfill.
@@ -210,3 +237,4 @@ Everything below passed against Miniflare, workerd or test doubles, never agains
 - **Custom domain and redirect.** The first `app.andthen.page` deploy, its certificate, and the apex 301.
 - **Notifications on real devices.** The switch, the key, `PUT` and `DELETE` were run against `wrangler dev` in headless Chromium with a stand-in for the browser's push service (`e2e/turnAlerts.spec.ts`), because headless Chromium reports notifications as denied and has no push service. Never checked on a real browser or phone: the permission prompt, a real `subscribe` (including Brave with its Google push setting off), a notification appearing from the service worker's `push` handler, a tap focusing or opening the story, and Safari's declarative push alongside the `push` handler (the notification's `tag` is meant to stop a second copy, untested). On iOS, check that the Home Screen app offers the switch and that the permission prompt appears from the tap.
 - **The service worker on real devices.** Registration, install prompts, offline loading and the update flow were tested in Chromium against `wrangler dev` only. Safari and Firefox behaviour, the install prompt, and Cloudflare's `max-age=0, must-revalidate` on `/sw.js` need the smoke tests above on the real preview.
+- **Sign-in on the deployed apps.** Sign-in, session token checks and the merge ran locally against the development instance and with test-signed tokens. Not checked: sign-in on the preview address, and anything against the production instance, which does not exist yet. Check that Clerk accepts `app.andthen.page` as an origin and that a real token's `azp` equals it.

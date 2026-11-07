@@ -8,6 +8,9 @@ export const BROWSER_TOKEN_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 /** Fresh story IDs to try before giving up; a collision is rare, so several in a row is a bug. */
 export const STORY_ID_ATTEMPTS = 5;
 
+/** Times a merge reloads a story and tries to leave it, when other writes keep moving the turn. */
+export const MERGE_LEAVE_ATTEMPTS = 3;
+
 /** Suggestion requests one participant may make in any rolling SUGGESTION_WINDOW_MS. */
 export const SUGGESTION_LIMIT = 3;
 

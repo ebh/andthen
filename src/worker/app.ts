@@ -15,6 +15,7 @@ import { selectPushSender } from "./push";
 import { selectSessionVerifier } from "./sessionToken";
 import { pushSubscriptionRoutes } from "./routes/pushSubscriptions";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
+import { userRoutes } from "./routes/users";
 import { selectSuggestionProvider } from "./suggestions/select";
 
 export function createApp(
@@ -46,6 +47,7 @@ export function createApp(
 
   app.route("/", pushSubscriptionRoutes(deps));
   app.route("/", storyRoutes(deps));
+  app.route("/", userRoutes(deps));
 
   return app;
 }

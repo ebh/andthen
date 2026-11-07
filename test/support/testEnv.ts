@@ -38,7 +38,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   const { migrateBefore } = options;
   await applyMigrations(env.DB, (file) => migrateBefore === undefined || file < migrateBefore);
   // The committed var is a placeholder; tests sign tokens with a key made for the run.
-  Object.defineProperty(env, "CLERK_JWT_KEY", { value: TEST_JWT_KEY });
+  Object.defineProperty(env, "CLERK_JWT_KEY", { value: TEST_JWT_KEY, enumerable: true });
 
   return { env, dispose };
 }

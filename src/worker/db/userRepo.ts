@@ -86,3 +86,61 @@ export async function createAccountUser(db: Db, input: NewAccountUser): Promise<
 
   return user;
 }
+
+/**
+ * Makes `userId`, an anonymous user, the holder of `clerkUserId` and drops its browser token, so
+ * the cookie names no user from now on. False when `userId` is not anonymous or somebody else
+ * already holds `clerkUserId`; nothing is written then.
+ */
+export async function attachAccount(db: Db, userId: string, clerkUserId: string): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE users SET clerk_user_id = ?, browser_token_hash = NULL
+       WHERE id = ? AND clerk_user_id IS NULL
+         AND NOT EXISTS (SELECT 1 FROM users WHERE clerk_user_id = ?)`,
+    )
+    .bind(clerkUserId, userId, clerkUserId)
+    .run();
+
+  return result.meta.changes === 1;
+}
+
+/** The stories in which both users are writers who have not left. */
+export async function storiesWithBothActive(
+  db: Db,
+  userId: string,
+  otherUserId: string,
+): Promise<string[]> {
+  const result = await db
+    .prepare(
+      `SELECT p.story_id AS storyId FROM participants p
+       JOIN participants other ON other.story_id = p.story_id
+         AND other.user_id = ? AND other.left_at IS NULL
+       WHERE p.user_id = ? AND p.left_at IS NULL
+       ORDER BY p.story_id`,
+    )
+    .bind(otherUserId, userId)
+    .all();
+
+  return z
+    .array(z.object({ storyId: z.string() }))
+    .parse(result.results)
+    .map(({ storyId }) => storyId);
+}
+
+/**
+ * Hands everything `fromUserId` has to `intoUserId` and deletes `fromUserId`, in one batch. The
+ * two users must not both be active in one story: a user has one active participant per story,
+ * and the batch fails whole if that would break. Repeating it after it succeeded changes nothing.
+ */
+export async function mergeUserInto(db: Db, fromUserId: string, intoUserId: string): Promise<void> {
+  await db.batch([
+    db
+      .prepare("UPDATE participants SET user_id = ? WHERE user_id = ?")
+      .bind(intoUserId, fromUserId),
+    db
+      .prepare("UPDATE push_subscriptions SET user_id = ? WHERE user_id = ?")
+      .bind(intoUserId, fromUserId),
+    db.prepare("DELETE FROM users WHERE id = ?").bind(fromUserId),
+  ]);
+}

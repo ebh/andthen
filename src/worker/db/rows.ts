@@ -26,7 +26,7 @@ export const participantRowSchema = z.object({
   displayName: z.string(),
   displayNameKey: z.string(),
   position: countSchema,
-  browserTokenHash: z.string(),
+  userId: z.string().min(1),
   /** Epoch ms when they left the story; null while they are in it. */
   leftAt: countSchema.nullable(),
 });
@@ -50,7 +50,7 @@ export const myStoryRowSchema = z.intersection(
 );
 export type MyStoryRow = z.infer<typeof myStoryRowSchema>;
 
-/** One writer who has not left a story, for the list of a browser's stories. */
+/** One writer who has not left a story, for the list of a user's stories. */
 export const storyWriterRowSchema = z.object({
   storyId: storyIdSchema,
   displayName: z.string(),

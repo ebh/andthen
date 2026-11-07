@@ -39,7 +39,7 @@ export interface LoadedStory {
   state: TurnState;
 }
 
-/** What the list of one browser's stories is built from. */
+/** What the list of one user's stories is built from. */
 export interface MyStoryRows {
   stories: MyStoryRow[];
   /** The writers of those stories who have not left, in turn order. */
@@ -52,7 +52,7 @@ export interface NewParticipant {
   displayName: string;
   displayNameKey: string;
   position: number;
-  browserTokenHash: string;
+  userId: string;
 }
 
 export interface CreateStoryInput {
@@ -107,7 +107,7 @@ const STORY_COLUMNS = `id, created_at AS createdAt, current_position AS currentP
   last_contributor_position AS lastContributorPosition`;
 
 const PARTICIPANT_COLUMNS = `id, display_name AS displayName, display_name_key AS displayNameKey,
-  position, browser_token_hash AS browserTokenHash, left_at AS leftAt`;
+  position, user_id AS userId, left_at AS leftAt`;
 
 /** The story and its participants from one snapshot, or null for an unknown ID. */
 export async function loadStory(db: Db, storyId: string): Promise<LoadedStory | null> {
@@ -147,38 +147,38 @@ export async function loadStoryWithContributions(
     : { loaded, contributions: rowsAt(results, 2, z.array(contributionRowSchema)) };
 }
 
-// The stories a browser is in: the ones where a participant row with its token hash has not left.
-const STORIES_OF_BROWSER = `SELECT story_id FROM participants
-  WHERE browser_token_hash = ? AND left_at IS NULL`;
+// The stories a user is in: the ones where a participant row of theirs has not left.
+const STORIES_OF_USER = `SELECT story_id FROM participants
+  WHERE user_id = ? AND left_at IS NULL`;
 
-/** The stories a browser is in and has not left, from one snapshot, in no particular order. */
-export async function loadMyStories(db: Db, browserTokenHash: string): Promise<MyStoryRows> {
+/** The stories a user is in and has not left, from one snapshot, in no particular order. */
+export async function loadMyStories(db: Db, userId: string): Promise<MyStoryRows> {
   const results = await db.batch([
     db
       .prepare(
         `SELECT ${STORY_COLUMNS},
            (SELECT me.position FROM participants me
-            WHERE me.story_id = stories.id AND me.browser_token_hash = ? AND me.left_at IS NULL)
+            WHERE me.story_id = stories.id AND me.user_id = ? AND me.left_at IS NULL)
              AS myPosition
-         FROM stories WHERE id IN (${STORIES_OF_BROWSER})`,
+         FROM stories WHERE id IN (${STORIES_OF_USER})`,
       )
-      .bind(browserTokenHash, browserTokenHash),
+      .bind(userId, userId),
     db
       .prepare(
         `SELECT story_id AS storyId, display_name AS displayName, position FROM participants
-         WHERE left_at IS NULL AND story_id IN (${STORIES_OF_BROWSER})
+         WHERE left_at IS NULL AND story_id IN (${STORIES_OF_USER})
          ORDER BY story_id, position`,
       )
-      .bind(browserTokenHash),
+      .bind(userId),
     db
       .prepare(
         `SELECT c.story_id AS storyId, MAX(c.created_at) AS latestAt,
            (SELECT o.text FROM contributions o WHERE o.story_id = c.story_id AND o.seq = 1)
              AS opening
-         FROM contributions c WHERE c.story_id IN (${STORIES_OF_BROWSER})
+         FROM contributions c WHERE c.story_id IN (${STORIES_OF_USER})
          GROUP BY c.story_id`,
       )
-      .bind(browserTokenHash),
+      .bind(userId),
   ]);
 
   return {
@@ -406,7 +406,7 @@ function insertParticipant(
   return db
     .prepare(
       `INSERT INTO participants (id, story_id, display_name, display_name_key, position,
-         browser_token_hash, joined_at)
+         user_id, joined_at)
        SELECT ?, ?, ?, ?, ?, ?, ?
        WHERE EXISTS (SELECT 1 FROM stories WHERE id = ? AND turn_version = ?)
          AND (SELECT COUNT(*) FROM participants WHERE story_id = ? AND left_at IS NULL) < ?`,
@@ -417,7 +417,7 @@ function insertParticipant(
       participant.displayName,
       participant.displayNameKey,
       participant.position,
-      participant.browserTokenHash,
+      participant.userId,
       joinedAt,
       storyId,
       loadedVersion,

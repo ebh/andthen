@@ -33,6 +33,7 @@ describe("GET /api/health", () => {
       { name: "push_subscriptions" },
       { name: "stories" },
       { name: "suggestion_requests" },
+      { name: "users" },
     ]);
   });
 });

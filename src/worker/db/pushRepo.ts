@@ -9,7 +9,7 @@ export interface PushSubscriptionRow {
 }
 
 export interface NewPushSubscription extends PushSubscriptionRow {
-  browserTokenHash: string;
+  userId: string;
   createdAt: number;
 }
 
@@ -20,49 +20,49 @@ const pushSubscriptionRowSchema = z.object({
 });
 
 /**
- * Stores a subscription for a browser. A stored endpoint is taken over: its keys and owner are
+ * Stores a subscription for a user. A stored endpoint is taken over: its keys and owner are
  * replaced, because a push service hands the same endpoint to a browser that subscribes again.
  * `created_at` keeps its first value.
  */
 export async function savePushSubscription(db: Db, input: NewPushSubscription): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO push_subscriptions (endpoint, browser_token_hash, p256dh, auth, created_at)
+      `INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, created_at)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (endpoint) DO UPDATE SET
-         browser_token_hash = excluded.browser_token_hash,
+         user_id = excluded.user_id,
          p256dh = excluded.p256dh,
          auth = excluded.auth`,
     )
-    .bind(input.endpoint, input.browserTokenHash, input.p256dh, input.auth, input.createdAt)
+    .bind(input.endpoint, input.userId, input.p256dh, input.auth, input.createdAt)
     .run();
 }
 
-/** Every subscription of one browser, oldest first. */
+/** Every subscription of one user, oldest first. */
 export async function loadPushSubscriptions(
   db: Db,
-  browserTokenHash: string,
+  userId: string,
 ): Promise<PushSubscriptionRow[]> {
   const result = await db
     .prepare(
       `SELECT endpoint, p256dh, auth FROM push_subscriptions
-       WHERE browser_token_hash = ? ORDER BY created_at, endpoint`,
+       WHERE user_id = ? ORDER BY created_at, endpoint`,
     )
-    .bind(browserTokenHash)
+    .bind(userId)
     .all();
 
   return z.array(pushSubscriptionRowSchema).parse(result.results);
 }
 
-/** Removes a browser's own subscription to `endpoint`. Another browser's is left alone. */
+/** Removes a user's own subscription to `endpoint`. Another user's is left alone. */
 export async function deletePushSubscription(
   db: Db,
-  browserTokenHash: string,
+  userId: string,
   endpoint: string,
 ): Promise<void> {
   await db
-    .prepare("DELETE FROM push_subscriptions WHERE endpoint = ? AND browser_token_hash = ?")
-    .bind(endpoint, browserTokenHash)
+    .prepare("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?")
+    .bind(endpoint, userId)
     .run();
 }
 

@@ -15,6 +15,7 @@ import {
 } from "./support/browser";
 import { gateLoads } from "./support/gatedDb";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { insertUser } from "./support/users";
 
 describe("the participant cap", () => {
   let testEnv: TestEnv;
@@ -43,9 +44,14 @@ describe("the participant cap", () => {
     await db.batch([
       ...joiners.map((position) =>
         db
+          .prepare("INSERT INTO users (id, browser_token_hash, created_at) VALUES (?, ?, ?)")
+          .bind(`${storyId}-${String(position)}`, `${storyId}-${String(position)}`, T0),
+      ),
+      ...joiners.map((position) =>
+        db
           .prepare(
             `INSERT INTO participants (id, story_id, display_name, display_name_key, position,
-               browser_token_hash, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+               user_id, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             `${storyId}-${String(position)}`,
@@ -53,7 +59,7 @@ describe("the participant cap", () => {
             `P${String(position)}`,
             `p${String(position)}`,
             position,
-            `seed-${String(position)}`,
+            `${storyId}-${String(position)}`,
             T0,
           ),
       ),
@@ -210,6 +216,7 @@ describe("the participant cap", () => {
         throw new Error("story missing");
       }
 
+      const extraUserId = await insertUser(testEnv.env.DB, "extra-user");
       const saved = await addParticipant(testEnv.env.DB, {
         storyId,
         loadedVersion: loaded.state.turnVersion,
@@ -219,7 +226,7 @@ describe("the participant cap", () => {
           displayName: "Extra",
           displayNameKey: "extra",
           position: MAX_PARTICIPANTS,
-          browserTokenHash: "extra-hash",
+          userId: extraUserId,
         },
         joinedAt: T0,
       });

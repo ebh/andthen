@@ -29,7 +29,6 @@ import {
   validatePassage,
 } from "../../shared/validation";
 import { STORY_ID_ATTEMPTS, SUGGESTION_LIMIT, SUGGESTION_WINDOW_MS } from "../config";
-import { hashBrowserToken, readBrowserToken, readOrIssueBrowserToken } from "../cookies";
 import type { ParticipantRow } from "../db/rows";
 import { releaseSuggestion, reserveSuggestion } from "../db/suggestionRepo";
 import {
@@ -56,6 +55,7 @@ import {
 } from "../http";
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
+import { requireOrCreateMe, resolveMe } from "../me";
 import type { PushSender } from "../push";
 import { buildStoryView } from "../storyView";
 import { summariseMyStories } from "../storySummaries";
@@ -88,12 +88,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     const now = deps.now();
+    const user = await requireOrCreateMe(c, now);
     const creator = {
       id: newId(),
       displayName: name.value,
       displayNameKey: displayNameKey(name.value),
       position: 0,
-      browserTokenHash: await hashBrowserToken(readOrIssueBrowserToken(c)),
+      userId: user.id,
     };
 
     const storyId = await createUnderFreeId(c.env.DB, deps.newStoryId, STORY_ID_ATTEMPTS, (id) => ({
@@ -108,11 +109,12 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.json(response, 201);
   });
 
-  // Only reads: no cookie is issued, and a browser without one has no stories.
+  // Only reads: no cookie is issued or user created, and a browser without a user has no stories.
   routes.get("/api/stories", async (c) => {
-    const hash = await hashBrowserToken(readBrowserToken(c));
-    const rows = await loadMyStories(c.env.DB, hash);
-    const response: MyStoriesResponse = { stories: summariseMyStories(rows, deps.now()) };
+    const me = await resolveMe(c);
+    const stories =
+      me === null ? [] : summariseMyStories(await loadMyStories(c.env.DB, me.id), deps.now());
+    const response: MyStoriesResponse = { stories };
 
     return c.json(response);
   });
@@ -137,10 +139,10 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("invalid_display_name");
     }
 
-    const token = readOrIssueBrowserToken(c);
-    const browserTokenHash = await hashBrowserToken(token);
+    const now = deps.now();
+    const me = await requireOrCreateMe(c, now);
     const key = displayNameKey(name.value);
-    if (loaded.participants.some((p) => p.browserTokenHash === browserTokenHash)) {
+    if (loaded.participants.some((p) => p.userId === me.id)) {
       throw new ApiError("already_joined");
     }
     if (loaded.participants.some((p) => p.displayNameKey === key)) {
@@ -150,14 +152,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("story_full");
     }
 
-    const now = deps.now();
     const joinedState = onJoin(loaded.state, loaded.nextPosition, now);
     const participant = {
       id: newId(),
       displayName: name.value,
       displayNameKey: key,
       position: loaded.nextPosition,
-      browserTokenHash,
+      userId: me.id,
     };
     const saved = await addParticipant(c.env.DB, {
       storyId,
@@ -466,7 +467,7 @@ async function joinRefusal(c: AppContext, storyId: string): Promise<ApiError> {
   );
 }
 
-// The caller is the participant in the story, who has not left, whose token hash matches the cookie's.
+// The caller is the participant in the story who has not left, as the requesting user.
 async function requireParticipant(c: AppContext, loaded: LoadedStory): Promise<ParticipantRow> {
   const me = await findParticipant(c, loaded);
   if (me === undefined) {
@@ -479,12 +480,18 @@ async function requireParticipant(c: AppContext, loaded: LoadedStory): Promise<P
   return me;
 }
 
-// The participant row, left or not, whose token hash matches the cookie's.
+// The requesting user's participant row: the one who has not left, else the one that joined last.
+// Positions only grow, so the highest position joined last.
 async function findParticipant(
   c: AppContext,
   loaded: LoadedStory,
 ): Promise<ParticipantRow | undefined> {
-  const hash = await hashBrowserToken(readBrowserToken(c));
+  const me = await resolveMe(c);
+  if (me === null) {
+    return undefined;
+  }
 
-  return loaded.participants.find((p) => p.browserTokenHash === hash);
+  const rows = loaded.participants.filter((p) => p.userId === me.id);
+
+  return rows.find((p) => p.leftAt === null) ?? rows.at(-1);
 }

@@ -7,10 +7,11 @@ import {
   savePushSubscription,
 } from "../src/worker/db/pushRepo";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { insertUser } from "./support/users";
 
-const subscription = (endpoint: string, browserTokenHash: string, createdAt: number) => ({
+const subscription = (endpoint: string, userId: string, createdAt: number) => ({
   endpoint,
-  browserTokenHash,
+  userId,
   p256dh: `key-${endpoint}`,
   auth: `auth-${endpoint}`,
   createdAt,
@@ -29,13 +30,18 @@ describe("pushRepo", () => {
   beforeAll(async () => {
     testEnv = await createTestEnv();
     db = testEnv.env.DB;
+    await Promise.all(
+      ["load", "someone-else", "first", "second", "owner", "intruder", "any"].map((id) =>
+        insertUser(db, id),
+      ),
+    );
   });
 
   afterAll(async () => {
     await testEnv.dispose();
   });
 
-  it("loads a browser's subscriptions, oldest first, and no one else's", async () => {
+  it("loads a user's subscriptions, oldest first, and no one else's", async () => {
     await savePushSubscription(db, subscription("https://push.test/b", "load", 2));
     await savePushSubscription(db, subscription("https://push.test/a", "load", 1));
     await savePushSubscription(db, subscription("https://push.test/other", "someone-else", 1));
@@ -66,7 +72,7 @@ describe("pushRepo", () => {
     expect(stored.results).toEqual([{ created_at: 1 }]);
   });
 
-  it("deletes a subscription only for the browser that owns it", async () => {
+  it("deletes a subscription only for the user that owns it", async () => {
     await savePushSubscription(db, subscription("https://push.test/mine", "owner", 1));
 
     await deletePushSubscription(db, "intruder", "https://push.test/mine");

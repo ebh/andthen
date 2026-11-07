@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { pushKeyResponseSchema } from "../src/shared/api";
-import { hashBrowserToken } from "../src/worker/cookies";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
 import {
   createBrowser,
@@ -13,6 +12,7 @@ import {
   type Clock,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { userIdOf } from "./support/users";
 
 const P256DH = "B".repeat(87);
 const AUTH = "a".repeat(22);
@@ -39,9 +39,8 @@ describe("push subscription routes", () => {
   async function browserWithCookie(): Promise<{ browser: Browser; hash: string }> {
     const browser = newBrowser();
     await createStory(browser);
-    const token = browser.cookies.get("andthen_bt") ?? "";
 
-    return { browser, hash: await hashBrowserToken(token) };
+    return { browser, hash: await userIdOf(testEnv.env.DB, browser) };
   }
 
   const storedFor = (hash: string) => loadPushSubscriptions(testEnv.env.DB, hash);

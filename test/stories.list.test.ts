@@ -27,13 +27,17 @@ describe("GET /api/stories", () => {
   });
 
   const newBrowser = () => createBrowser(app, testEnv.env);
+  const countUsers = () => testEnv.env.DB.prepare("SELECT COUNT(*) AS n FROM users").first("n");
 
   it("is empty for a browser with no cookie, and issues none", async () => {
     clock.now = T0;
     const stranger = newBrowser();
 
+    const before = await countUsers();
+
     expect(await listStories(stranger)).toEqual([]);
     expect(stranger.cookies.size).toBe(0);
+    expect(await countUsers()).toBe(before);
   });
 
   it("is empty for a browser that is in no story", async () => {

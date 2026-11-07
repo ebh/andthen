@@ -2,7 +2,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import { TURN_WINDOW_MS } from "../src/shared/validation";
 import { createApp } from "../src/worker/app";
-import { hashBrowserToken } from "../src/worker/cookies";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
 import type { PushSender } from "../src/worker/push";
 import { fakeProvider } from "../src/worker/suggestions/fake";
@@ -18,6 +17,7 @@ import {
 } from "./support/browser";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { userIdOf } from "./support/users";
 
 const OPENING = "Once upon a time, in a village by the sea, a lantern went out.";
 const P256DH = "B".repeat(87);
@@ -351,8 +351,7 @@ describe("pushing the turn", () => {
       await contribute(ben, storyId);
       await settle(ben);
 
-      const hash = await hashBrowserToken(cy.cookies.get("andthen_bt") ?? "");
-      const kept = await loadPushSubscriptions(testEnv.env.DB, hash);
+      const kept = await loadPushSubscriptions(testEnv.env.DB, await userIdOf(testEnv.env.DB, cy));
       expect(kept.map(({ endpoint }) => endpoint).toSorted()).toEqual([second, third].toSorted());
     });
 
@@ -363,8 +362,9 @@ describe("pushing the turn", () => {
       await contribute(ben, storyId);
       await settle(ben);
 
-      const hash = await hashBrowserToken(cy.cookies.get("andthen_bt") ?? "");
-      expect(await loadPushSubscriptions(testEnv.env.DB, hash)).toHaveLength(1);
+      expect(
+        await loadPushSubscriptions(testEnv.env.DB, await userIdOf(testEnv.env.DB, cy)),
+      ).toHaveLength(1);
     });
 
     it("still answers the request, logs, and sends the rest when one send rejects", async () => {

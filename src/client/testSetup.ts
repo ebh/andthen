@@ -1,6 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
+
+import { resetSessionSource, setSessionSource } from "./sessionToken";
+
+// Every test starts as an anonymous page load whose Clerk has loaded, so no API call waits for it.
+beforeEach(() => {
+  resetSessionSource();
+  setSessionSource({ isLoaded: true, getToken: () => Promise.resolve(null) });
+});
 
 afterEach(() => {
   cleanup();

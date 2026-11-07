@@ -83,6 +83,9 @@ describe("useMyStories", () => {
     act(() => {
       result.current.reload();
     });
+    await waitFor(() => {
+      expect(replies).toHaveLength(2);
+    });
 
     await act(async () => {
       replies[1]?.(jsonResponse(200, { stories: [story] }));

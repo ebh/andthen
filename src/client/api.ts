@@ -23,6 +23,7 @@ import {
   type SuggestionsResponse,
 } from "../shared/api";
 import { setClientOutdated } from "./clientOutdated";
+import { getSessionToken } from "./sessionToken";
 
 export type ApiFailure =
   | { type: "network" }
@@ -96,12 +97,42 @@ const anyErrorBodySchema = z.object({ error: z.string() });
 
 type Init = Omit<RequestInit, "headers"> & { headers?: Record<string, string> };
 
+// A token that expired between being fetched and arriving is rejected once; a fresh one fixes it.
 async function call<T>(path: string, init: Init, schema: z.ZodType<T>): Promise<ApiResult<T>> {
+  const token = await getSessionToken();
+  const result = await send(path, init, schema, token);
+  if (token === null || !isRejectedSessionToken(result)) {
+    return result;
+  }
+
+  const fresh = await getSessionToken({ fresh: true });
+
+  return fresh === null ? result : send(path, init, schema, fresh);
+}
+
+function isRejectedSessionToken(result: ApiResult<unknown>): boolean {
+  return (
+    !result.ok &&
+    result.failure.type === "rejected" &&
+    result.failure.code === "invalid_session_token"
+  );
+}
+
+async function send<T>(
+  path: string,
+  init: Init,
+  schema: z.ZodType<T>,
+  sessionToken: string | null,
+): Promise<ApiResult<T>> {
   let response: Response;
   try {
     response = await fetch(path, {
       ...init,
-      headers: { ...init.headers, [API_LEVEL_HEADER]: String(API_LEVEL) },
+      headers: {
+        ...init.headers,
+        [API_LEVEL_HEADER]: String(API_LEVEL),
+        ...(sessionToken !== null && { Authorization: `Bearer ${sessionToken}` }),
+      },
     });
   } catch (error) {
     // fetch rejects with a TypeError when the network fails; anything else is a bug here.

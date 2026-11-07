@@ -53,6 +53,7 @@ function useClerkAppearance() {
       colorBackground: theme.background.val,
       colorForeground: theme.color.val,
       colorMutedForeground: theme.muted.val,
+      colorNeutral: theme.color.val,
       colorPrimary: theme.primary.val,
       colorPrimaryForeground: theme.background.val,
       colorDanger: theme.error.val,

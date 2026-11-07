@@ -12,6 +12,11 @@ export interface OfferedSubprotocols {
   sessionToken: string | null;
 }
 
+/** The subprotocols a client offers when it opens the live socket: only `LIVE_SUBPROTOCOL` when anonymous. */
+export function liveSubprotocolsFor(sessionToken: string | null): string[] {
+  return sessionToken === null ? [LIVE_SUBPROTOCOL] : [LIVE_SUBPROTOCOL, sessionToken];
+}
+
 /** Splits a `Sec-WebSocket-Protocol` request header into what the client offered. */
 export function readOfferedSubprotocols(header: string | null | undefined): OfferedSubprotocols {
   const offered = (header ?? "")

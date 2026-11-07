@@ -1,6 +1,8 @@
 // Browser-free so it runs under Node tests: the hook in useStoryLive.ts supplies the real
 // WebSocket, timers and clock.
 
+import { liveSubprotocolsFor } from "../shared/liveSubprotocol";
+
 export interface SocketHandlers {
   onOpen: () => void;
   /** The raw payload; the controller parses it. */
@@ -154,6 +156,44 @@ export function backoffDelayMs(failedAttempts: number, random: number): number {
   const ceiling = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** failedAttempts);
 
   return Math.round(ceiling * (0.5 + random / 2));
+}
+
+/** Opens the real socket, offering `protocols` (the live subprotocol, then any session token). */
+export type SocketFactory = (
+  url: string,
+  protocols: string[],
+  handlers: SocketHandlers,
+) => LiveSocket;
+
+/**
+ * A socket that opens once the session token is known, so the caller gets its `LiveSocket` at once.
+ * The token is fetched per connection: a reconnect an hour later must not offer an expired one.
+ * Closing before the token arrives opens nothing.
+ */
+export function openSocketWithSession(
+  url: string,
+  handlers: SocketHandlers,
+  getToken: () => Promise<string | null>,
+  createSocket: SocketFactory,
+): LiveSocket {
+  const state: { socket: LiveSocket | null; closed: boolean } = { socket: null, closed: false };
+
+  void (async () => {
+    const token = await getToken();
+    if (!state.closed) {
+      state.socket = createSocket(url, liveSubprotocolsFor(token), handlers);
+    }
+  })();
+
+  return {
+    send: (text) => {
+      state.socket?.send(text);
+    },
+    close: () => {
+      state.closed = true;
+      state.socket?.close();
+    },
+  };
 }
 
 /** The WebSocket URL for a story on the page's own host. */

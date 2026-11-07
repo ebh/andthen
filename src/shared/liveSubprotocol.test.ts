@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { LIVE_SUBPROTOCOL, readOfferedSubprotocols } from "./liveSubprotocol";
+import { LIVE_SUBPROTOCOL, liveSubprotocolsFor, readOfferedSubprotocols } from "./liveSubprotocol";
+
+describe("liveSubprotocolsFor", () => {
+  it("offers only the live subprotocol when anonymous", () => {
+    expect(liveSubprotocolsFor(null)).toEqual([LIVE_SUBPROTOCOL]);
+  });
+
+  it("offers the session token after the live subprotocol", () => {
+    expect(liveSubprotocolsFor("abc.def.ghi")).toEqual([LIVE_SUBPROTOCOL, "abc.def.ghi"]);
+  });
+
+  it("is read back by readOfferedSubprotocols", () => {
+    expect(readOfferedSubprotocols(liveSubprotocolsFor("abc").join(", "))).toEqual({
+      offersLive: true,
+      sessionToken: "abc",
+    });
+  });
+});
 
 describe("readOfferedSubprotocols", () => {
   it("reads the live subprotocol and the session token after it", () => {

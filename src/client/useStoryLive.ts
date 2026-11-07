@@ -3,11 +3,13 @@ import { useEffect, useEffectEvent } from "react";
 import {
   keepSocketOpen,
   liveUrl,
+  openSocketWithSession,
   refetchWhenTurnEnds,
   type LiveDeps,
   type LiveSocket,
   type SocketHandlers,
 } from "./live";
+import { getSessionToken } from "./sessionToken";
 
 interface StoryLiveOptions {
   storyId: string;
@@ -35,7 +37,8 @@ export function useStoryLive({ storyId, endsAt, refetch }: StoryLiveOptions): vo
 }
 
 const browserDeps: LiveDeps<ReturnType<typeof setTimeout>> = {
-  openSocket,
+  openSocket: (url, handlers) =>
+    openSocketWithSession(url, handlers, getSessionToken, createSocket),
   setTimer: (callback, delayMs) => setTimeout(callback, delayMs),
   clearTimer: (timer) => {
     clearTimeout(timer);
@@ -44,8 +47,8 @@ const browserDeps: LiveDeps<ReturnType<typeof setTimeout>> = {
   now: () => Date.now(),
 };
 
-function openSocket(url: string, handlers: SocketHandlers): LiveSocket {
-  const socket = new WebSocket(url);
+function createSocket(url: string, protocols: string[], handlers: SocketHandlers): LiveSocket {
+  const socket = new WebSocket(url, protocols);
   socket.addEventListener("open", handlers.onOpen);
   socket.addEventListener("message", (event) => {
     handlers.onMessage(event.data);

@@ -13,6 +13,7 @@ import {
   type StoryView,
 } from "../src/shared/api";
 import { TURN_WINDOW_MS } from "../src/shared/validation";
+import { signSessionToken, TEST_JWT_KEY } from "./support/sessionToken";
 
 // The workerd-side socket the harness hands back, which isn't the DOM WebSocket type.
 type Socket = NonNullable<Awaited<ReturnType<TestHarness["fetch"]>>["webSocket"]>;
@@ -28,7 +29,10 @@ describe("StoryRoom in workerd", () => {
   const openSockets: Socket[] = [];
 
   beforeAll(async () => {
-    await server.update({ workers: [{ config: await readWranglerConfig() }] });
+    const config = await readWranglerConfig();
+    // The committed key is a placeholder; the tests sign their tokens with a key made for the run.
+    const vars = { ...config.vars, CLERK_JWT_KEY: TEST_JWT_KEY };
+    await server.update({ workers: [{ config: { ...config, vars } }] });
     const { url } = await server.listen();
     origin = url.origin;
     await server.getWorker().applyD1Migrations("DB");
@@ -78,6 +82,96 @@ describe("StoryRoom in workerd", () => {
       const socket = await openSocket(storyId, cookie);
 
       expect(socket.readyState).toBe(WebSocket.OPEN);
+    });
+  });
+
+  describe("session tokens", () => {
+    const ACCOUNT_PATH = "/api/users/me/account";
+
+    it("verifies a Clerk session token with the real @clerk/backend", async () => {
+      const token = await signSessionToken("user_workerd", origin);
+
+      const response = await put(ACCOUNT_PATH, {}, { Authorization: `Bearer ${token}` });
+
+      expect(response.status).toBe(204);
+    });
+
+    it("refuses a token for another origin, an expired one and a forged one", async () => {
+      const tokens = [
+        await signSessionToken("user_workerd", "https://evil.example"),
+        await signSessionToken("user_workerd", origin, { expiresInSeconds: -120 }),
+        await signSessionToken("user_workerd", origin, { signWithOtherKey: true }),
+      ];
+
+      for (const token of tokens) {
+        const response = await put(ACCOUNT_PATH, {}, { Authorization: `Bearer ${token}` });
+
+        expect(response.status).toBe(401);
+        expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+        expect(errorBodySchema.parse(await response.json()).error).toBe("invalid_session_token");
+      }
+    });
+
+    it("answers the live subprotocol alone, and lets a signed-in participant in by token", async () => {
+      const token = await signSessionToken("user_workerd_live", origin);
+      const created = await post(
+        "/api/stories",
+        { displayName: "Ana", opening: "Once upon a time." },
+        { Authorization: `Bearer ${token}` },
+      );
+      const { storyId } = createStoryResponseSchema.parse(await created.json());
+
+      const response = await server.fetch(`/api/stories/${storyId}/live`, {
+        headers: {
+          Upgrade: "websocket",
+          Origin: origin,
+          "Sec-WebSocket-Protocol": `andthen-live, ${token}`,
+        },
+      });
+
+      expect(response.status).toBe(101);
+      expect(response.headers.get("Sec-WebSocket-Protocol")).toBe("andthen-live");
+      response.webSocket?.accept();
+      response.webSocket?.close();
+    });
+
+    it("answers an anonymous client's andthen-live, and nothing when none was offered", async () => {
+      const { storyId, cookie } = await createStory("Ana");
+
+      const offered = await server.fetch(`/api/stories/${storyId}/live`, {
+        headers: {
+          Upgrade: "websocket",
+          Origin: origin,
+          Cookie: cookie,
+          "Sec-WebSocket-Protocol": "andthen-live",
+        },
+      });
+      const none = await server.fetch(`/api/stories/${storyId}/live`, {
+        headers: { Upgrade: "websocket", Origin: origin, Cookie: cookie },
+      });
+
+      expect(offered.headers.get("Sec-WebSocket-Protocol")).toBe("andthen-live");
+      expect(none.headers.get("Sec-WebSocket-Protocol")).toBeNull();
+      for (const response of [offered, none]) {
+        response.webSocket?.accept();
+        response.webSocket?.close();
+      }
+    });
+
+    it("refuses a socket offered a bad token", async () => {
+      const { storyId, cookie } = await createStory("Ana");
+      const expired = await signSessionToken("user_workerd", origin, { expiresInSeconds: -120 });
+
+      const response = await server.fetch(`/api/stories/${storyId}/live`, {
+        headers: {
+          Upgrade: "websocket",
+          Origin: origin,
+          Cookie: cookie,
+          "Sec-WebSocket-Protocol": `andthen-live, ${expired}`,
+        },
+      });
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -236,14 +330,30 @@ describe("StoryRoom in workerd", () => {
     return storyViewSchema.parse(await response.json());
   }
 
-  function post(pathname: string, body: unknown, cookie?: string) {
+  function post(
+    pathname: string,
+    body: unknown,
+    cookieOrHeaders?: string | Record<string, string>,
+  ) {
+    return send("POST", pathname, body, cookieOrHeaders);
+  }
+
+  function put(pathname: string, body: unknown, headers: Record<string, string>) {
+    return send("PUT", pathname, body, headers);
+  }
+
+  function send(
+    method: string,
+    pathname: string,
+    body: unknown,
+    cookieOrHeaders: string | Record<string, string> = {},
+  ) {
+    const extra =
+      typeof cookieOrHeaders === "string" ? { Cookie: cookieOrHeaders } : cookieOrHeaders;
+
     return server.fetch(pathname, {
-      method: "POST",
-      headers: {
-        Origin: origin,
-        "Content-Type": "application/json",
-        ...(cookie === undefined ? {} : { Cookie: cookie }),
-      },
+      method,
+      headers: { Origin: origin, "Content-Type": "application/json", ...extra },
       body: JSON.stringify(body),
     });
   }

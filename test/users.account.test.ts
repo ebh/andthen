@@ -141,6 +141,22 @@ describe("PUT /api/users/me/account", () => {
       expect(await storyIds(phone)).toEqual([]);
     });
 
+    it("changes nothing for a user that already holds the account and still has its cookie", async () => {
+      setUp();
+      const phone = anonymous();
+      const storyId = await createStory(phone);
+      const userId = await userIdOf(testEnv.env.DB, phone);
+      await testEnv.env.DB.prepare("UPDATE users SET clerk_user_id = ? WHERE id = ?")
+        .bind("user_both", userId)
+        .run();
+
+      const response = await signIn(phone, "user_both");
+
+      expect(response.status).toBe(204);
+      expect(await userIdOf(testEnv.env.DB, phone)).toBe(userId);
+      expect(await storyIds(phone)).toEqual([storyId]);
+    });
+
     it("lets the next sign-in find the stories again", async () => {
       setUp();
       const phone = anonymous();
@@ -176,6 +192,27 @@ describe("PUT /api/users/me/account", () => {
         .bind(deviceUserId)
         .first();
       expect(stillThere).toBeNull();
+    });
+
+    it("merges when another request claims the account while this one attaches it", async () => {
+      setUp();
+      const phone = anonymous();
+      const phoneStory = await createStory(phone, "Ana on phone");
+      const deviceUserId = await userIdOf(testEnv.env.DB, phone);
+      phone.sessionToken = await signSessionToken("user_raced", ORIGIN);
+
+      const response = await phone.put(
+        PATH,
+        {},
+        { env: claimedJustBeforeAttach(env, "user_raced") },
+      );
+
+      expect(response.status).toBe(204);
+      const accountUser = await findUserByClerkUserId(testEnv.env.DB, "user_raced");
+      expect(accountUser?.id).not.toBe(deviceUserId);
+      expect((await participantRows(phoneStory)).map((row) => row.userId)).toEqual([
+        accountUser?.id,
+      ]);
     });
 
     it("is safe to repeat", async () => {
@@ -229,6 +266,30 @@ describe("PUT /api/users/me/account", () => {
         "https://fcm.googleapis.com/send/ben-shared",
       ]);
       expect(await storyIds(laptop)).toEqual([storyId]);
+    });
+
+    it("finishes when the device left the story while the merge was running", async () => {
+      setUp();
+      const laptop = await account("user_left_meanwhile");
+      const storyId = await createStory(laptop, "Ana");
+      const phone = anonymous();
+      await joinStory(phone, storyId, "Ana on phone");
+      await joinStory(anonymous(), storyId, "Ben");
+      const deviceUserId = await userIdOf(testEnv.env.DB, phone);
+      phone.sessionToken = await signSessionToken("user_left_meanwhile", ORIGIN);
+
+      const response = await phone.put(
+        PATH,
+        {},
+        { env: deviceLeavesAfterFirstLoad(env, storyId, deviceUserId) },
+      );
+
+      expect(response.status).toBe(204);
+      expect((await participantRows(storyId)).map((row) => row.leftAt !== null)).toEqual([
+        false,
+        true,
+        false,
+      ]);
     });
 
     it("answers 409 stale_turn when other writes keep moving the story, and a retry finishes", async () => {
@@ -401,6 +462,65 @@ function outpacedLeaves(base: Env, storyId: string): Env {
 
   // oxlint-disable-next-line typescript/no-unsafe-return -- a partial Env is the point
   return Object.assign(Object.create(null), base, { DB: outpaced });
+}
+
+// The first time the account is attached, another request has just claimed it.
+function claimedJustBeforeAttach(base: Env, clerkUserId: string): Env {
+  const db = base.DB;
+  const raced = {
+    batch: <T>(statements: D1PreparedStatement[]) => db.batch<T>(statements),
+    prepare: (query: string) => {
+      const statement = db.prepare(query);
+      if (!query.includes("SET clerk_user_id")) {
+        return statement;
+      }
+
+      return {
+        bind: (...values: unknown[]) => ({
+          run: async () => {
+            await db
+              .prepare("INSERT INTO users (id, clerk_user_id, created_at) VALUES (?, ?, 0)")
+              .bind(`claimed-${clerkUserId}`, clerkUserId)
+              .run();
+
+            return statement.bind(...values).run();
+          },
+        }),
+      };
+    },
+  };
+
+  // oxlint-disable-next-line typescript/no-unsafe-return -- a partial Env is the point
+  return Object.assign(Object.create(null), base, { DB: raced });
+}
+
+// After the merge first loads the story, the device user's participant leaves by another request,
+// and that request also moves the turn version.
+function deviceLeavesAfterFirstLoad(base: Env, storyId: string, userId: string): Env {
+  const db = base.DB;
+  let loads = 0;
+  const racing = {
+    prepare: (query: string) => db.prepare(query),
+    batch: async <T>(statements: D1PreparedStatement[]) => {
+      const results = await db.batch<T>(statements);
+      loads += 1;
+      if (loads === 1) {
+        await db
+          .prepare("UPDATE participants SET left_at = 1 WHERE story_id = ? AND user_id = ?")
+          .bind(storyId, userId)
+          .run();
+        await db
+          .prepare("UPDATE stories SET turn_version = turn_version + 1 WHERE id = ?")
+          .bind(storyId)
+          .run();
+      }
+
+      return results;
+    },
+  };
+
+  // oxlint-disable-next-line typescript/no-unsafe-return -- a partial Env is the point
+  return Object.assign(Object.create(null), base, { DB: racing });
 }
 
 // The test bed's STORY_ROOM can't reach the Durable Object, so every write would log a failed

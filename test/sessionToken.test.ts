@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { myStoriesResponseSchema } from "../src/shared/api";
 import { findUserByClerkUserId } from "../src/worker/db/userRepo";
+import { selectSessionVerifier } from "../src/worker/sessionToken";
 import {
   createBrowser,
   createStory,
@@ -16,6 +17,46 @@ import { signSessionToken, type SessionTokenOptions } from "./support/sessionTok
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
 const ORIGIN = "http://localhost";
+
+describe("the session verifier", () => {
+  let testEnv: TestEnv;
+
+  beforeAll(async () => {
+    testEnv = await createTestEnv();
+  });
+
+  afterAll(async () => {
+    await testEnv.dispose();
+  });
+
+  it("returns the Clerk user id of a valid token", async () => {
+    const verify = selectSessionVerifier(testEnv.env);
+
+    const verdict = await verify(await signSessionToken("user_verified", ORIGIN), ORIGIN);
+
+    expect(verdict).toEqual({ type: "valid", clerkUserId: "user_verified" });
+  });
+
+  it("rejects with a reason for the server log and never throws", async () => {
+    const verify = selectSessionVerifier(testEnv.env);
+
+    const verdict = await verify(await signSessionToken("user_x", "https://evil.example"), ORIGIN);
+
+    expect(verdict.type).toBe("rejected");
+    expect(verdict.type === "rejected" ? verdict.reason.trim() : "").not.toBe("");
+  });
+
+  it("rejects every token when the key is the committed placeholder", async () => {
+    const verify = selectSessionVerifier({
+      ...testEnv.env,
+      CLERK_JWT_KEY: "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
+    });
+
+    const verdict = await verify(await signSessionToken("user_x", ORIGIN), ORIGIN);
+
+    expect(verdict.type).toBe("rejected");
+  });
+});
 
 describe("session tokens", () => {
   let testEnv: TestEnv;
@@ -109,6 +150,7 @@ describe("session tokens", () => {
       expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
       expect(await readError(response)).toBe("invalid_session_token");
       expect(warn).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Session token rejected: "));
       warn.mockRestore();
     });
 

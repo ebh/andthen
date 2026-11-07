@@ -41,6 +41,6 @@ What every route must look like: the usual REST conventions, plus the choices th
 ## Done means
 
 - **The route has a row in the `docs/api.md` table**, with its success status and the guard it relies on.
-- **It has an integration test in `test/`** that covers the success status and each error code it can send.
+- **It has an integration test** that covers the success status and sends each error code once, per `.claude/rules/integration-tests.md`. The rule behind an error has its variants unit tested, not repeated here.
 - **A new domain word has its entry in `docs/domain.md`**, per `.claude/rules/naming.md`.
 - **A route that already breaks a rule here has a chore issue.** Leave it alone until that issue is picked up.

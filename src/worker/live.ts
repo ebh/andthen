@@ -1,3 +1,4 @@
+import { LIVE_SUBPROTOCOL, readOfferedSubprotocols } from "../shared/liveSubprotocol";
 import { turnEndsAt, type TurnState } from "../shared/turnOrder";
 import type { AppContext } from "./http";
 
@@ -24,6 +25,36 @@ export function notifyRoom(c: AppContext, storyId: string, saved: TurnState): vo
     deadline: turnEndsAt(saved),
   };
   c.executionCtx.waitUntil(sendNotification(c.env.STORY_ROOM, saved.turnVersion, timer));
+}
+
+const SUBPROTOCOL_HEADER = "Sec-WebSocket-Protocol";
+
+/**
+ * The upgrade request as the story's room should see it. The room never needs the session token
+ * that rode in the offered subprotocols, so it is cut from what the room is sent.
+ */
+export function upgradeRequestForRoom(request: Request): Request {
+  const headers = new Headers(request.headers);
+  if (readOfferedSubprotocols(headers.get(SUBPROTOCOL_HEADER)).offersLive) {
+    headers.set(SUBPROTOCOL_HEADER, LIVE_SUBPROTOCOL);
+  } else {
+    headers.delete(SUBPROTOCOL_HEADER);
+  }
+
+  return new Request(request, { headers });
+}
+
+/**
+ * Headers for the room's `101` answer. A browser closes a socket whose answer isn't one of the
+ * subprotocols it offered, so a client that offered `LIVE_SUBPROTOCOL` gets exactly that back.
+ */
+export function upgradeResponseHeaders(request: Request): Headers {
+  const headers = new Headers();
+  if (readOfferedSubprotocols(request.headers.get(SUBPROTOCOL_HEADER)).offersLive) {
+    headers.set(SUBPROTOCOL_HEADER, LIVE_SUBPROTOCOL);
+  }
+
+  return headers;
 }
 
 async function sendNotification(

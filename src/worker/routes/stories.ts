@@ -53,7 +53,7 @@ import {
 } from "../http";
 import { newId } from "../ids";
 import { leaveAsParticipant } from "../leave";
-import { notifyRoom } from "../live";
+import { notifyRoom, upgradeRequestForRoom } from "../live";
 import { requireOrCreateMe, resolveMe, type MeDeps } from "../me";
 import type { PushSender } from "../push";
 import { buildStoryView } from "../storyView";
@@ -371,7 +371,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const loaded = await requireStory(c, storyId);
     await requireParticipant(c, deps, loaded);
 
-    return c.env.STORY_ROOM.getByName(storyId).fetch(c.req.raw);
+    return c.env.STORY_ROOM.getByName(storyId).fetch(upgradeRequestForRoom(c.req.raw));
   });
 
   return routes;

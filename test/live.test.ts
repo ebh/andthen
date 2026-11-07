@@ -16,12 +16,13 @@ import {
   type Clock,
 } from "./support/browser";
 import { gateLoads } from "./support/gatedDb";
+import { signSessionToken } from "./support/sessionToken";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
 // A stand-in StoryRoom namespace. Node can't build a 101 response, so `fetch` answers 200.
 interface FakeRooms {
-  env: { DB: D1Database; STORY_ROOM: object };
-  upgrades: { storyId: string; url: string }[];
+  env: { DB: D1Database; STORY_ROOM: object; CLERK_JWT_KEY: string };
+  upgrades: { storyId: string; url: string; subprotocol: string | null }[];
   notifications: { storyId: string; version: number; timer: RoomTimer }[];
 }
 
@@ -42,14 +43,18 @@ describe("GET /api/stories/:id/live", () => {
     notify: (version: number) => Promise<void> = () => Promise.resolve(),
   ): FakeRooms {
     const rooms: FakeRooms = {
-      env: { DB: testEnv.env.DB, STORY_ROOM: {} },
+      env: { DB: testEnv.env.DB, STORY_ROOM: {}, CLERK_JWT_KEY: testEnv.env.CLERK_JWT_KEY },
       upgrades: [],
       notifications: [],
     };
     rooms.env.STORY_ROOM = {
       getByName: (storyId: string) => ({
         fetch: (request: Request) => {
-          rooms.upgrades.push({ storyId, url: request.url });
+          rooms.upgrades.push({
+            storyId,
+            url: request.url,
+            subprotocol: request.headers.get("Sec-WebSocket-Protocol"),
+          });
           return Promise.resolve(new Response("room"));
         },
         notify: (message: { version: number }, timer: RoomTimer) => {
@@ -73,6 +78,14 @@ describe("GET /api/stories/:id/live", () => {
     await joinStory(ben, storyId, "Ben");
 
     return { ana, ben, storyId };
+  }
+
+  async function signedInStory(clerkUserId: string) {
+    const ana = createBrowser(app, testEnv.env);
+    ana.sessionToken = await signSessionToken(clerkUserId, "http://localhost");
+    const storyId = await createStory(ana);
+
+    return { storyId, token: ana.sessionToken };
   }
 
   describe("the guard", () => {
@@ -171,6 +184,85 @@ describe("GET /api/stories/:id/live", () => {
       expect(await response.text()).toBe("room");
       expect(rooms.upgrades).toHaveLength(1);
       expect(rooms.upgrades[0]?.storyId).toBe(storyId);
+    });
+  });
+
+  describe("the session token in the subprotocols", () => {
+    it("lets a signed-in participant in on a token alone, and keeps the token from the room", async () => {
+      const { storyId, token } = await signedInStory("user_live");
+      const rooms = fakeRooms();
+
+      const response = await newBrowser().get(`/api/stories/${storyId}/live`, {
+        headers: { ...upgrade, "Sec-WebSocket-Protocol": `andthen-live, ${token}` },
+        env: rooms.env,
+      });
+
+      expect(await response.text()).toBe("room");
+      expect(rooms.upgrades.map((u) => u.subprotocol)).toEqual(["andthen-live"]);
+    });
+
+    it("lets an anonymous participant in with andthen-live alone", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+
+      const response = await ana.get(`/api/stories/${storyId}/live`, {
+        headers: { ...upgrade, "Sec-WebSocket-Protocol": "andthen-live" },
+        env: rooms.env,
+      });
+
+      expect(await response.text()).toBe("room");
+      expect(rooms.upgrades.map((u) => u.subprotocol)).toEqual(["andthen-live"]);
+    });
+
+    it("sends the room no subprotocol when the client offered none", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+
+      await ana.get(`/api/stories/${storyId}/live`, { headers: upgrade, env: rooms.env });
+
+      expect(rooms.upgrades.map((u) => u.subprotocol)).toEqual([null]);
+    });
+
+    it("refuses a bad token with 401 and never falls back to the cookie", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+      const expired = await signSessionToken("user_live", "http://localhost", {
+        expiresInSeconds: -120,
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const response = await ana.get(`/api/stories/${storyId}/live`, {
+        headers: { ...upgrade, "Sec-WebSocket-Protocol": `andthen-live, ${expired}` },
+        env: rooms.env,
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+      expect(await readError(response)).toBe("invalid_session_token");
+      expect(rooms.upgrades).toEqual([]);
+      warn.mockRestore();
+    });
+
+    it("refuses a token that names someone who is not in the story", async () => {
+      const { storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+      const token = await signSessionToken("user_outsider", "http://localhost");
+
+      const response = await newBrowser().get(`/api/stories/${storyId}/live`, {
+        headers: { ...upgrade, "Sec-WebSocket-Protocol": `andthen-live, ${token}` },
+        env: rooms.env,
+      });
+
+      expect(response.status).toBe(403);
+      expect(await readError(response)).toBe("not_participant");
+    });
+
+    it("ignores subprotocols on a request that is not an upgrade", async () => {
+      const response = await newBrowser().get("/api/stories", {
+        headers: { "Sec-WebSocket-Protocol": "andthen-live, not-a-token" },
+      });
+
+      expect(response.status).toBe(200);
     });
   });
 

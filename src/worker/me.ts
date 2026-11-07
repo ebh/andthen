@@ -1,3 +1,4 @@
+import { readOfferedSubprotocols } from "../shared/liveSubprotocol";
 import { hashBrowserToken, readBrowserToken, readOrIssueBrowserToken } from "./cookies";
 import {
   createAccountUser,
@@ -105,10 +106,13 @@ async function verifiedSession(c: AppContext, deps: MeDeps): Promise<VerifiedSes
 
 const BEARER_HEADER = /^Bearer (\S+)$/i;
 
+// A browser can't set headers on a WebSocket, so the live socket carries it in its subprotocols.
 function readSessionToken(c: AppContext): string | null {
   const header = c.req.header("Authorization");
   if (header === undefined) {
-    return null;
+    return isWebSocketUpgrade(c)
+      ? readOfferedSubprotocols(c.req.header("Sec-WebSocket-Protocol")).sessionToken
+      : null;
   }
 
   const token = BEARER_HEADER.exec(header)?.[1];
@@ -117,4 +121,8 @@ function readSessionToken(c: AppContext): string | null {
   }
 
   return token;
+}
+
+function isWebSocketUpgrade(c: AppContext): boolean {
+  return c.req.header("Upgrade")?.toLowerCase() === "websocket";
 }

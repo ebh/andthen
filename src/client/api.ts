@@ -90,6 +90,11 @@ export function removePushSubscription(endpoint: string): Promise<ApiResult<null
   return call("/api/push-subscription", jsonRequest("DELETE", { endpoint }), noBodySchema);
 }
 
+/** Brings this device's stories into the signed-in account. Needs a session token; safe to repeat. */
+export function putMyAccount(): Promise<ApiResult<null>> {
+  return call("/api/users/me/account", jsonRequest("PUT", {}), noBodySchema);
+}
+
 // Mutating routes answer 204, so reading the body fails and yields null.
 const noBodySchema = z.null();
 

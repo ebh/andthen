@@ -199,6 +199,25 @@ Paper with only a theme looked close to the web design, but its web accessibilit
 - The wrapped `tamagui build` in CI, the zero-runtime islands mode, and a hard kill of `tamagui build` mid-run.
 - The edited `ci.yml`, `deploy.yml` and Playwright config.
 
+## Clerk accounts
+
+### Worker side: `@clerk/backend` under workerd, yes
+
+- `@clerk/backend` 3.27.0 `verifyToken` with `jwtKey` runs under workerd. `test/storyRoom.workerd.test.ts` imports it and verifies a token there.
+- With `jwtKey` it checks the signature locally and makes no network call.
+- The key must be an RSA-2048 public key in SPKI PEM form (`-----BEGIN PUBLIC KEY-----`). `test/support/sessionToken.ts` makes such a key per test run.
+- `authorizedParties` is checked only when the token has an `azp` claim, so the Worker rejects a token that has none (`src/worker/sessionToken.ts`).
+
+### Client side: `@clerk/expo` on Expo 58 and react-native-web, yes
+
+- `@clerk/expo` 4.15.1 works on Expo 58 with react-native-web.
+- `<SignIn/>` comes from `@clerk/expo/web`, used with `routing="hash"` and `withSignUp`.
+- `tokenCache` is undefined on web.
+- `pnpm-workspace.yaml` sets `browser-tabs-lock: false` and `core-js: false` in `allowBuilds`, so their install scripts do not run.
+- Clerk 6.42.3 draws input and button borders as box-shadows at a fixed 11% opacity of `colorBorder`, so in dark mode a dark `colorBorder` disappears. `colorBorder` maps to the theme's text colour.
+- Clerk logs "expo-web-browser not available, OAuth/SSO on web will not work". Google sign-in on web therefore needs `expo-web-browser`, which is not added. Only email sign-in works today.
+- Headless Chromium fails Clerk's bot check at sign-up. Headed Chromium passes. The e2e tests therefore cover anonymous journeys only.
+
 ## Known gaps to review before production
 
 - `/api/health` runs a D1 query for any unauthenticated caller. Fine while nothing is deployed; review its cost and exposure before production.

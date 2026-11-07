@@ -1,32 +1,34 @@
 # Story API
 
-Routes live in `src/worker/routes/stories.ts` (and `src/worker/routes/pushSubscriptions.ts`), SQL in `src/worker/db/storyRepo.ts` (and `src/worker/db/pushRepo.ts`). Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved. `.claude/rules/api.md` has the rules for adding a route, and `docs/domain.md` the words its path uses.
+Routes live in `src/worker/routes/stories.ts`, `src/worker/routes/pushSubscriptions.ts` and `src/worker/routes/users.ts`, SQL in `src/worker/db/storyRepo.ts`, `src/worker/db/pushRepo.ts` and `src/worker/db/userRepo.ts`. Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved. `.claude/rules/api.md` has the rules for adding a route, and `docs/domain.md` the words its path uses.
 
 ## Routes
 
-| Route                                 | Success                        | Notes                                                                                       |
-| ------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
-| `GET /api/stories`                    | 200 `{stories: [...]}`         | The stories this browser is in and has not left. See "Your stories".                        |
-| `POST /api/stories`                   | 201 `{storyId}`                | Sets the cookie if the browser has none. A browser may start many stories under one cookie. |
-| `GET /api/stories/:id`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.        |
-| `POST /api/stories/:id/participants`  | 201 `{participantId}`          | Sets the cookie if the browser has none.                                                    |
-| `POST /api/stories/:id/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph. |
-| `POST /api/stories/:id/skip`          | 204                            | Body `{turnVersion}`.                                                                       |
-| `POST /api/stories/:id/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                     |
-| `POST /api/stories/:id/rejoin`        | 204                            | Body `{}`. Only for a browser that left. See "Leaving and rejoining".                       |
-| `POST /api/stories/:id/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                        |
-| `GET /api/stories/:id/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                      |
-| `PUT /api/push-subscription`          | 204                            | Body is a `PushSubscription.toJSON()`. See "Web Push".                                      |
-| `DELETE /api/push-subscription`       | 204                            | Body `{endpoint}`. See "Web Push".                                                          |
-| `GET /api/push-subscription/key`      | 200 `{publicKey}`              | The VAPID public key. See "Web Push".                                                       |
+| Route                                 | Success                        | Notes                                                                                            |
+| ------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `GET /api/stories`                    | 200 `{stories: [...]}`         | The stories this user is in and has not left. See "Your stories".                                |
+| `POST /api/stories`                   | 201 `{storyId}`                | Creates the user if there is none. An anonymous browser gets the cookie. See "Identity".         |
+| `GET /api/stories/:id`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.             |
+| `POST /api/stories/:id/participants`  | 201 `{participantId}`          | Creates the user if there is none. An anonymous browser gets the cookie.                         |
+| `POST /api/stories/:id/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.      |
+| `POST /api/stories/:id/skip`          | 204                            | Body `{turnVersion}`.                                                                            |
+| `POST /api/stories/:id/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                          |
+| `POST /api/stories/:id/rejoin`        | 204                            | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                |
+| `POST /api/stories/:id/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                             |
+| `GET /api/stories/:id/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                           |
+| `PUT /api/push-subscription`          | 204                            | Body is a `PushSubscription.toJSON()`. See "Web Push".                                           |
+| `PUT /api/users/me/account`           | 204                            | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts". |
+| `DELETE /api/push-subscription`       | 204                            | Body `{endpoint}`. See "Web Push".                                                               |
+| `GET /api/push-subscription/key`      | 200 `{publicKey}`              | The VAPID public key. See "Web Push".                                                            |
 
-Mutating routes send no body back, except suggestions, which is a read. Clients refetch `GET /api/stories/:id`; the live socket tells them when.
+Every route resolves who is asking as described under "Identity". Mutating routes send no body back, except suggestions, which is a read. Clients refetch `GET /api/stories/:id`; the live socket tells them when.
 
 ## Error statuses
 
 One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorCode, …>`, so a new code can't be forgotten).
 
 - **400:** `bad_request`, `invalid_passage`, `invalid_display_name`.
+- **401:** `invalid_session_token`: a session token that is missing where one is required, malformed or rejected. It carries a `WWW-Authenticate` header. See "Identity".
 - **403:** `forbidden_origin`, `not_participant`, `left_story`, `not_your_turn`, `cannot_skip_self`.
 - **404:** `not_found`. An ID that can't be a story ID is also 404, with no database call. An unknown `/api/*` path is a JSON 404 too.
 - **409:** `stale_turn`, `name_taken`, `already_joined`, `story_full`, `no_one_to_skip_to`.
@@ -38,35 +40,35 @@ Every error body is JSON `{error: <code>}`, so a client can parse it with `error
 
 - **426:** `client_outdated`, an `X-Api-Level` below the Worker's minimum. See "Versioning". A live upgrade without `Upgrade: websocket` is also 426, with a different body.
 
-Order of checks on a mutating route: API level (400 malformed, 426 too low), Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409).
+Order of checks on a mutating route: API level (400 malformed, 426 too low), Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409). A session token is checked when a route first needs to know the user: with the participant check on a story route, and before the body on `PUT /api/users/me/account`. A bad token is 401 whatever follows.
 
 ## Things a client or reviewer might not expect
 
 - **Story existence leaks.** An unknown ID is 404 and a known story you aren't in is 403, so anyone can probe whether a story exists. This is an accepted risk of short story IDs; see "Accepted risks" in `deployment.md`.
 - **Taken names leak.** A join to a story you aren't in answers `name_taken` for a name in use, so a link holder can learn the participants' names (a name can't be checked without joining).
 - **Body parsing comes before the story lookup.** A malformed body is 400 even for a story that doesn't exist or that you aren't in.
-- **A rejected join still sets the cookie.** A browser with no cookie gets one before the join is checked, and keeps it after a `name_taken` or `stale_turn`. It is harmless: the token belongs to no participant until a join succeeds, and a retry with another name reuses it.
+- **A rejected join still creates the user.** An anonymous browser with no cookie gets one, and a user row, before the join is checked, and keeps both after a `name_taken` or `stale_turn`. It is harmless: the user is in no story until a join succeeds, and a retry with another name reuses it.
 - **A waiting story answers contribute and skip differently.** A contribution is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
 - **Plain cookie only on `http://localhost`.** `127.0.0.1` and LAN hosts get the `__Host-` Secure cookie, which browsers drop over plain HTTP, so dev must use `localhost`.
 
 ## Your stories
 
-`GET /api/stories` lists the stories whose participant rows carry the cookie's token hash and have no `left_at`, using the `participants_by_browser` index. It only reads: no cookie is issued, and a browser with none gets `{stories: []}`.
+`GET /api/stories` lists the stories whose participant rows belong to the requesting user and have no `left_at`, using the `participants_by_user` index. It only reads: no cookie or user is created, and a request that names no user gets `{stories: []}`. A signed-in user gets the same list on every device.
 
 - **Entry:** `id`, `opening` (the first passage in full), `holderName` (null while the story waits), `isMyTurn`, `endsAt` (null while it waits) and `writerCount` (writers still in the story).
 - **Turn:** `resolveTurn(state, now)`, as in the story view, so an expired turn shows its new holder. Nothing is written.
 - **Order:** stories where the caller holds the turn first, then the newest passage first, then ID, so the order is stable between requests.
 - **One snapshot:** the story rows, their writers and their first passages come from one `db.batch()`.
-- **Not bounded:** nothing limits how many stories a browser can start, so nothing limits the list. See "Accepted risks" in `deployment.md`.
+- **Not bounded:** nothing limits how many stories a user can start, so nothing limits the list. See "Accepted risks" in `deployment.md`.
 
 ## Leaving and rejoining
 
 Leaving is soft. `POST /api/stories/:id/leave` sets `participants.left_at` and keeps the row, because passages join to their author and a name stays reserved in its story.
 
 - **Turn:** `onLeave` takes the position out of the turn order and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
-- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the name the writer had there and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the old name and cookie stay on the row, so a leaver gets back only through rejoin.
+- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the name the writer had there and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the old name and user stay on the row, so a leaver gets back only through rejoin.
 - **Names:** a leaver's name stays taken in that story, so a new joiner can't reuse it.
-- **Rejoin:** `POST /api/stories/:id/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a browser that was never in the story, 409 `already_joined` for one that is in it, 409 `story_full` when the story filled while they were away.
+- **Rejoin:** `POST /api/stories/:id/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a user who was never in the story, 409 `already_joined` for one who is in it, 409 `story_full` when the story filled while they were away.
 - **Races:** both routes are guarded by the loaded `turn_version` like every write, so one that loses a race answers 409 `stale_turn`.
 - **Body:** `{}` and nothing else; a body with anything in it is 400 `bad_request` (`emptyRequestSchema`).
 
@@ -80,11 +82,49 @@ A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone 
 - **A refused write is explained by a re-read.** When `addParticipant` or `rejoinStory` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
 - A refused join writes nothing, bumps no `turnVersion` and sends no live message.
 
+## Identity
+
+Every route that needs to know who is asking resolves a user (`resolveMe` and `requireOrCreateMe` in `src/worker/me.ts`). Accounts are optional, so there are two ways to be identified, and a request uses exactly one.
+
+- **Session token.** A signed-in client sends the session token as `Authorization: Bearer <token>` on every call. The Worker checks it and the user is the one who holds that account. A request with a session token never looks at the cookie.
+- **Browser token.** With no `Authorization` header the cookie decides (see "Cookie"). A browser with no cookie, or a cookie that names no user, has no user yet.
+- **Where a user is made.** `GET` routes and `DELETE` never create a user. `POST /api/stories` and the join route do: an account user for a session token, otherwise an anonymous user with the cookie issued when the browser has none.
+- **The live socket** carries the token in its subprotocols instead (see "Live updates").
+
+The token check lives in `src/worker/sessionToken.ts`. It verifies the signature against the instance's public key (`CLERK_JWT_KEY`, a Worker var), so it makes no network call.
+
+- **The origin is checked.** The token's `azp` claim must equal the request's origin. A token without an `azp` claim is rejected, because without the claim the library skips the origin check.
+- **A rejected token is a 401.** An expired token, a bad signature, a wrong origin, a missing `azp` and an `Authorization` header that is not `Bearer <token>` all answer 401 `invalid_session_token`. The reason goes to the Worker log and never to the client.
+- **No fallback to the cookie.** A rejected token never turns the request into an anonymous one, so a signed-in request cannot quietly act as another user.
+- **`WWW-Authenticate` says why** (RFC 6750). A request that sent no credentials where a session is required gets `WWW-Authenticate: Bearer` (`NO_TOKEN_CHALLENGE`). A request that sent a token that was rejected gets `WWW-Authenticate: Bearer error="invalid_token"`. `ApiError` carries the value as `challenge` (`src/worker/http.ts`).
+
+## Accounts
+
+`PUT /api/users/me/account` (`src/worker/routes/users.ts`) ties the requesting device to the signed-in account. Body `{}` (else 400 `bad_request`), answer 204. It needs a session token, checked before the body: no token is 401 `invalid_session_token` with `WWW-Authenticate: Bearer`.
+
+The device user is the user the cookie names. With no cookie, or a cookie that names no user, there is nothing to do and the route answers 204.
+
+- **No account user yet:** the account is attached to the device user (`attachAccount` in `src/worker/db/userRepo.ts`). The user keeps its participants and push subscriptions, gains the Clerk user ID and loses its browser token hash.
+- **The account already has a user:** the device user is merged into it, in two steps.
+  - **First,** for each story where both users are writers who have not left, the device user's participant leaves, as a leave does (`leaveAsParticipant` in `src/worker/leave.ts`: the turn passes on and the room and the new holder are told). A leave that loses a race with another write on the story is retried with a fresh load, up to `MERGE_LEAVE_ATTEMPTS` (3) times, then the route answers 409 `stale_turn`.
+  - **Then** one `db.batch()` points the device user's participants and push subscriptions at the account user and deletes the device user (`mergeUserInto`).
+- **Safe to repeat.** After a success the cookie names no user, so a second call finds none and answers 204. A call cut short by a failure or a 409 finishes on the next one.
+- **Same story, two writers.** The device user's participant has left and keeps its row, now tied to the account user. Joining the two participants into one is not built (issue #48).
+
+### How the app uses it
+
+- **Sending the token.** `call` in `src/client/api.ts` adds `Authorization: Bearer <token>` when the client is signed in. The token comes from `getSessionToken` (`src/client/sessionToken.ts`), which asks Clerk each time and never caches one.
+- **Waiting for Clerk.** Before the first request the client waits up to `SIGN_IN_STATE_WAIT_MS` (3 s) for Clerk to load, so a signed-in device does not go out as anonymous. When the wait runs out the request goes out anonymously, and later requests don't wait again (they use Clerk if it has loaded by then), so a blocked Clerk delays the first request once. Anonymous use never depends on Clerk.
+- **A rejected token.** On 401 `invalid_session_token` the client fetches a fresh token and retries once. If that fails too, the failure is shown as for any other.
+- **Adding the device.** `addDeviceUserToAccount` (`src/client/account.ts`) calls the account route after sign-in and on every app load while signed in (`AddDeviceUserOnLoad` mounts it), so a merge that was cut short finishes. Overlapping calls share one request, and a 409 `stale_turn` is retried once after a second. When it works, `onDeviceUserAdded` listeners run and the list of stories refetches. Any other failure is silent until the next call.
+- **Signing out.** `SignInStatus` switches the device's turn notifications off first, while the session can still authorise the delete, then signs out.
+
 ## Guards
 
 - **API level, on every `/api/*` request:** see "Versioning". It runs first, so a stale client gets `client_outdated` whatever else is wrong with its request.
 - **On a mutating request:** `Origin` must equal the request's own origin; a missing `Origin` fails. `GET`, `HEAD` and `OPTIONS` are exempt. The live upgrade is a `GET` but runs the same check (`requireSameOrigin`).
 - **On a mutating request:** `Content-Type` must be `application/json`, parameters allowed.
+- **Session token, where a route needs the user:** a token that is present must verify, or the answer is 401 `invalid_session_token`. See "Identity".
 
 ## Versioning
 
@@ -95,7 +135,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 - **Missing header:** accepted. curl, uptime checks and clients built before the header existed send none, and refusing them would break them for no gain. A browser app always sends it.
 - **Too low:** a level below `MIN_API_LEVEL` is 426 `client_outdated`, checked before every other guard (`requireApiLevel` in `src/worker/http.ts`). A level above the Worker's is accepted.
 - **Exempt:** `/api/health`, so a monitor works whatever it sends.
-- **Live sockets** carry no header, because a browser's WebSocket can't set one. The upgrade is checked like any other `/api/*` request, but a socket that is already open is not. What carries the check is the refetch the client makes on every open: it is an ordinary request with the header.
+- **Live sockets** carry no `X-Api-Level` header, because a browser's WebSocket can't set one. The upgrade is checked like any other `/api/*` request, but a socket that is already open is not. What carries the check is the refetch the client makes on every open: it is an ordinary request with the header.
 - **The client's reaction:** `call` turns a `client_outdated` answer into the failure `{type: "client_outdated"}` and sets the flag in `src/client/clientOutdated.ts`. The root layout then shows `UpdateRequired` (heading "Update to continue", one "Update now" button that calls `applyUpdate` from `useAppUpdate` in `src/client/appUpdate.ts`: it hands over to a waiting service worker and reloads, or, with none waiting, removes the service worker and the caches and reloads) in place of the routed page. Unmounting the page closes its live socket, so nothing keeps retrying.
 - **Only add.** A change that keeps `API_LEVEL` may add an optional response field, a route or an error code, and nothing else. A client ignores a field it doesn't know. An error code it doesn't know becomes the failure `{type: "unknown_code", status, code}` with the generic message, and a live message of a shape it doesn't know still triggers a refetch.
 - **Fixtures:** `src/shared/fixtures/level1/` holds a frozen sample of every message of level 1, and `src/shared/compat.test.ts` checks that the current schemas still parse them. The fixtures are append-only: never edit one to make a test pass.
@@ -124,7 +164,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 
 `GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
 
-- **Checks, in order:** `Upgrade: websocket`, any case (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), participant cookie (403 `not_participant`). Only then is the request forwarded to the room.
+- **Checks, in order:** `Upgrade: websocket`, any case (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), the caller is a participant (403 `not_participant`; 401 `invalid_session_token` for a bad session token). Only then is the request forwarded to the room.
 - **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, rejoin, leave, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any message that is JSON text, whatever its shape, so a message kind from a newer Worker still triggers a refetch. It ignores text that isn't JSON and binary frames, and does not need the version.
 - **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds. It hands the room's `notify` RPC call to `waitUntil` and returns at once, so a slow or hung room can't delay a committed write. A failure is logged and swallowed, never turned into an error response: clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
 - **Client:** the live logic in `src/client/live.ts` says when to refetch: on every open, every JSON message and a second after `turn.endsAt` (a turn that times out sends no message). `useStoryLive` mounts it on the story page. The socket sends no `X-Api-Level`; the refetch on open does (see "Versioning").
@@ -138,21 +178,23 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
   - **Safe to repeat:** a second fire, a fire before the deadline (the alarm is re-armed for the real one), a story that waits, and a write that wins the version guard first all save and push nothing. After a lost race the room arms the deadline the winning write left.
   - **Failures:** a push failure is logged. Any other failure (D1 down, bad stored timer) throws, and the runtime retries the alarm.
 - **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
-- **A cookie is read at the upgrade only.** An open socket is not rechecked. A writer who leaves keeps their sockets, so they go on receiving version numbers (nothing else is sent) until the socket closes; a refetch then answers 403 `left_story`. Closing them would need the room to tag sockets by participant, which it does not do.
+- **Subprotocols carry the session token.** A browser's WebSocket can't set an `Authorization` header, so a signed-in client offers `["andthen-live", <session token>]` (`LIVE_SUBPROTOCOL` and `liveSubprotocolsFor` in `src/shared/liveSubprotocol.ts`). An anonymous client offers `["andthen-live"]` and the cookie decides. The Worker reads the token from the offered entries, cuts it from what it forwards to the room (`upgradeRequestForRoom`) and answers `andthen-live` alone (`upgradeResponseHeaders`), because a browser closes a socket whose answer is not one it offered. The client fetches a token for each connection, so a reconnect never offers an expired one.
+- **Identity is read at the upgrade only.** An open socket is not rechecked, and a session token lasts about a minute. A writer who leaves keeps their sockets, so they go on receiving version numbers (nothing else is sent) until the socket closes; a refetch then answers 403 `left_story`. Closing them would need the room to tag sockets by participant, which it does not do.
 
 ## Web Push
 
 A browser that allows notifications is told when a change hands it the turn. This section is the server's half. The app's half is `src/client/turnAlerts.ts` (see "How the app uses these routes" below) and the service worker's handlers in `src/client/pushHandlers.ts`.
 
-- **One subscription per browser and endpoint, for every story.** `push_subscriptions` is keyed on the push service's `endpoint` and carries the browser's token hash (`participants.browser_token_hash`), so one subscription covers every story the browser is in. A browser may hold several (one per device profile or push service).
-- **`PUT /api/push-subscription`:** body `{endpoint, keys: {p256dh, auth}}`, which is what `PushSubscription.toJSON()` returns (other fields, such as `expirationTime`, are ignored; `pushSubscriptionSchema`). Saves it for the cookie's browser and answers 204. The endpoint must be `https`, at most 2048 characters, and on a known push service host: `fcm.googleapis.com`, `updates.push.services.mozilla.com`, or a subdomain of `push.apple.com` or `notify.windows.com`. Any other host, a port, or userinfo in the URL is 400 `bad_request`, so the Worker cannot be made to post to other sites. To support a new push service, add its host to `PUSH_SERVICE_HOSTS` or `PUSH_SERVICE_HOST_SUFFIXES` in `src/shared/api.ts`. `p256dh` and `auth` must be unpadded base64url of the length a browser produces (87 and 22 characters).
+- **One subscription per endpoint, for every story.** `push_subscriptions` is keyed on the push service's `endpoint` and carries the owner's `user_id`, so one subscription covers every story that user is in. A user may hold several (one per device, profile or push service), so a signed-in user is pushed on all their devices.
+- **`PUT /api/push-subscription`:** body `{endpoint, keys: {p256dh, auth}}`, which is what `PushSubscription.toJSON()` returns (other fields, such as `expirationTime`, are ignored; `pushSubscriptionSchema`). Saves it for the requesting user and answers 204. The endpoint must be `https`, at most 2048 characters, and on a known push service host: `fcm.googleapis.com`, `updates.push.services.mozilla.com`, or a subdomain of `push.apple.com` or `notify.windows.com`. Any other host, a port, or userinfo in the URL is 400 `bad_request`, so the Worker cannot be made to post to other sites. To support a new push service, add its host to `PUSH_SERVICE_HOSTS` or `PUSH_SERVICE_HOST_SUFFIXES` in `src/shared/api.ts`. `p256dh` and `auth` must be unpadded base64url of the length a browser produces (87 and 22 characters).
   - **Same endpoint again:** an upsert. The keys and owner are replaced and `created_at` keeps its first value, so a browser that resubscribes, or a second browser that registers the same endpoint, takes it over.
-  - **No cookie:** 403 `not_participant`, nothing saved, no cookie issued. A browser with no cookie is in no story, so there is nothing to push to it, and every cookieless browser would otherwise share the hash of the empty token.
-  - **Order of checks:** the guards in "Guards", then the body (400 `bad_request`), then the cookie.
-- **`DELETE /api/push-subscription`:** body `{endpoint}`. Removes this browser's own subscription to that endpoint and answers 204 whether or not one was stored. Another browser's subscription is never touched. A browser with no cookie owns nothing, so it gets 204 and no cookie.
-- **`GET /api/push-subscription/key`:** `{publicKey}`, the VAPID public key (87 base64url characters) for `pushManager.subscribe({applicationServerKey})`. It needs no cookie and reads only `VAPID_PUBLIC_KEY`, so it works before the private key is set. A missing or malformed key is 500 `internal_error`.
+  - **No user:** the request names no user (no session token, and no cookie that matches one). Nothing is saved and no cookie or user is created. The route deletes any row for that endpoint and answers 204, because a session that ended on another device should stop pushing to this one on the next load. The client waits for its session to load before it sends this, so a signed-in device is not mistaken for an anonymous one.
+  - **Rejected session token:** 401 `invalid_session_token`, and the row is kept. A rejected token never falls back to the cookie.
+  - **Order of checks:** the guards in "Guards", then the body (400 `bad_request`), then who is asking.
+- **`DELETE /api/push-subscription`:** body `{endpoint}`. Removes the requesting user's own subscription to that endpoint and answers 204 whether or not one was stored. Another user's subscription is never touched. A request that names no user owns nothing, so it gets 204 and no cookie.
+- **`GET /api/push-subscription/key`:** `{publicKey}`, the VAPID public key (87 base64url characters) for `pushManager.subscribe({applicationServerKey})`. It needs no identity and reads only `VAPID_PUBLIC_KEY`, so it works before the private key is set. A missing or malformed key is 500 `internal_error`.
 - **Who is pushed.** After each join, rejoin, leave, contribution and skip is saved, `notifyTurnHolder` (`src/worker/turnPush.ts`) compares the turn before and after with `turnPassedTo` (`src/shared/turnOrder.ts`).
-  - A push goes to every subscription of the browser of the writer who newly holds the turn.
+  - A push goes to every subscription of the user of the writer who newly holds the turn.
   - No push when the same person keeps the turn, when the story goes to waiting, or when the new holder is the requester (a joiner or rejoiner who takes a waiting story).
   - "Before" is the stored turn with expiry applied (`resolveTurn`). If the holder's window had already lapsed, an unrelated change such as a join does not count as handing the turn to the person it had already moved to. A turn that only lapses is handled by the room's alarm; see "Turn timeout" below.
   - A requester's position is the one in the saved turn order. A joiner or rejoiner takes a new position at the end, so it is not `me.position`.
@@ -181,24 +223,25 @@ All three calls go through `src/client/api.ts` (`fetchPushKey`, `savePushSubscri
 
 - **Turning on** (the "Notify me when it's my turn" switch in the story rail): the page asks for notification permission first, because browsers allow the prompt only inside the user's tap. It then calls `pushManager.subscribe({userVisibleOnly: true, applicationServerKey})` with the key from `GET /api/push-subscription/key`, parses `toJSON()` with `pushSubscriptionSchema` and `PUT`s it. The key is fetched when the app loads, while permission is still undecided, so the tap goes from the prompt to subscribing with no network wait. If the `PUT` fails, or the browser's subscription is not one the schema accepts, the page unsubscribes in the browser again, so the browser never holds a subscription the Worker doesn't know. A browser that cannot subscribe (Brave with "Use Google services for push messaging" off throws here) shows an error and stays off.
 - **Turning off:** the page unsubscribes in the browser, then `DELETE`s the endpoint. If only the `DELETE` fails, the switch still shows off: the browser no longer receives pushes, and the Worker deletes its copy the next time a push to that endpoint answers 404 or 410.
-- **On every app load** (`startTurnAlerts` in `src/app/_layout.tsx`), if notifications are allowed and the browser holds a subscription, the page `PUT`s it again, so a Worker that lost the row (or a browser whose cookie changed) is brought back in step. A failure is ignored; the next load tries again. A page with no cookie gets 403 `not_participant`, which is also ignored.
+- **On every app load** (`startTurnAlerts` in `src/app/_layout.tsx`), if notifications are allowed and the browser holds a subscription, the page `PUT`s it again, so a Worker that lost the row is brought back in step. A failure is ignored; the next load tries again. A page that names no user gets 204 and the Worker drops the endpoint's row (see "No user" above).
 - **No Push API.** iOS and iPadOS Safari has the Push API only for an app added to the Home Screen (16.4 and later). In a browser tab the page shows "Add to Home Screen to get notified" instead of the switch. Where the browser has no service worker or Push API at all, and in a development build (which registers no service worker), the switch is absent.
 - **The service worker** shows the payload with `showNotification`, using the payload's `tag` so a newer notification for the story replaces an older one, and on a tap focuses a tab already on `navigate` or opens it. It ignores a message that does not parse as `turnPushPayloadSchema`, and never opens an address outside its own origin.
 
 ## Cookie
 
-`__Host-andthen_bt` (HttpOnly, Secure, SameSite=Lax, Path=/, 1 year) everywhere except `http://localhost`, where it is `andthen_bt` without `Secure`. The value is 32 random bytes in hex; only its SHA-256 hash is stored in `participants.browser_token_hash`. `readBrowserToken` returns `""` for no cookie, which matches no participant.
+`__Host-andthen_bt` (HttpOnly, Secure, SameSite=Lax, Path=/, 1 year) everywhere except `http://localhost`, where it is `andthen_bt` without `Secure`. The value is 32 random bytes in hex; only its SHA-256 hash is stored, in `users.browser_token_hash`. `readBrowserToken` returns `""` for no cookie, which matches no user. A user who attaches an account loses the hash, so the cookie names no user from then on.
 
 ## Writes and races
 
-Each write is one `db.batch()`. Every statement is guarded by `turn_version = <loaded version>`, so a write that lost a race changes nothing and the route answers 409 `stale_turn`. A join or contribution inserts its row _before_ the story update, so both test the same unchanged snapshot. Unique constraints (`display_name_key`, `browser_token_hash`) are a backstop only: routes check names and tokens against the loaded participants first, and any change to those rows bumps the version.
+Each write is one `db.batch()`. Every statement is guarded by `turn_version = <loaded version>`, so a write that lost a race changes nothing and the route answers 409 `stale_turn`. A join or contribution inserts its row _before_ the story update, so both test the same unchanged snapshot. Unique constraints (`display_name_key`, and one active participant per user per story) are a backstop only: routes check names and users against the loaded participants first, and any change to those rows bumps the version.
 
 Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEMPTS`). A failed create batch leaves nothing behind (it is atomic), so `createStory` asks `SELECT 1 FROM stories WHERE id = ?` to tell a collision from any other error. It does not read the constraint error text, whose wording differs between Miniflare and real D1 and is untested against real D1.
 
 ## Testing
 
-- `createApp({ now, newStoryId, suggestionProvider, pushSender, minApiLevel })` in `src/worker/app.ts` takes the clock, the ID source, a function from `env` to a `SuggestionProvider`, a function from `env` to a `PushSender` and, optionally, the minimum API level (`MIN_API_LEVEL` by default), which a test raises to get `client_outdated`. `app` is the real-clock default; `index.ts` re-exports it.
-- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider, minApiLevel?, pushSender = createFakePushSender())` and `createBrowser(app, env)`, a browser with its own cookie jar (`get`, `post`, `put` and `delete`) that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie.
+- `createApp({ now, newStoryId, suggestionProvider, pushSender, sessionVerifier, minApiLevel })` in `src/worker/app.ts` takes the clock, the ID source, a function from `env` to a `SuggestionProvider`, a function from `env` to a `PushSender`, a function from `env` to a `SessionVerifier` (`selectSessionVerifier` in the real app) and, optionally, the minimum API level (`MIN_API_LEVEL` by default), which a test raises to get `client_outdated`. `app` is the real-clock default; `index.ts` re-exports it.
+- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider, minApiLevel?, pushSender = createFakePushSender())` and `createBrowser(app, env)`, a browser with its own cookie jar (`get`, `post`, `put` and `delete`) that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie. Set its `sessionToken` to make it send `Authorization: Bearer <token>` on every request, as a signed-in client does.
+- `test/support/sessionToken.ts`: `signSessionToken(clerkUserId, origin, options?)` signs a token with a key made for the test run, and `TEST_JWT_KEY` is its public half. `options` takes `expiresInSeconds` (negative for an expired token), `omitAuthorizedParty` (leaves out `azp`) and `signWithOtherKey`. `createTestEnv` (`test/support/testEnv.ts`) sets `CLERK_JWT_KEY` to `TEST_JWT_KEY`, so the real verifier runs in the tests. A token's `origin` must equal the origin the browser sends to.
 - `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200). A browser's `backgroundWork` holds what the app gave `waitUntil`.
 - `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It reads `wrangler.jsonc` and drops `assets` (which needs a built `dist/`). `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.
 - `test/support/fakePushSender.ts`: `createFakePushSender()` records every `send` in `sent` and answers `delivered` unless `outcomes` or `throwing` says otherwise. `test/turnPush.test.ts` uses it to check who is pushed. The real sender is tested in `src/worker/push.test.ts` against the real encryption library, with an injected `fetch`.

@@ -59,7 +59,7 @@ export function SignInStatus({ onSignedOut }: SignInStatusProps) {
         <Paragraph color="muted">
           {user?.primaryEmailAddress?.emailAddress ?? "Signed in"}
         </Paragraph>
-        <Button size="xl" variant="quiet" disabled={signingOut} onPress={leave}>
+        <Button size="xl" variant="quiet" px="0" disabled={signingOut} onPress={leave}>
           {signingOut ? "Signing out…" : "Sign out"}
         </Button>
       </XStack>

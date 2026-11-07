@@ -28,8 +28,13 @@
   // The dev VAPID key's private half is not committed. To receive real pushes locally, put your
   // own pair in `.dev.vars` (see `.dev.vars.example`). Preview and production set the private key
   // as a Worker secret.
+  //
+  // CLERK_JWT_KEY is the Clerk instance's public key (PEM), so it is safe to commit. Verifying a
+  // session token needs it and nothing else. The placeholder rejects every token until the real
+  // key replaces it; the dev instance's key serves local and preview, production has its own.
   "vars": {
     "AI_PROVIDER": "fake",
+    "CLERK_JWT_KEY": "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
     "VAPID_PUBLIC_KEY": "BMKmnIYvuMU7CeHx-XL6Va7VB5DfB67mrMFPeWw4cOPU8sbWdFyHtscVcF1B2k4Hh6fFZbUNpX9KH_ehknKvn1E",
   },
   "env": {
@@ -51,6 +56,7 @@
       // `vars` aren't inherited from the top level.
       "vars": {
         "AI_PROVIDER": "workers-ai",
+        "CLERK_JWT_KEY": "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
         "VAPID_PUBLIC_KEY": "BNbNBYmgShK2QjU5i70V-xwUsQuBs989ekvSVXp2J7Dt2iO2GXV7v7vNgpqIxCNi76FgAR08R-Vl9EHH-1jbYBI",
       },
     },
@@ -73,6 +79,7 @@
       // `vars` aren't inherited from the top level.
       "vars": {
         "AI_PROVIDER": "workers-ai",
+        "CLERK_JWT_KEY": "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
         "VAPID_PUBLIC_KEY": "BNqSWSuX5Uv2Zq162Ea7DLp0MANwRW-XMzmbqsZI3ngfEBmeVKgWXnbYxFokQBJzDHXDeTaY8zDCn7hgJTto3o0",
       },
     },

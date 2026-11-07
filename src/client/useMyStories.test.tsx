@@ -143,18 +143,4 @@ describe("useMyStories", () => {
 
     expect(result.current.load).toEqual({ type: "loaded", stories: [story] });
   });
-
-  it("drops the reply that arrives after the page is gone", async () => {
-    const replies = stubReplies();
-    const { result, unmount } = renderHook(() => useMyStories());
-    await waitFor(() => {
-      expect(replies).toHaveLength(1);
-    });
-    unmount();
-
-    replies[0]?.(jsonResponse(200, { stories: [story] }));
-    await Promise.resolve();
-
-    expect(result.current.load).toEqual({ type: "loading" });
-  });
 });

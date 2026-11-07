@@ -14,15 +14,15 @@ const LOADING: MyStoriesLoad = { type: "loading" };
 /** Loads the stories this browser is in when the page mounts, and again on `reload`. */
 export function useMyStories(): { load: MyStoriesLoad; reload: () => void } {
   const [load, setLoad] = useState<MyStoriesLoad>(LOADING);
-  const latestRequest = useRef(0);
+  const latestRequest = useRef<object>({});
 
   const fetchStories = useCallback(() => {
-    latestRequest.current += 1;
-    const thisRequest = latestRequest.current;
+    const thisRequest = {};
+    latestRequest.current = thisRequest;
 
     void (async () => {
       const result = await listMyStories();
-      // A reply that a newer request, or the page unmounting, has overtaken is dropped.
+      // A reply that a newer request has overtaken is dropped.
       if (thisRequest === latestRequest.current) {
         setLoad(
           result.ok
@@ -35,10 +35,6 @@ export function useMyStories(): { load: MyStoriesLoad; reload: () => void } {
 
   useEffect(() => {
     fetchStories();
-
-    return () => {
-      latestRequest.current += 1;
-    };
   }, [fetchStories]);
 
   // Joining an account can add stories from its other devices. Refetched in place, so a list on

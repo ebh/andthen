@@ -9,7 +9,9 @@ export type SessionVerdict =
 /** Checks one session token against the origin the request was made to. Never throws. */
 export type SessionVerifier = (token: string, origin: string) => Promise<SessionVerdict>;
 
-const claimsSchema = z.object({ sub: z.string().min(1) });
+// `azp` is required: Clerk checks it only when present, so a token without one would skip the
+// origin check.
+const claimsSchema = z.object({ sub: z.string().min(1), azp: z.string() });
 
 /**
  * A verifier for this request's bindings. It checks the signature against `CLERK_JWT_KEY`, so it
@@ -23,7 +25,12 @@ export function selectSessionVerifier(env: Env): SessionVerifier {
         authorizedParties: [origin],
       });
 
-      return { type: "valid", clerkUserId: claimsSchema.parse(claims).sub };
+      const { sub, azp } = claimsSchema.parse(claims);
+      if (azp !== origin) {
+        throw new Error("Session token was issued for another origin");
+      }
+
+      return { type: "valid", clerkUserId: sub };
     } catch (error) {
       return { type: "rejected", reason: error instanceof Error ? error.message : "unknown" };
     }

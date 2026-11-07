@@ -399,12 +399,13 @@ describe("PUT /api/users/me/account", () => {
           return browser;
         },
       ],
+      ["without an azp claim", () => account("user_x", { omitAuthorizedParty: true })],
       ["missing", () => Promise.resolve(anonymous())],
     ];
 
     it.each(cases)(
       "is refused with 401 and a challenge when the token is %s",
-      async (_name, make) => {
+      async (name, make) => {
         setUp();
         const browser = await make();
         await createStory(createBrowser(app, env, ORIGIN));
@@ -414,7 +415,10 @@ describe("PUT /api/users/me/account", () => {
         const response = await browser.put(PATH, {});
 
         expect(response.status).toBe(401);
-        expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+        // RFC 6750: no credentials gets a bare challenge, a rejected token gets `error`.
+        expect(response.headers.get("WWW-Authenticate")).toBe(
+          name === "missing" ? "Bearer" : 'Bearer error="invalid_token"',
+        );
         expect(await readError(response)).toBe("invalid_session_token");
         expect([await count("users"), await count("participants")]).toEqual(before);
         warn.mockRestore();

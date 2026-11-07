@@ -46,6 +46,17 @@ describe("the session verifier", () => {
     expect(verdict.type === "rejected" ? verdict.reason.trim() : "").not.toBe("");
   });
 
+  it("rejects a token with no azp claim, whose origin Clerk would not check", async () => {
+    const verify = selectSessionVerifier(testEnv.env);
+
+    const verdict = await verify(
+      await signSessionToken("user_x", ORIGIN, { omitAuthorizedParty: true }),
+      ORIGIN,
+    );
+
+    expect(verdict.type).toBe("rejected");
+  });
+
   it("rejects every token when the key is the committed placeholder", async () => {
     const verify = selectSessionVerifier({
       ...testEnv.env,
@@ -136,6 +147,10 @@ describe("session tokens", () => {
         () => signSessionToken("user_x", ORIGIN, { signWithOtherKey: true }),
       ],
       ["issued for another origin", () => signSessionToken("user_x", "https://evil.example")],
+      [
+        "without an azp claim",
+        () => signSessionToken("user_x", ORIGIN, { omitAuthorizedParty: true }),
+      ],
       ["malformed", () => Promise.resolve("not-a-jwt")],
     ];
 
@@ -174,6 +189,7 @@ describe("session tokens", () => {
       });
 
       expect(response.status).toBe(401);
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
       expect(await readError(response)).toBe("invalid_session_token");
     });
 

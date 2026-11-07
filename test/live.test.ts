@@ -243,6 +243,25 @@ describe("GET /api/stories/:id/live", () => {
       warn.mockRestore();
     });
 
+    it("refuses a token with no azp claim", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const rooms = fakeRooms();
+      const noAzp = await signSessionToken("user_live", "http://localhost", {
+        omitAuthorizedParty: true,
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const response = await ana.get(`/api/stories/${storyId}/live`, {
+        headers: { ...upgrade, "Sec-WebSocket-Protocol": `andthen-live, ${noAzp}` },
+        env: rooms.env,
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+      expect(rooms.upgrades).toEqual([]);
+      warn.mockRestore();
+    });
+
     it("refuses a token that names someone who is not in the story", async () => {
       const { storyId } = await twoPersonStory();
       const rooms = fakeRooms();

@@ -12,10 +12,13 @@ export type AppContext = Context<{ Bindings: Env }>;
 /** Thrown by routes and guards; `handleError` turns it into the status and body for its code. */
 export class ApiError extends Error {
   readonly code: PlainErrorCode;
+  /** The `WWW-Authenticate` value for an `invalid_session_token`; the rejected-token one when unset. */
+  readonly challenge: string | undefined;
 
-  constructor(code: PlainErrorCode) {
+  constructor(code: PlainErrorCode, challenge?: string) {
     super(code);
     this.code = code;
+    this.challenge = challenge;
   }
 }
 
@@ -58,8 +61,11 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 // `application/json`, optionally followed by parameters such as `; charset=utf-8`.
 const JSON_CONTENT_TYPE = /^application\/json\s*(;|$)/i;
 
-// Tells a client its session token was rejected, as opposed to absent (RFC 6750).
-const BEARER_CHALLENGE = 'Bearer error="invalid_token"';
+// RFC 6750 section 3.1: a request that sent a token gets `error`, one that sent none does not.
+const REJECTED_TOKEN_CHALLENGE = 'Bearer error="invalid_token"';
+
+/** For a request that needs a session token and sent no credentials at all. */
+export const NO_TOKEN_CHALLENGE = "Bearer";
 
 const HEALTH_PATH = "/api/health";
 
@@ -129,7 +135,7 @@ export async function parseJsonBody<T>(c: AppContext, schema: z.ZodType<T>): Pro
 export function handleError(error: Error, c: AppContext): Response {
   if (error instanceof ApiError) {
     if (error.code === "invalid_session_token") {
-      c.header("WWW-Authenticate", BEARER_CHALLENGE);
+      c.header("WWW-Authenticate", error.challenge ?? REJECTED_TOKEN_CHALLENGE);
     }
 
     return c.json(errorBody(error.code), ERROR_STATUS[error.code]);

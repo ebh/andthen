@@ -7,7 +7,7 @@ import {
   findUserByClerkUserId,
   type UserRow,
 } from "./db/userRepo";
-import { ApiError, type AppContext } from "./http";
+import { ApiError, NO_TOKEN_CHALLENGE, type AppContext } from "./http";
 import { newId } from "./ids";
 import type { SessionVerifier } from "./sessionToken";
 
@@ -69,7 +69,7 @@ export async function requireOrCreateMe(c: AppContext, deps: MeDeps): Promise<Us
 export async function requireSession(c: AppContext, deps: MeDeps): Promise<VerifiedSession> {
   const session = await verifiedSession(c, deps);
   if (session === null) {
-    throw new ApiError("invalid_session_token");
+    throw new ApiError("invalid_session_token", NO_TOKEN_CHALLENGE);
   }
 
   return session;

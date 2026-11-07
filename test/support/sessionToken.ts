@@ -15,6 +15,8 @@ export const TEST_JWT_KEY = await exportPublicKeyPem(testKeyPair);
 export interface SessionTokenOptions {
   /** Seconds until `exp` from now; negative makes an expired token. 60 by default. */
   expiresInSeconds?: number;
+  /** Leaves out the `azp` claim, which Clerk's own origin check skips when it is absent. */
+  omitAuthorizedParty?: boolean;
   /** Signs with a key `TEST_JWT_KEY` does not match. */
   signWithOtherKey?: boolean;
 }
@@ -28,12 +30,12 @@ export async function signSessionToken(
   origin: string,
   options: SessionTokenOptions = {},
 ): Promise<string> {
-  const { expiresInSeconds = 60, signWithOtherKey = false } = options;
+  const { expiresInSeconds = 60, signWithOtherKey = false, omitAuthorizedParty = false } = options;
   const issuedAt = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT", kid: "ins_test" };
   const payload = {
     sub: clerkUserId,
-    azp: origin,
+    ...(omitAuthorizedParty ? {} : { azp: origin }),
     iss: "https://clerk.test",
     iat: issuedAt,
     nbf: issuedAt - 5,

@@ -16,7 +16,6 @@ import {
   afterContribution,
   newStoryState,
   onJoin,
-  onLeave,
   onRejoin,
   resolveTurn,
   skip,
@@ -35,7 +34,6 @@ import {
   addParticipant,
   appendContribution,
   createStory,
-  leaveStory,
   loadMyStories,
   loadOpeningText,
   loadStory,
@@ -54,6 +52,7 @@ import {
   type AppContext,
 } from "../http";
 import { newId } from "../ids";
+import { leaveAsParticipant } from "../leave";
 import { notifyRoom } from "../live";
 import { requireOrCreateMe, resolveMe, type MeDeps } from "../me";
 import type { PushSender } from "../push";
@@ -188,27 +187,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const loaded = await requireStory(c, storyId);
     const me = await requireParticipant(c, deps, loaded);
 
-    const now = deps.now();
-    const next = onLeave(loaded.state, me.position, now);
-    const saved = await leaveStory(c.env.DB, {
-      storyId,
-      loadedVersion: loaded.state.turnVersion,
-      next,
-      participantId: me.id,
-      leftAt: now,
-    });
-    if (!saved) {
+    if (!(await leaveAsParticipant(c, deps, loaded, me))) {
       throw new ApiError("stale_turn");
     }
-
-    notifyRoom(c, storyId, next);
-    notifyTurnHolder(c, deps.pushSender, {
-      storyId,
-      loaded,
-      saved: next,
-      requesterPosition: me.position,
-      now,
-    });
 
     return c.body(null, 204);
   });

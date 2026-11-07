@@ -6,8 +6,12 @@ import {
   type PushKeyResponse,
 } from "../../shared/api";
 import { parseVapidPublicKey } from "../config";
-import { deletePushSubscription, savePushSubscription } from "../db/pushRepo";
-import { ApiError, parseJsonBody } from "../http";
+import {
+  deletePushSubscription,
+  deletePushSubscriptionByEndpoint,
+  savePushSubscription,
+} from "../db/pushRepo";
+import { parseJsonBody } from "../http";
 import { resolveMe, type MeDeps } from "../me";
 
 export type PushSubscriptionDeps = MeDeps;
@@ -22,12 +26,17 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
     return c.json(response);
   });
 
-  // A browser with no user is in no story, so there is nothing to push to it.
+  // The endpoint belongs to whoever sends it now, because holding it proves the request comes
+  // from that browser. A browser with no user has nothing to be pushed, so it is answered as for a
+  // save but its endpoint is dropped: a session that ended elsewhere stops pushing on the next
+  // load. The client must wait for its session to load before it sends this.
   routes.put("/api/push-subscription", async (c) => {
     const body = await parseJsonBody(c, pushSubscriptionSchema);
     const me = await resolveMe(c, deps);
     if (me === null) {
-      throw new ApiError("not_participant");
+      await deletePushSubscriptionByEndpoint(c.env.DB, body.endpoint);
+
+      return c.body(null, 204);
     }
 
     await savePushSubscription(c.env.DB, {

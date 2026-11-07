@@ -66,7 +66,7 @@ export async function deletePushSubscription(
     .run();
 }
 
-/** Removes a subscription the push service reported gone, whoever owned it. */
-export async function deleteGonePushSubscription(db: Db, endpoint: string): Promise<void> {
+/** Removes the subscription at `endpoint`, whoever owns it: the endpoint is the proof of title. */
+export async function deletePushSubscriptionByEndpoint(db: Db, endpoint: string): Promise<void> {
   await db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(endpoint).run();
 }

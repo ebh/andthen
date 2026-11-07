@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-  deleteGonePushSubscription,
+  deletePushSubscriptionByEndpoint,
   deletePushSubscription,
   loadPushSubscriptions,
   savePushSubscription,
@@ -85,7 +85,7 @@ describe("pushRepo", () => {
   it("deletes a gone subscription whoever owned it", async () => {
     await savePushSubscription(db, subscription("https://push.test/gone", "any", 1));
 
-    await deleteGonePushSubscription(db, "https://push.test/gone");
+    await deletePushSubscriptionByEndpoint(db, "https://push.test/gone");
 
     expect(await loadPushSubscriptions(db, "any")).toEqual([]);
   });

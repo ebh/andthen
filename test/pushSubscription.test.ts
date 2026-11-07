@@ -1,7 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { z } from "zod";
 
 import { pushKeyResponseSchema } from "../src/shared/api";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
+import { findUserByClerkUserId } from "../src/worker/db/userRepo";
 import {
   createBrowser,
   createStory,
@@ -11,6 +14,7 @@ import {
   type Browser,
   type Clock,
 } from "./support/browser";
+import { signSessionToken } from "./support/sessionToken";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 import { userIdOf } from "./support/users";
 
@@ -43,7 +47,20 @@ describe("push subscription routes", () => {
     return { browser, hash: await userIdOf(testEnv.env.DB, browser) };
   }
 
-  const storedFor = (hash: string) => loadPushSubscriptions(testEnv.env.DB, hash);
+  const storedFor = (userId: string) => loadPushSubscriptions(testEnv.env.DB, userId);
+
+  async function storedEndpoints(endpoint: string): Promise<string[]> {
+    const stored = await testEnv.env.DB.prepare(
+      "SELECT endpoint FROM push_subscriptions WHERE endpoint = ?",
+    )
+      .bind(endpoint)
+      .all();
+
+    return z
+      .array(z.object({ endpoint: z.string() }))
+      .parse(stored.results)
+      .map((row) => row.endpoint);
+  }
 
   describe("PUT /api/push-subscription", () => {
     it("saves the subscription for the browser's token and answers 204", async () => {
@@ -110,21 +127,58 @@ describe("push subscription routes", () => {
       expect(await storedFor(secondHash)).toHaveLength(1);
     });
 
-    it("answers 403 not_participant to a browser with no cookie, and saves nothing", async () => {
+    it("answers 204 to a browser with no user, saves nothing and issues no cookie", async () => {
       const browser = newBrowser();
       const endpoint = "https://fcm.googleapis.com/send/cookieless";
 
       const response = await browser.put(PATH, { ...SUBSCRIPTION, endpoint });
 
-      expect(response.status).toBe(403);
-      expect(await readError(response)).toBe("not_participant");
+      expect(response.status).toBe(204);
       expect(browser.cookies.size).toBe(0);
-      const stored = await testEnv.env.DB.prepare(
-        "SELECT 1 FROM push_subscriptions WHERE endpoint = ?",
-      )
-        .bind(endpoint)
-        .all();
-      expect(stored.results).toEqual([]);
+      expect(await storedEndpoints(endpoint)).toEqual([]);
+    });
+
+    it("drops the row at its endpoint when a browser with no user sends it", async () => {
+      const { browser, hash } = await browserWithCookie();
+      const endpoint = "https://fcm.googleapis.com/send/signed-out-elsewhere";
+      await browser.put(PATH, { ...SUBSCRIPTION, endpoint });
+      const reloaded = newBrowser();
+
+      const response = await reloaded.put(PATH, { ...SUBSCRIPTION, endpoint });
+
+      expect(response.status).toBe(204);
+      expect(await storedFor(hash)).toEqual([]);
+    });
+
+    it("saves for the account user a session token names, with no cookie", async () => {
+      const browser = newBrowser();
+      browser.sessionToken = await signSessionToken("user_push", "http://localhost");
+      await createStory(browser);
+      const endpoint = "https://fcm.googleapis.com/send/account";
+
+      const response = await browser.put(PATH, { ...SUBSCRIPTION, endpoint });
+
+      expect(response.status).toBe(204);
+      const user = await findUserByClerkUserId(testEnv.env.DB, "user_push");
+      expect((await storedFor(user?.id ?? "")).map((row) => row.endpoint)).toEqual([endpoint]);
+    });
+
+    it("refuses a rejected session token rather than dropping the row", async () => {
+      const { browser } = await browserWithCookie();
+      const endpoint = "https://fcm.googleapis.com/send/kept";
+      await browser.put(PATH, { ...SUBSCRIPTION, endpoint });
+      const expired = newBrowser();
+      expired.sessionToken = await signSessionToken("user_push", "http://localhost", {
+        expiresInSeconds: -120,
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const response = await expired.put(PATH, { ...SUBSCRIPTION, endpoint });
+
+      expect(response.status).toBe(401);
+      expect(await readError(response)).toBe("invalid_session_token");
+      expect(await storedEndpoints(endpoint)).toEqual([endpoint]);
+      warn.mockRestore();
     });
 
     it.each([

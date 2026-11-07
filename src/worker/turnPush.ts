@@ -1,6 +1,6 @@
 import { resolveTurn, turnEndsAt, turnPassedTo, type TurnState } from "../shared/turnOrder";
 import {
-  deleteGonePushSubscription,
+  deletePushSubscriptionByEndpoint,
   loadPushSubscriptions,
   type PushSubscriptionRow,
 } from "./db/pushRepo";
@@ -117,7 +117,7 @@ async function sendAndForgetGone(
 ): Promise<void> {
   try {
     if ((await sender.send(subscription, message)) === "gone") {
-      await deleteGonePushSubscription(db, subscription.endpoint);
+      await deletePushSubscriptionByEndpoint(db, subscription.endpoint);
     }
   } catch (error) {
     console.error("Push to one subscription failed", error);

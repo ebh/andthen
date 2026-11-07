@@ -84,6 +84,15 @@ describe("PUT /api/users/me/account", () => {
     return z.array(rowSchema).parse(result.results);
   }
 
+  async function pushEndpoints(): Promise<string[]> {
+    const result = await testEnv.env.DB.prepare("SELECT endpoint FROM push_subscriptions").all();
+
+    return z
+      .array(z.object({ endpoint: z.string() }))
+      .parse(result.results)
+      .map((row) => row.endpoint);
+  }
+
   async function count(table: "users" | "participants" | "push_subscriptions"): Promise<number> {
     const row = await testEnv.env.DB.prepare(`SELECT COUNT(*) AS count FROM ${table}`).first();
 
@@ -280,6 +289,39 @@ describe("PUT /api/users/me/account", () => {
       expect(sender.sent.map(({ subscription }) => subscription.endpoint).toSorted()).toEqual(
         [laptopEndpoint, phoneEndpoint].toSorted(),
       );
+    });
+  });
+
+  describe("signing out", () => {
+    it("removes the device's push subscription while the session is valid", async () => {
+      setUp();
+      const phone = anonymous();
+      await createStory(phone);
+      await signIn(phone, "user_sign_out_push");
+      const endpoint = await subscribe(phone, "phone-sign-out");
+
+      const removed = await phone.delete("/api/push-subscription", { endpoint });
+
+      expect(removed.status).toBe(204);
+      expect(await pushEndpoints()).not.toContain(endpoint);
+    });
+
+    it("drops the row on the next load after a session that ended elsewhere", async () => {
+      setUp();
+      const phone = anonymous();
+      await createStory(phone);
+      await signIn(phone, "user_ended_elsewhere");
+      const endpoint = await subscribe(phone, "phone-ended");
+      expect(await pushEndpoints()).toContain(endpoint);
+
+      phone.sessionToken = null;
+      const reload = await phone.put("/api/push-subscription", {
+        endpoint,
+        keys: { p256dh: P256DH, auth: AUTH },
+      });
+
+      expect(reload.status).toBe(204);
+      expect(await pushEndpoints()).not.toContain(endpoint);
     });
   });
 

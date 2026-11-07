@@ -1,10 +1,84 @@
 import { hashBrowserToken, readBrowserToken, readOrIssueBrowserToken } from "./cookies";
-import { createAnonymousUser, findUserByBrowserTokenHash, type UserRow } from "./db/userRepo";
-import type { AppContext } from "./http";
+import {
+  createAccountUser,
+  createAnonymousUser,
+  findUserByBrowserTokenHash,
+  findUserByClerkUserId,
+  type UserRow,
+} from "./db/userRepo";
+import { ApiError, type AppContext } from "./http";
 import { newId } from "./ids";
+import type { SessionVerifier } from "./sessionToken";
 
-/** The user making the request, or null when there is none. Never creates a user or a cookie. */
-export async function resolveMe(c: AppContext): Promise<UserRow | null> {
+export interface MeDeps {
+  /** The clock, in epoch milliseconds. */
+  now: () => number;
+  /** The verifier for this request's bindings; tests use the real one with a test key. */
+  sessionVerifier: (env: Env) => SessionVerifier;
+}
+
+/** A session token that passed verification. */
+export interface VerifiedSession {
+  clerkUserId: string;
+}
+
+/**
+ * The user making the request, or null when there is none. Never creates a user or a cookie.
+ *
+ * A session token decides alone: the browser token is not consulted, so a rejected token can't
+ * quietly turn a signed-in request into an anonymous one. Throws `invalid_session_token` for a
+ * token that is present and bad.
+ */
+export async function resolveMe(c: AppContext, deps: MeDeps): Promise<UserRow | null> {
+  const session = await verifiedSession(c, deps);
+  if (session !== null) {
+    return findUserByClerkUserId(c.env.DB, session.clerkUserId);
+  }
+
+  return findDeviceUser(c);
+}
+
+/**
+ * The user making the request, created when there is none yet. A session token makes an account
+ * user; no token makes an anonymous user and issues the browser token in a `Set-Cookie` header
+ * when the browser has none. For writes that may start a person's history.
+ */
+export async function requireOrCreateMe(c: AppContext, deps: MeDeps): Promise<UserRow> {
+  const session = await verifiedSession(c, deps);
+  if (session !== null) {
+    return (
+      (await findUserByClerkUserId(c.env.DB, session.clerkUserId)) ??
+      createAccountUser(c.env.DB, {
+        id: newId(),
+        clerkUserId: session.clerkUserId,
+        createdAt: deps.now(),
+      })
+    );
+  }
+
+  const browserTokenHash = await hashBrowserToken(readOrIssueBrowserToken(c));
+
+  return (
+    (await findUserByBrowserTokenHash(c.env.DB, browserTokenHash)) ??
+    createAnonymousUser(c.env.DB, { id: newId(), browserTokenHash, createdAt: deps.now() })
+  );
+}
+
+/** The verified session token of a request that must be signed in; throws 401 when it has none. */
+export async function requireSession(c: AppContext, deps: MeDeps): Promise<VerifiedSession> {
+  const session = await verifiedSession(c, deps);
+  if (session === null) {
+    throw new ApiError("invalid_session_token");
+  }
+
+  return session;
+}
+
+/**
+ * The user this browser's token names, whether or not the request also carries a session token.
+ * Null when it has no token or the token names no user.
+ */
+export async function findDeviceUser(c: AppContext): Promise<UserRow | null> {
   const token = readBrowserToken(c);
   if (token === "") {
     return null;
@@ -13,15 +87,34 @@ export async function resolveMe(c: AppContext): Promise<UserRow | null> {
   return findUserByBrowserTokenHash(c.env.DB, await hashBrowserToken(token));
 }
 
-/**
- * The user making the request. A browser with no user yet gets one, and a browser with no token
- * gets a token in a `Set-Cookie` header. For writes that may start a person's history.
- */
-export async function requireOrCreateMe(c: AppContext, now: number): Promise<UserRow> {
-  const browserTokenHash = await hashBrowserToken(readOrIssueBrowserToken(c));
-  const existing = await findUserByBrowserTokenHash(c.env.DB, browserTokenHash);
+// Null when the request carries no session token. A token that is present and bad throws.
+async function verifiedSession(c: AppContext, deps: MeDeps): Promise<VerifiedSession | null> {
+  const token = readSessionToken(c);
+  if (token === null) {
+    return null;
+  }
 
-  return (
-    existing ?? createAnonymousUser(c.env.DB, { id: newId(), browserTokenHash, createdAt: now })
-  );
+  const verdict = await deps.sessionVerifier(c.env)(token, new URL(c.req.url).origin);
+  if (verdict.type === "rejected") {
+    console.warn(`Session token rejected: ${verdict.reason}`);
+    throw new ApiError("invalid_session_token");
+  }
+
+  return { clerkUserId: verdict.clerkUserId };
+}
+
+const BEARER_HEADER = /^Bearer (\S+)$/i;
+
+function readSessionToken(c: AppContext): string | null {
+  const header = c.req.header("Authorization");
+  if (header === undefined) {
+    return null;
+  }
+
+  const token = BEARER_HEADER.exec(header)?.[1];
+  if (token === undefined) {
+    throw new ApiError("invalid_session_token");
+  }
+
+  return token;
 }

@@ -9,6 +9,7 @@ import {
 import { API_LEVEL, API_LEVEL_HEADER } from "../../src/shared/apiLevel";
 import { createApp } from "../../src/worker/app";
 import type { PushSender } from "../../src/worker/push";
+import { selectSessionVerifier } from "../../src/worker/sessionToken";
 import { fakeProvider } from "../../src/worker/suggestions/fake";
 import type { SuggestionProvider } from "../../src/worker/suggestions/provider";
 import { createFakePushSender } from "./fakePushSender";
@@ -49,6 +50,8 @@ export interface Browser {
   post: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
   put: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
   delete: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
+  /** Sent as `Authorization: Bearer` on every request while set; null sends none. */
+  sessionToken: string | null;
   /** Raw cookie values by name. */
   cookies: Map<string, string>;
   /** Promises the app passed to `waitUntil`, in order. A hung one stays pending forever. */
@@ -74,6 +77,7 @@ export function createTestApp(
       }),
     suggestionProvider: () => suggestionProvider,
     pushSender: () => pushSender,
+    sessionVerifier: selectSessionVerifier,
     minApiLevel,
   });
 }
@@ -94,6 +98,9 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
     const apiLevel = options.apiLevel === undefined ? String(API_LEVEL) : options.apiLevel;
     if (apiLevel !== null) {
       headers.set(API_LEVEL_HEADER, apiLevel);
+    }
+    if (browser.sessionToken !== null && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${browser.sessionToken}`);
     }
     if (cookies.size > 0) {
       headers.set("Cookie", Array.from(cookies, ([name, value]) => `${name}=${value}`).join("; "));
@@ -139,7 +146,8 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
       );
     };
 
-  return {
+  const browser: Browser = {
+    sessionToken: null,
     cookies,
     backgroundWork: background,
     get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options),
@@ -147,6 +155,8 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
     put: sendWithBody("PUT"),
     delete: sendWithBody("DELETE"),
   };
+
+  return browser;
 }
 
 /** Creates a story as `browser` and returns its ID. */

@@ -55,16 +55,14 @@ import {
 } from "../http";
 import { newId } from "../ids";
 import { notifyRoom } from "../live";
-import { requireOrCreateMe, resolveMe } from "../me";
+import { requireOrCreateMe, resolveMe, type MeDeps } from "../me";
 import type { PushSender } from "../push";
 import { buildStoryView } from "../storyView";
 import { summariseMyStories } from "../storySummaries";
 import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
 import { notifyTurnHolder } from "../turnPush";
 
-export interface StoryDeps {
-  /** The clock, in epoch milliseconds. Tests set it to control turn expiry. */
-  now: () => number;
+export interface StoryDeps extends MeDeps {
   /** A fresh story ID; called again after a collision. */
   newStoryId: () => string;
   /** The provider for this request's bindings; throws when the AI config is invalid. */
@@ -88,7 +86,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     const now = deps.now();
-    const user = await requireOrCreateMe(c, now);
+    const user = await requireOrCreateMe(c, deps);
     const creator = {
       id: newId(),
       displayName: name.value,
@@ -111,7 +109,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
 
   // Only reads: no cookie is issued or user created, and a browser without a user has no stories.
   routes.get("/api/stories", async (c) => {
-    const me = await resolveMe(c);
+    const me = await resolveMe(c, deps);
     const stories =
       me === null ? [] : summariseMyStories(await loadMyStories(c.env.DB, me.id), deps.now());
     const response: MyStoriesResponse = { stories };
@@ -125,7 +123,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     if (found === null) {
       throw new ApiError("not_found");
     }
-    const me = await requireParticipant(c, found.loaded);
+    const me = await requireParticipant(c, deps, found.loaded);
 
     return c.json(buildStoryView(found.loaded, found.contributions, me, deps.now()));
   });
@@ -140,7 +138,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }
 
     const now = deps.now();
-    const me = await requireOrCreateMe(c, now);
+    const me = await requireOrCreateMe(c, deps);
     const key = displayNameKey(name.value);
     if (loaded.participants.some((p) => p.userId === me.id)) {
       throw new ApiError("already_joined");
@@ -188,7 +186,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const storyId = parseStoryId(c.req.param("id"));
     await parseJsonBody(c, emptyRequestSchema);
     const loaded = await requireStory(c, storyId);
-    const me = await requireParticipant(c, loaded);
+    const me = await requireParticipant(c, deps, loaded);
 
     const now = deps.now();
     const next = onLeave(loaded.state, me.position, now);
@@ -219,7 +217,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const storyId = parseStoryId(c.req.param("id"));
     await parseJsonBody(c, emptyRequestSchema);
     const loaded = await requireStory(c, storyId);
-    const me = await findParticipant(c, loaded);
+    const me = await findParticipant(c, deps, loaded);
     if (me === undefined) {
       throw new ApiError("not_participant");
     }
@@ -263,7 +261,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const storyId = parseStoryId(c.req.param("id"));
     const body = await parseJsonBody(c, contributeRequestSchema);
     const loaded = await requireStory(c, storyId);
-    const me = await requireParticipant(c, loaded);
+    const me = await requireParticipant(c, deps, loaded);
     const passage = validatePassage(body.text);
     if (!passage.ok) {
       throw new ApiError("invalid_passage");
@@ -310,7 +308,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     const storyId = parseStoryId(c.req.param("id"));
     const body = await parseJsonBody(c, skipRequestSchema);
     const loaded = await requireStory(c, storyId);
-    const me = await requireParticipant(c, loaded);
+    const me = await requireParticipant(c, deps, loaded);
 
     const now = deps.now();
     const result = skip(loaded.state, now, {
@@ -345,7 +343,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     if (found === null) {
       throw new ApiError("not_found");
     }
-    const me = await requireParticipant(c, found.loaded);
+    const me = await requireParticipant(c, deps, found.loaded);
 
     // The stored holder may have timed out; only the resolved turn says who holds it now.
     const now = deps.now();
@@ -390,7 +388,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
 
     const storyId = parseStoryId(c.req.param("id"));
     const loaded = await requireStory(c, storyId);
-    await requireParticipant(c, loaded);
+    await requireParticipant(c, deps, loaded);
 
     return c.env.STORY_ROOM.getByName(storyId).fetch(c.req.raw);
   });
@@ -468,8 +466,12 @@ async function joinRefusal(c: AppContext, storyId: string): Promise<ApiError> {
 }
 
 // The caller is the participant in the story who has not left, as the requesting user.
-async function requireParticipant(c: AppContext, loaded: LoadedStory): Promise<ParticipantRow> {
-  const me = await findParticipant(c, loaded);
+async function requireParticipant(
+  c: AppContext,
+  deps: MeDeps,
+  loaded: LoadedStory,
+): Promise<ParticipantRow> {
+  const me = await findParticipant(c, deps, loaded);
   if (me === undefined) {
     throw new ApiError("not_participant");
   }
@@ -484,9 +486,10 @@ async function requireParticipant(c: AppContext, loaded: LoadedStory): Promise<P
 // Positions only grow, so the highest position joined last.
 async function findParticipant(
   c: AppContext,
+  deps: MeDeps,
   loaded: LoadedStory,
 ): Promise<ParticipantRow | undefined> {
-  const me = await resolveMe(c);
+  const me = await resolveMe(c, deps);
   if (me === null) {
     return undefined;
   }

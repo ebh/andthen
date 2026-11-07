@@ -12,6 +12,7 @@ import {
 } from "./http";
 import { newStoryId } from "./ids";
 import { selectPushSender } from "./push";
+import { selectSessionVerifier } from "./sessionToken";
 import { pushSubscriptionRoutes } from "./routes/pushSubscriptions";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
 import { selectSuggestionProvider } from "./suggestions/select";
@@ -54,4 +55,5 @@ export const app = createApp({
   newStoryId: () => newStoryId(),
   suggestionProvider: selectSuggestionProvider,
   pushSender: selectPushSender,
+  sessionVerifier: selectSessionVerifier,
 });

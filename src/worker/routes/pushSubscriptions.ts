@@ -8,12 +8,9 @@ import {
 import { parseVapidPublicKey } from "../config";
 import { deletePushSubscription, savePushSubscription } from "../db/pushRepo";
 import { ApiError, parseJsonBody } from "../http";
-import { resolveMe } from "../me";
+import { resolveMe, type MeDeps } from "../me";
 
-export interface PushSubscriptionDeps {
-  /** The clock, in epoch milliseconds. */
-  now: () => number;
-}
+export type PushSubscriptionDeps = MeDeps;
 
 export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
@@ -28,7 +25,7 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
   // A browser with no user is in no story, so there is nothing to push to it.
   routes.put("/api/push-subscription", async (c) => {
     const body = await parseJsonBody(c, pushSubscriptionSchema);
-    const me = await resolveMe(c);
+    const me = await resolveMe(c, deps);
     if (me === null) {
       throw new ApiError("not_participant");
     }
@@ -48,7 +45,7 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
   // That includes a browser with no user, which owns nothing.
   routes.delete("/api/push-subscription", async (c) => {
     const body = await parseJsonBody(c, removePushSubscriptionRequestSchema);
-    const me = await resolveMe(c);
+    const me = await resolveMe(c, deps);
     if (me !== null) {
       await deletePushSubscription(c.env.DB, me.id, body.endpoint);
     }

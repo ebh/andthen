@@ -4,6 +4,7 @@ import { TURN_WINDOW_MS } from "../src/shared/validation";
 import { createApp } from "../src/worker/app";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
 import type { PushSender } from "../src/worker/push";
+import { selectSessionVerifier } from "../src/worker/sessionToken";
 import { fakeProvider } from "../src/worker/suggestions/fake";
 import {
   createBrowser,
@@ -171,6 +172,7 @@ describe("pushing the turn", () => {
         newStoryId: () => "nok01",
         suggestionProvider: () => fakeProvider,
         pushSender: throwingSender,
+        sessionVerifier: selectSessionVerifier,
       });
       const { ben, storyId } = await unsubscribedWriters(unkeyed);
       const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -390,6 +392,7 @@ describe("pushing the turn", () => {
         pushSender: () => {
           throw new Error("Invalid VAPID config");
         },
+        sessionVerifier: selectSessionVerifier,
       });
       const { ben, cy, storyId } = await unsubscribedWriters(broken);
       await subscribe(cy, "cy");

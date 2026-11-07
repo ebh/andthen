@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { getPlatformProxy, unstable_splitSqlQuery } from "wrangler";
 
+import { TEST_JWT_KEY } from "./sessionToken";
+
 export interface TestEnvOptions {
   /** Applies only the migrations whose file name sorts before this one, e.g. `0005_users.sql`. */
   migrateBefore?: string;
@@ -21,6 +23,8 @@ const MIGRATIONS_DIR = path.join(ROOT_DIR, "migrations");
  * has every migration in `migrations/` applied, or only those before `migrateBefore`. Call
  * `dispose` when done, or the workerd process outlives the test file.
  *
+ * `CLERK_JWT_KEY` is `TEST_JWT_KEY`, so `signSessionToken` tokens verify.
+ *
  * The STORY_ROOM binding exists but can't reach the StoryRoom class: getPlatformProxy doesn't
  * run Durable Objects defined in the Worker itself.
  */
@@ -33,6 +37,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
 
   const { migrateBefore } = options;
   await applyMigrations(env.DB, (file) => migrateBefore === undefined || file < migrateBefore);
+  // The committed var is a placeholder; tests sign tokens with a key made for the run.
+  Object.defineProperty(env, "CLERK_JWT_KEY", { value: TEST_JWT_KEY });
 
   return { env, dispose };
 }

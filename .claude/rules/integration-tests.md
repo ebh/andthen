@@ -1,7 +1,7 @@
 ---
 paths:
   - "test/**"
-  - "src/worker/**/*.test.ts"
+  - "src/worker/**/*.integration.test.ts"
 ---
 
 # Worker integration test rules
@@ -14,4 +14,4 @@ An integration test calls the Hono app against Miniflare with an in-memory D1 (`
   - races and D1 behaviour that no unit test can see
 - **The rule behind an error is a unit test.** Variants such as a stale turn, skipping yourself or a leave that passes the turn are tested in `src/shared/turnOrder.test.ts` and its neighbours. The route test triggers one case.
 - **A test can hold several act and assert rounds** on one assembled story. Creating a story and joining writers is the expensive part, so one test walks a story through its steps and asserts after each.
-- **One file per route module.** A new file pays another Miniflare start-up.
+- **One file per route module**, named `<module>.integration.test.ts`. A new file pays another Miniflare start-up. The name is what loads these rules and keeps `unit-tests.md` away.

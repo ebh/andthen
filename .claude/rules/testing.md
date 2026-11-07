@@ -31,7 +31,7 @@ Stryker reruns every test that covers a mutant, once per surviving mutant, so te
 ## Where a test lives
 
 - A test sits beside the file it tests: `foo.ts` has `foo.test.ts`, `Foo.tsx` has `Foo.test.tsx`.
-- An integration test sits beside the route module it exercises, one file per module. Each file starts Miniflare once, and that start-up is the cost of the file.
+- An integration test sits beside the route module it exercises, one file per module, named `<module>.integration.test.ts`. Each file starts Miniflare once, and that start-up is the cost of the file.
 - Integration tests not yet moved are still in `test/`.
 - E2E tests are in `e2e/`, because they test the whole app.
 

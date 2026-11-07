@@ -4,7 +4,6 @@ paths:
   - "src/shared/api.ts"
   - "src/client/api.ts"
   - "test/**"
-  - "src/worker/**/*.test.ts"
 ---
 
 # API route rules

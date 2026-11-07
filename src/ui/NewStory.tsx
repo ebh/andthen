@@ -25,6 +25,7 @@ import { createStory } from "../client/api";
 import { takeLeftStoryNote } from "../client/leftStoryNote";
 import { describeFailure } from "../client/messages";
 import { useMyStories } from "../client/useMyStories";
+import { AccountLine } from "./AccountLine";
 import { MyStories } from "./MyStories";
 import { Wordmark } from "./Wordmark";
 
@@ -84,6 +85,7 @@ export function NewStory() {
         py={media.md ? "12" : "5"}
       >
         <Wordmark />
+        <AccountLine onSignedOut={reload} />
         {leftAStory && (
           <Paragraph role="status" color="muted" mt="8">
             You left the story.

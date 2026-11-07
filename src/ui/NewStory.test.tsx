@@ -6,16 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setLeftStoryNote, takeLeftStoryNote } from "../client/leftStoryNote";
 import { jsonResponse } from "../client/testFixtures";
 import type { StorySummary } from "../shared/api";
+import { clerk, resetClerk } from "./clerkStub";
 import { NewStory } from "./NewStory";
 import { push } from "./routerStub";
 import { renderPage } from "./testRender";
 import { setScreen } from "./testScreen";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
+vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
 
 const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => {
+  resetClerk();
   push.mockClear();
   takeLeftStoryNote();
   stubFetch();
@@ -285,6 +288,35 @@ describe("NewStory", () => {
     renderPage(<NewStory />);
     await screen.findByRole("heading", { name: /write it together/i });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("offers sign-in to someone who is signed out", async () => {
+    renderPage(<NewStory />);
+
+    expect(await screen.findByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/sign-in",
+    );
+  });
+
+  it("shows the account and loads the stories again after signing out", async () => {
+    clerk.isSignedIn = true;
+    clerk.email = "ana@example.com";
+    const fetchMock = stubFetch(
+      jsonResponse(200, { stories: [summary({})] }),
+      jsonResponse(200, { stories: [] }),
+    );
+    renderPage(<NewStory />);
+    await screen.findByRole("region", { name: "Your stories" });
+    expect(screen.getByText("ana@example.com")).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: "Your stories" })).not.toBeInTheDocument();
+    });
+    expect(clerk.signOut).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("says nothing about leaving when the writer arrived any other way", async () => {

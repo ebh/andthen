@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { z } from "zod";
 
 import type { LiveMessage } from "../shared/api";
-import type { RoomTimer } from "./live";
+import { upgradeResponseHeaders, type RoomTimer } from "./live";
 import { selectPushSender } from "./push";
 import { passTimedOutTurn } from "./turnTimeout";
 
@@ -56,11 +56,15 @@ export class StoryRoom extends DurableObject<Env> {
     }
   }
 
-  override fetch(): Response {
+  override fetch(request: Request): Response {
     const pair = new WebSocketPair();
     this.ctx.acceptWebSocket(pair[1]);
 
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    return new Response(null, {
+      status: 101,
+      webSocket: pair[0],
+      headers: upgradeResponseHeaders(request),
+    });
   }
 
   // Clients only listen. Without a handler, a message would be logged as an error.

@@ -105,9 +105,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      # A variable, not a secret: a publishable key is public. It overrides the dev key in .env.
+      # An unset variable arrives as an empty string, which Expo also lets override .env, and the
+      # app then throws on every load; so the build fails first.
       - name: Build
         if: steps.latest.outputs.current == 'true'
-        run: pnpm build
+        run: |
+          : "${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:?Set the CLERK_PUBLISHABLE_KEY variable on the production environment}"
+          pnpm build
+        env:
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
 
       - name: Deploy (production)
         if: steps.latest.outputs.current == 'true'

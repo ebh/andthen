@@ -10,7 +10,7 @@ const ana: ParticipantRow = {
   displayName: "Ana",
   displayNameKey: "ana",
   position: 0,
-  browserTokenHash: "h0",
+  userId: "u0",
   leftAt: null,
 };
 
@@ -19,7 +19,7 @@ const ben: ParticipantRow = {
   displayName: "Ben",
   displayNameKey: "ben",
   position: 1,
-  browserTokenHash: "h1",
+  userId: "u1",
   leftAt: null,
 };
 

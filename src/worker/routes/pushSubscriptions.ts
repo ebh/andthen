@@ -6,14 +6,15 @@ import {
   type PushKeyResponse,
 } from "../../shared/api";
 import { parseVapidPublicKey } from "../config";
-import { hashBrowserToken, readBrowserToken } from "../cookies";
-import { deletePushSubscription, savePushSubscription } from "../db/pushRepo";
-import { ApiError, parseJsonBody } from "../http";
+import {
+  deletePushSubscription,
+  deletePushSubscriptionByEndpoint,
+  savePushSubscription,
+} from "../db/pushRepo";
+import { parseJsonBody } from "../http";
+import { resolveMe, type MeDeps } from "../me";
 
-export interface PushSubscriptionDeps {
-  /** The clock, in epoch milliseconds. */
-  now: () => number;
-}
+export type PushSubscriptionDeps = MeDeps;
 
 export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
@@ -25,20 +26,24 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
     return c.json(response);
   });
 
-  // A browser with no cookie is in no story, so there is nothing to push to it. Every cookieless
-  // browser would otherwise share the hash of the empty token.
+  // The endpoint belongs to whoever sends it now, because holding it proves the request comes
+  // from that browser. A browser with no user has nothing to be pushed, so it is answered as for a
+  // save but its endpoint is dropped: a session that ended elsewhere stops pushing on the next
+  // load. The client must wait for its session to load before it sends this.
   routes.put("/api/push-subscription", async (c) => {
     const body = await parseJsonBody(c, pushSubscriptionSchema);
-    const token = readBrowserToken(c);
-    if (token === "") {
-      throw new ApiError("not_participant");
+    const me = await resolveMe(c, deps);
+    if (me === null) {
+      await deletePushSubscriptionByEndpoint(c.env.DB, body.endpoint);
+
+      return c.body(null, 204);
     }
 
     await savePushSubscription(c.env.DB, {
       endpoint: body.endpoint,
       p256dh: body.keys.p256dh,
       auth: body.keys.auth,
-      browserTokenHash: await hashBrowserToken(token),
+      userId: me.id,
       createdAt: deps.now(),
     });
 
@@ -46,12 +51,12 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
   });
 
   // Removing what isn't there is not an error, so a client can unsubscribe without checking first.
-  // That includes a browser with no cookie, which owns nothing.
+  // That includes a browser with no user, which owns nothing.
   routes.delete("/api/push-subscription", async (c) => {
     const body = await parseJsonBody(c, removePushSubscriptionRequestSchema);
-    const token = readBrowserToken(c);
-    if (token !== "") {
-      await deletePushSubscription(c.env.DB, await hashBrowserToken(token), body.endpoint);
+    const me = await resolveMe(c, deps);
+    if (me !== null) {
+      await deletePushSubscription(c.env.DB, me.id, body.endpoint);
     }
 
     return c.body(null, 204);

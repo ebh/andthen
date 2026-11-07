@@ -25,6 +25,6 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 ## Background
 
 - `docs/domain.md`: the app's terms, each with one meaning, and the words reserved for planned features. Read it before naming a concept, type, table, route or UI label.
-- `docs/api.md`: the story routes, error statuses, request guards, cookie, write guards and test helpers (`createApp`, `createBrowser`, `gateLoads`). Read it before adding a route or changing how writes are guarded.
+- `docs/api.md`: the story and account routes, error statuses, request guards, how a request is identified (session token or cookie), write guards and test helpers (`createApp`, `createBrowser`, `gateLoads`). Read it before adding a route or changing how writes are guarded.
 - `docs/deployment.md`: local vs preview vs production, first-time Cloudflare setup, the domain, smoke tests, accepted risks, and what is proven only locally. Read it before changing `wrangler.jsonc`, `deploy.yml`, how an environment is built or how the service worker is served.
 - `docs/spike-findings.md`: tool versions and what was proven about Stryker, the Vite plugin, Workers AI locally, lint coverage, the `__Host-` cookie, and Expo, React Native and Tamagui. Read it before changing the toolchain, test harness or cookie handling.

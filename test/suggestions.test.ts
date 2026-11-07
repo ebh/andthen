@@ -8,6 +8,7 @@ import {
   SUGGESTION_TIMEOUT_MS,
   SUGGESTION_WINDOW_MS,
 } from "../src/worker/config";
+import { selectSessionVerifier } from "../src/worker/sessionToken";
 import { FAKE_SUGGESTIONS } from "../src/worker/suggestions/fake";
 import type { SuggestionProvider, SuggestionResult } from "../src/worker/suggestions/provider";
 import { selectSuggestionProvider } from "../src/worker/suggestions/select";
@@ -532,6 +533,7 @@ describe("POST /api/stories/:id/suggestions", () => {
       },
       suggestionProvider: selectSuggestionProvider,
       pushSender: () => createFakePushSender(),
+      sessionVerifier: selectSessionVerifier,
     });
 
     async function holder(vars: object): Promise<{ ben: Browser; storyId: string; env: Env }> {

@@ -12,10 +12,13 @@ export type AppContext = Context<{ Bindings: Env }>;
 /** Thrown by routes and guards; `handleError` turns it into the status and body for its code. */
 export class ApiError extends Error {
   readonly code: PlainErrorCode;
+  /** The `WWW-Authenticate` value for an `invalid_session_token`; the rejected-token one when unset. */
+  readonly challenge: string | undefined;
 
-  constructor(code: PlainErrorCode) {
+  constructor(code: PlainErrorCode, challenge?: string) {
     super(code);
     this.code = code;
+    this.challenge = challenge;
   }
 }
 
@@ -48,6 +51,7 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   already_joined: 409,
   left_story: 403,
   client_outdated: 426,
+  invalid_session_token: 401,
   no_one_to_skip_to: 409,
   ai_rate_limited: 429,
   ai_unavailable: 503,
@@ -56,6 +60,12 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 
 // `application/json`, optionally followed by parameters such as `; charset=utf-8`.
 const JSON_CONTENT_TYPE = /^application\/json\s*(;|$)/i;
+
+// RFC 6750 section 3.1: a request that sent a token gets `error`, one that sent none does not.
+const REJECTED_TOKEN_CHALLENGE = 'Bearer error="invalid_token"';
+
+/** For a request that needs a session token and sent no credentials at all. */
+export const NO_TOKEN_CHALLENGE = "Bearer";
 
 const HEALTH_PATH = "/api/health";
 
@@ -124,6 +134,10 @@ export async function parseJsonBody<T>(c: AppContext, schema: z.ZodType<T>): Pro
 
 export function handleError(error: Error, c: AppContext): Response {
   if (error instanceof ApiError) {
+    if (error.code === "invalid_session_token") {
+      c.header("WWW-Authenticate", error.challenge ?? REJECTED_TOKEN_CHALLENGE);
+    }
+
     return c.json(errorBody(error.code), ERROR_STATUS[error.code]);
   }
   if (error instanceof LeftStoryError) {

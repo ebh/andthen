@@ -1,0 +1,21 @@
+import { useAuth } from "@clerk/expo";
+import { useEffect } from "react";
+
+import { addDeviceUserToAccount } from "../client/account";
+
+/**
+ * Brings this device's stories into the account whenever a session is there: on app load, and
+ * when someone signs in. Running on load makes a merge that was cut short heal itself.
+ * Renders nothing.
+ */
+export function AddDeviceUserOnLoad() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      void addDeviceUserToAccount();
+    }
+  }, [isLoaded, isSignedIn]);
+
+  return null;
+}

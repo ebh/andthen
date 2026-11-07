@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { newStoryState } from "../src/shared/turnOrder";
 import { appendContribution, createStory, loadStory, type Db } from "../src/worker/db/storyRepo";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { insertUser } from "./support/users";
 
 describe("storyRepo", () => {
   let testEnv: TestEnv;
@@ -45,12 +46,14 @@ describe("storyRepo", () => {
   });
 
   it("takes a participant who has left out of the turn order but keeps their row", async () => {
+    await insertUser(testEnv.env.DB, "u0");
+    await insertUser(testEnv.env.DB, "u1");
     const creator = {
       id: "p0",
       displayName: "Ana",
       displayNameKey: "ana",
       position: 0,
-      browserTokenHash: "h0",
+      userId: "u0",
     };
     await createStory(testEnv.env.DB, {
       storyId: "lv001",
@@ -61,7 +64,7 @@ describe("storyRepo", () => {
     });
     await testEnv.env.DB.prepare(
       `INSERT INTO participants (id, story_id, display_name, display_name_key, position,
-         browser_token_hash, joined_at, left_at) VALUES ('p1', 'lv001', 'Ben', 'ben', 1, 'h1', 2, 3)`,
+         user_id, joined_at, left_at) VALUES ('p1', 'lv001', 'Ben', 'ben', 1, 'u1', 2, 3)`,
     ).run();
 
     const loaded = await loadStory(testEnv.env.DB, "lv001");

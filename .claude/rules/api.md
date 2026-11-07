@@ -17,6 +17,7 @@ What every route must look like: the usual REST conventions, plus the choices th
 - **A collection is a plural noun and a member is its ID under it**: `/api/stories`, `/api/stories/:storyId`.
 - **A path parameter is named after its resource**: `:storyId`, `:participantId`, never `:id`.
 - **A singular noun is for a resource that exists once within its parent.**
+- **`me` is a reserved user ID that means the requesting user**: `/api/users/me/account`.
 - **Nest at most two levels**: `/api/stories/:storyId/participants/:participantId`. A resource that would nest deeper gets its own top-level collection.
 - **Paths name resources, not actions.** When no resource models a state change, use `POST` to a verb sub-path of the resource: `/api/stories/:storyId/skip`. Try a noun first.
 - **A list that can grow without bound takes `limit` and `cursor` query parameters.** Filtering and sorting are query parameters too.
@@ -29,7 +30,8 @@ What every route must look like: the usual REST conventions, plus the choices th
 - **`DELETE` removes the resource its path names.** It has no body. `PUT` and `DELETE` give the same result when repeated.
 - **A write that returns nothing answers 204.** Clients refetch the story; the live socket says when.
 - **A `POST` that creates no stored record but costs something or can't be repeated returns 200 with its data**, as suggestions do.
-- **Each failure gets the status that matches its cause**: 400 for a bad request, 403 for not allowed, 404 for not found, 409 for a clash with the current state.
+- **Each failure gets the status that matches its cause**: 400 for a bad request, 401 for a session token that is missing where required or rejected, 403 for not allowed, 404 for not found, 409 for a clash with the current state.
+- **A 401 carries `WWW-Authenticate`.** `Bearer` when the request sent no credentials, `Bearer error="invalid_token"` when it sent a token that was rejected (`docs/api.md`, "Identity").
 - **Every write runs behind the guards in `src/worker/app.ts`**, and behind the turn version check when it changes a story's turn. `docs/api.md` ("Guards", "Writes and races") says how.
 
 ## Shapes

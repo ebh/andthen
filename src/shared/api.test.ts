@@ -289,6 +289,13 @@ describe("errorBodySchema", () => {
     expect(plainErrorCodeSchema.options).toContain("client_outdated");
   });
 
+  it("carries invalid_session_token as a plain code", () => {
+    expect(errorBodySchema.parse({ error: "invalid_session_token" })).toEqual({
+      error: "invalid_session_token",
+    });
+    expect(plainErrorCodeSchema.options).toContain("invalid_session_token");
+  });
+
   it("refuses left_story without them", () => {
     expect(errorBodySchema.safeParse({ error: "left_story" }).success).toBe(false);
   });

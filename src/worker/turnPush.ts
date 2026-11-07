@@ -1,6 +1,6 @@
 import { resolveTurn, turnEndsAt, turnPassedTo, type TurnState } from "../shared/turnOrder";
 import {
-  deleteGonePushSubscription,
+  deletePushSubscriptionByEndpoint,
   loadPushSubscriptions,
   type PushSubscriptionRow,
 } from "./db/pushRepo";
@@ -70,11 +70,11 @@ export function notifyTurnHolder(
 }
 
 /**
- * Sends "your turn" to every subscription of the browser of the writer at `holderPosition`. A
+ * Sends "your turn" to every subscription of the user who is the writer at `holderPosition`. A
  * failure is logged and swallowed, never thrown.
  *
  * `buildSender` is called only once there is someone to send to, so an environment without VAPID
- * keys fails (logged) only for a browser that subscribed.
+ * keys fails (logged) only for a user that subscribed.
  */
 export async function pushToHolder(
   db: Db,
@@ -87,7 +87,7 @@ export async function pushToHolder(
       throw new Error(`Story ${storyId} has no writer at position ${String(holderPosition)}`);
     }
 
-    const subscriptions = await loadPushSubscriptions(db, holder.browserTokenHash);
+    const subscriptions = await loadPushSubscriptions(db, holder.userId);
     if (subscriptions.length === 0) {
       return;
     }
@@ -117,7 +117,7 @@ async function sendAndForgetGone(
 ): Promise<void> {
   try {
     if ((await sender.send(subscription, message)) === "gone") {
-      await deleteGonePushSubscription(db, subscription.endpoint);
+      await deletePushSubscriptionByEndpoint(db, subscription.endpoint);
     }
   } catch (error) {
     console.error("Push to one subscription failed", error);

@@ -191,6 +191,7 @@ export const errorCodeSchema = z.enum([
   "ai_rate_limited",
   "left_story", // this browser was in the story and left; the body says what to rejoin
   "client_outdated", // the client's API level is below the Worker's minimum; it must update
+  "invalid_session_token", // a session token was sent and is expired, forged, for another origin or malformed
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 

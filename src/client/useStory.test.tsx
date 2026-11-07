@@ -127,6 +127,9 @@ describe("useStory", () => {
     act(() => {
       result.current.refetch();
     });
+    await waitFor(() => {
+      expect(replies).toHaveLength(2);
+    });
 
     await act(async () => {
       replies[1]?.(jsonResponse(200, view));

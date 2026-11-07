@@ -6,6 +6,7 @@ A group writes a story together, one passage each, in turns.
 - Writers take turns in a fixed turn order. A turn lasts 24 hours; if the writer doesn't write, the turn moves on. Anyone else in the story can skip the writer whose turn it is.
 - The home page lists every story you're in, so you don't need to keep the links. You can leave a story and rejoin it later from its link.
 - Every open page updates live, with no reload.
+- Signing in is optional. A signed-in writer sees the same stories, and gets the same "your turn" notifications, on every device.
 - The writer whose turn it is can ask for three AI suggestions. A suggestion only fills the text box; the writer decides what to send.
 
 It runs on Cloudflare: one Worker (Hono) serves `/api/*` and the React app's static files, D1 stores the stories, and a Durable Object (`StoryRoom`) pushes live updates. Suggestions come from Workers AI.
@@ -33,6 +34,8 @@ Needs Node 26.13.0 and pnpm 12.16.1. No Cloudflare account or login is needed.
 5. Open <http://localhost:5173>. Use `localhost`, not `127.0.0.1`: the login cookie only works without HTTPS on `localhost`.
 
 What you should see: a form asking for your name and an opening passage. Start a story and the Worker creates it and sends you to `/<5 characters>`. That page, along with joining, the story itself and your list of stories, is not in the new app yet, so you land on the not-found page. The API behind them works; see [docs/api.md](docs/api.md).
+
+Signing in works with no Clerk setup, because the committed `.env` holds the publishable key of the project's development Clerk instance. Sign-ups from your clone land in that instance. The app works without signing in.
 
 Local data lives in `.wrangler/state`; delete that folder to start clean. Copy `.dev.vars.example` to `.dev.vars` to change local variables. To try the real model, see [docs/deployment.md](docs/deployment.md#trying-the-real-model-locally).
 

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { TURN_WINDOW_MS } from "../src/shared/validation";
 import { app as defaultApp } from "../src/worker/app";
+import { hashBrowserToken } from "../src/worker/cookies";
 import {
   createBrowser,
   createStory,
@@ -395,13 +396,11 @@ describe("cookies", () => {
     const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env);
     const storyId = await createStory(browser);
     const token = browser.cookies.get("andthen_bt") ?? "";
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-    const expected = Array.from(new Uint8Array(digest), (b) =>
-      b.toString(16).padStart(2, "0"),
-    ).join("");
+    const expected = await hashBrowserToken(token);
 
     const row = await testEnv.env.DB.prepare(
-      "SELECT browser_token_hash AS hash FROM participants WHERE story_id = ?",
+      `SELECT u.browser_token_hash AS hash FROM participants p JOIN users u ON u.id = p.user_id
+       WHERE p.story_id = ?`,
     )
       .bind(storyId)
       .first();

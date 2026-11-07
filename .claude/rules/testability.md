@@ -3,6 +3,8 @@ paths:
   - "src/ui/**"
   - "src/client/**"
   - "src/worker/**"
+  - "!src/**/*.test.ts"
+  - "!src/**/*.test.tsx"
 ---
 
 # Testability rules

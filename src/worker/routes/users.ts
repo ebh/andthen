@@ -3,13 +3,8 @@ import { Hono } from "hono";
 import { emptyRequestSchema } from "../../shared/api";
 import { MERGE_LEAVE_ATTEMPTS } from "../config";
 import { loadStory } from "../db/storyRepo";
-import {
-  attachAccount,
-  findUserByClerkUserId,
-  mergeUserInto,
-  storiesWithBothActive,
-  type UserRow,
-} from "../db/userRepo";
+import * as userRepo from "../db/userRepo";
+import type { UserRow } from "../db/userRepo";
 import { ApiError, parseJsonBody, type AppContext } from "../http";
 import { leaveAsParticipant, type LeaveDeps } from "../leave";
 import { findDeviceUser, requireSession, type MeDeps } from "../me";
@@ -27,7 +22,7 @@ export function userRoutes(deps: UserDeps): Hono<{ Bindings: Env }> {
 
     const deviceUser = await findDeviceUser(c);
     if (deviceUser !== null) {
-      await bringDeviceUserIntoAccount(c, deps, deviceUser, session.clerkUserId);
+      await attachAccount(c, deps, deviceUser, session.clerkUserId);
     }
 
     return c.body(null, 204);
@@ -38,22 +33,25 @@ export function userRoutes(deps: UserDeps): Hono<{ Bindings: Env }> {
 
 // The device user's browser token is cleared when it becomes the account user, so a repeated
 // call finds no device user and does nothing.
-async function bringDeviceUserIntoAccount(
+async function attachAccount(
   c: AppContext,
   deps: UserDeps,
   deviceUser: UserRow,
   clerkUserId: string,
 ): Promise<void> {
-  const accountUser = await findUserByClerkUserId(c.env.DB, clerkUserId);
+  const accountUser = await userRepo.findUserByClerkUserId(c.env.DB, clerkUserId);
   if (accountUser?.id === deviceUser.id) {
     return;
   }
   // The account may be claimed between the lookup and the update; the update then writes nothing.
-  if (accountUser === null && (await attachAccount(c.env.DB, deviceUser.id, clerkUserId))) {
+  if (
+    accountUser === null &&
+    (await userRepo.attachAccount(c.env.DB, deviceUser.id, clerkUserId))
+  ) {
     return;
   }
 
-  const holder = accountUser ?? (await findUserByClerkUserId(c.env.DB, clerkUserId));
+  const holder = accountUser ?? (await userRepo.findUserByClerkUserId(c.env.DB, clerkUserId));
   if (holder === null) {
     throw new Error("Account user missing after its claim was refused");
   }
@@ -70,14 +68,14 @@ async function mergeDeviceUserInto(
   deviceUser: UserRow,
   accountUser: UserRow,
 ): Promise<void> {
-  const shared = await storiesWithBothActive(c.env.DB, deviceUser.id, accountUser.id);
+  const shared = await userRepo.storiesWithBothActive(c.env.DB, deviceUser.id, accountUser.id);
   await Promise.all(
     shared.map((storyId) =>
       leaveStoryAsUser(c, deps, storyId, deviceUser.id, MERGE_LEAVE_ATTEMPTS),
     ),
   );
 
-  await mergeUserInto(c.env.DB, deviceUser.id, accountUser.id);
+  await userRepo.mergeUserInto(c.env.DB, deviceUser.id, accountUser.id);
 }
 
 // Reloads the story before each attempt, because a refused leave means another write moved the

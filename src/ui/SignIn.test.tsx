@@ -2,7 +2,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { syncAccount } from "../client/account";
+import { addDeviceUserToAccount } from "../client/account";
 import { clerk, resetClerk } from "./clerkStub";
 import { replace, routerStub } from "./routerStub";
 import { SignIn } from "./SignIn";
@@ -13,12 +13,12 @@ vi.mock("@clerk/expo/web", () => ({
   SignIn: () => <div data-testid="clerk-sign-in" />,
 }));
 vi.mock("expo-router", () => routerStub);
-vi.mock("../client/account", () => ({ syncAccount: vi.fn<() => Promise<void>>() }));
+vi.mock("../client/account", () => ({ addDeviceUserToAccount: vi.fn<() => Promise<void>>() }));
 
 beforeEach(() => {
   resetClerk();
   replace.mockClear();
-  vi.mocked(syncAccount).mockReset().mockResolvedValue(undefined);
+  vi.mocked(addDeviceUserToAccount).mockReset().mockResolvedValue(undefined);
 });
 
 describe("SignIn", () => {
@@ -26,23 +26,23 @@ describe("SignIn", () => {
     renderPage(<SignIn />);
 
     expect(screen.getByTestId("clerk-sign-in")).toBeInTheDocument();
-    expect(syncAccount).not.toHaveBeenCalled();
+    expect(addDeviceUserToAccount).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("syncs the account and only then opens the home page once signed in", async () => {
+  it("adds the device user to the account and only then opens the home page once signed in", async () => {
     clerk.isSignedIn = true;
-    const sync = Promise.withResolvers<undefined>();
-    vi.mocked(syncAccount).mockReturnValue(sync.promise);
+    const added = Promise.withResolvers<undefined>();
+    vi.mocked(addDeviceUserToAccount).mockReturnValue(added.promise);
 
     renderPage(<SignIn />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Signing you in…");
     expect(screen.queryByTestId("clerk-sign-in")).not.toBeInTheDocument();
-    expect(syncAccount).toHaveBeenCalledOnce();
+    expect(addDeviceUserToAccount).toHaveBeenCalledOnce();
     expect(replace).not.toHaveBeenCalled();
 
-    sync.resolve(undefined);
+    added.resolve(undefined);
 
     await waitFor(() => {
       expect(replace).toHaveBeenCalledWith("/");
@@ -55,6 +55,6 @@ describe("SignIn", () => {
 
     renderPage(<SignIn />);
 
-    expect(syncAccount).not.toHaveBeenCalled();
+    expect(addDeviceUserToAccount).not.toHaveBeenCalled();
   });
 });

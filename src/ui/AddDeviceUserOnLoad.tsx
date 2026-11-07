@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { useEffect } from "react";
 
-import { syncAccount } from "../client/account";
+import { addDeviceUserToAccount } from "../client/account";
 
 /**
  * Brings this device's stories into the account whenever a session is there: on app load, and
@@ -13,7 +13,7 @@ export function AddDeviceUserOnLoad() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      void syncAccount();
+      void addDeviceUserToAccount();
     }
   }, [isLoaded, isSignedIn]);
 

@@ -91,7 +91,7 @@ export function removePushSubscription(endpoint: string): Promise<ApiResult<null
 }
 
 /** Brings this device's stories into the signed-in account. Needs a session token; safe to repeat. */
-export function putMyAccount(): Promise<ApiResult<null>> {
+export function requestAddDeviceUserToAccount(): Promise<ApiResult<null>> {
   return call("/api/users/me/account", jsonRequest("PUT", {}), noBodySchema);
 }
 

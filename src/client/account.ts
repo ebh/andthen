@@ -1,4 +1,4 @@
-import { putMyAccount } from "./api";
+import { requestAddDeviceUserToAccount } from "./api";
 
 // A merge that meets a turn change answers 409 `stale_turn`; the turn has usually settled by now.
 export const STALE_TURN_RETRY_DELAY_MS = 1000;
@@ -14,7 +14,7 @@ let inFlight: Promise<void> | null = null;
  * Callers that overlap share one request. A failure is not shown and not retried until the next
  * call, except a `stale_turn` clash, which is retried once.
  */
-export function syncAccount(): Promise<void> {
+export function addDeviceUserToAccount(): Promise<void> {
   inFlight ??= run().finally(() => {
     inFlight = null;
   });
@@ -32,10 +32,10 @@ export function onDeviceUserAdded(listener: () => void): () => void {
 }
 
 async function run(): Promise<void> {
-  let result = await putMyAccount();
+  let result = await requestAddDeviceUserToAccount();
   if (isStaleTurn(result)) {
     await new Promise((resolve) => setTimeout(resolve, STALE_TURN_RETRY_DELAY_MS));
-    result = await putMyAccount();
+    result = await requestAddDeviceUserToAccount();
   }
 
   if (result.ok) {
@@ -45,6 +45,6 @@ async function run(): Promise<void> {
   }
 }
 
-function isStaleTurn(result: Awaited<ReturnType<typeof putMyAccount>>): boolean {
+function isStaleTurn(result: Awaited<ReturnType<typeof requestAddDeviceUserToAccount>>): boolean {
   return !result.ok && result.failure.type === "rejected" && result.failure.code === "stale_turn";
 }

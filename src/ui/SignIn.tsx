@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Paragraph, useTheme } from "tamagui";
 
-import { syncAccount } from "../client/account";
+import { addDeviceUserToAccount } from "../client/account";
 import { SimplePage } from "./SimplePage";
 
 /**
@@ -25,7 +25,7 @@ export function SignIn() {
     }
 
     void (async () => {
-      await syncAccount();
+      await addDeviceUserToAccount();
       router.replace("/");
     })();
   }, [isLoaded, isSignedIn, router]);

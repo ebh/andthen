@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { STALE_TURN_RETRY_DELAY_MS, onDeviceUserAdded, syncAccount } from "./account";
+import { STALE_TURN_RETRY_DELAY_MS, onDeviceUserAdded, addDeviceUserToAccount } from "./account";
 import { jsonResponse, noContentResponse } from "./testFixtures";
 
 function stubFetch(...responses: Response[]) {
@@ -24,11 +24,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("syncAccount", () => {
+describe("addDeviceUserToAccount", () => {
   it("sends PUT /api/users/me/account", async () => {
     const fetchMock = stubFetch(noContentResponse());
 
-    await syncAccount();
+    await addDeviceUserToAccount();
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/users/me/account");
@@ -40,7 +40,7 @@ describe("syncAccount", () => {
     const listener = vi.fn<() => void>();
     const stop = onDeviceUserAdded(listener);
 
-    await syncAccount();
+    await addDeviceUserToAccount();
     stop();
 
     expect(listener).toHaveBeenCalledOnce();
@@ -51,7 +51,7 @@ describe("syncAccount", () => {
     const listener = vi.fn<() => void>();
     onDeviceUserAdded(listener)();
 
-    await syncAccount();
+    await addDeviceUserToAccount();
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -61,7 +61,7 @@ describe("syncAccount", () => {
     const listener = vi.fn<() => void>();
     const stop = onDeviceUserAdded(listener);
 
-    const pending = syncAccount();
+    const pending = addDeviceUserToAccount();
     await vi.advanceTimersByTimeAsync(STALE_TURN_RETRY_DELAY_MS - 1);
     expect(fetchMock).toHaveBeenCalledOnce();
 
@@ -78,7 +78,7 @@ describe("syncAccount", () => {
     const listener = vi.fn<() => void>();
     const stop = onDeviceUserAdded(listener);
 
-    const pending = syncAccount();
+    const pending = addDeviceUserToAccount();
     await vi.advanceTimersByTimeAsync(STALE_TURN_RETRY_DELAY_MS);
     await pending;
     stop();
@@ -92,7 +92,7 @@ describe("syncAccount", () => {
     const listener = vi.fn<() => void>();
     const stop = onDeviceUserAdded(listener);
 
-    await expect(syncAccount()).resolves.toBeUndefined();
+    await expect(addDeviceUserToAccount()).resolves.toBeUndefined();
     stop();
 
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -102,7 +102,7 @@ describe("syncAccount", () => {
   it("shares one request between overlapping callers", async () => {
     const fetchMock = stubFetch(noContentResponse());
 
-    await Promise.all([syncAccount(), syncAccount()]);
+    await Promise.all([addDeviceUserToAccount(), addDeviceUserToAccount()]);
 
     expect(fetchMock).toHaveBeenCalledOnce();
   });
@@ -110,8 +110,8 @@ describe("syncAccount", () => {
   it("sends a new request for a call made after the last one finished", async () => {
     const fetchMock = stubFetch(noContentResponse(), noContentResponse());
 
-    await syncAccount();
-    await syncAccount();
+    await addDeviceUserToAccount();
+    await addDeviceUserToAccount();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

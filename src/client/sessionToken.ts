@@ -23,13 +23,6 @@ export function setSessionSource(next: SessionSource | null): void {
   }
 }
 
-/** Forgets the source and the give-up, so each test starts as a fresh page load. */
-export function resetSessionSource(): void {
-  source = null;
-  gaveUpWaiting = false;
-  waiting.clear();
-}
-
 /**
  * The session token to send, or null to send the request anonymously. Never cached: Clerk's
  * tokens last a minute, and Clerk's own `getToken` renews them.

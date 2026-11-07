@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { listMyStories } from "./api";
-import { resetSessionSource, setSessionSource, type SessionSource } from "./sessionToken";
+import { setSessionSource, type SessionSource } from "./sessionToken";
 import { jsonResponse } from "./testFixtures";
 
 const stories = () => jsonResponse(200, { stories: [] });
@@ -121,7 +121,7 @@ describe("the session token on API calls", () => {
   });
 
   it("holds the request until Clerk has loaded", async () => {
-    resetSessionSource();
+    setSessionSource(null);
     const fetchMock = stubFetch(stories());
 
     const pending = listMyStories();

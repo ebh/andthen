@@ -2,7 +2,7 @@
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getSessionToken, resetSessionSource } from "../client/sessionToken";
+import { getSessionToken, setSessionSource } from "../client/sessionToken";
 import { clerk, resetClerk } from "./clerkStub";
 import { ShareClerkSessionToken } from "./ShareClerkSessionToken";
 
@@ -10,7 +10,7 @@ vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
 
 beforeEach(() => {
   resetClerk();
-  resetSessionSource();
+  setSessionSource(null);
 });
 
 describe("ShareClerkSessionToken", () => {

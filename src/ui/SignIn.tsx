@@ -57,7 +57,8 @@ function useClerkAppearance() {
       colorPrimary: theme.primary.val,
       colorPrimaryForeground: theme.background.val,
       colorDanger: theme.error.val,
-      colorBorder: theme["border-color"].val,
+      // Clerk draws every border at about 11% of this colour, so our `border-color` would vanish.
+      colorBorder: theme.color.val,
       colorInput: theme.background.val,
       colorInputForeground: theme.color.val,
       fontFamily: "Inter_400Regular, system-ui, sans-serif",

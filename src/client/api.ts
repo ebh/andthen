@@ -24,6 +24,7 @@ import {
   type StoryView,
   type SuggestionsResponse,
 } from "../shared/api";
+import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { setClientOutdated } from "./clientOutdated";
 import { getSessionToken } from "./sessionToken";
 
@@ -82,17 +83,21 @@ export function requestSuggestions(storyId: string): Promise<ApiResult<Suggestio
 }
 
 export function fetchPushKey(): Promise<ApiResult<PushKeyResponse>> {
-  return call("/api/push-subscription/key", { method: "GET" }, pushKeyResponseSchema);
+  return call("/api/push-key", { method: "GET" }, pushKeyResponseSchema);
 }
 
-export function savePushSubscription(
+export async function savePushSubscription(
   subscription: PushSubscriptionRequest,
 ): Promise<ApiResult<null>> {
-  return call("/api/push-subscription", jsonRequest("PUT", subscription), noBodySchema);
+  return call(
+    await pushSubscriptionPath(subscription.endpoint),
+    jsonRequest("PUT", subscription),
+    noBodySchema,
+  );
 }
 
-export function removePushSubscription(endpoint: string): Promise<ApiResult<null>> {
-  return call("/api/push-subscription", jsonRequest("DELETE", { endpoint }), noBodySchema);
+export async function removePushSubscription(endpoint: string): Promise<ApiResult<null>> {
+  return call(await pushSubscriptionPath(endpoint), { method: "DELETE" }, noBodySchema);
 }
 
 /** Brings this device's stories into the signed-in account. Needs a session token; safe to repeat. */
@@ -190,6 +195,10 @@ function unrecognisedError(status: number, body: unknown): ApiFailure {
   }
 
   return { type: "unknown_code", status, code: parsed.data.error };
+}
+
+async function pushSubscriptionPath(endpoint: string): Promise<string> {
+  return `/api/push-subscriptions/${await pushSubscriptionIdOf(endpoint)}`;
 }
 
 function storyPath(storyId: string): string {

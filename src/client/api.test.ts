@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { API_LEVEL } from "../shared/apiLevel";
+import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
   contribute,
@@ -290,7 +291,7 @@ describe("push subscription", () => {
     const fetchMock = stubFetch(jsonResponse(200, { publicKey: "key" }));
 
     expect(await fetchPushKey()).toEqual({ ok: true, value: { publicKey: "key" } });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription/key", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/push-key", {
       method: "GET",
       headers: { "X-Api-Level": "1" },
     });
@@ -300,22 +301,27 @@ describe("push subscription", () => {
     const fetchMock = stubFetch(noContentResponse());
 
     expect(await savePushSubscription(subscription)).toEqual({ ok: true, value: null });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
-      body: JSON.stringify(subscription),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/push-subscriptions/${await pushSubscriptionIdOf(subscription.endpoint)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
+        body: JSON.stringify(subscription),
+      },
+    );
   });
 
-  it("deletes by endpoint and accepts a 204", async () => {
+  it("deletes at the subscription's path with no body and accepts a 204", async () => {
     const fetchMock = stubFetch(noContentResponse());
 
     expect(await removePushSubscription(subscription.endpoint)).toEqual({ ok: true, value: null });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
-      body: JSON.stringify({ endpoint: subscription.endpoint }),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/push-subscriptions/${await pushSubscriptionIdOf(subscription.endpoint)}`,
+      {
+        method: "DELETE",
+        headers: { "X-Api-Level": "1" },
+      },
+    );
   });
 
   it("reports a rejected save as a failure value", async () => {

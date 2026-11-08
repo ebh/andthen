@@ -132,7 +132,9 @@ describe("concurrent writes to one story", () => {
       () => ben.post(`/api/stories/${storyId}/leave`, {}, gate),
     ]);
 
-    expect(statuses).toEqual([201, 409]);
+    // The contribution wins with 201 and the leave with 204; the other one loses with 409.
+    expect(statuses.filter((status) => status === 409)).toHaveLength(1);
+    expect(statuses.filter((status) => status === 201 || status === 204)).toHaveLength(1);
     expect(errors).toEqual(["stale_turn"]);
     expect((await readStory(cat, storyId)).turn.version).toBe(3);
   });

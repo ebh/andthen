@@ -143,12 +143,17 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
         headers.set("Content-Type", contentType);
       }
 
+      // A DELETE given neither a body nor a raw body sends none, as a real client does.
+      const sendsBody = method !== "DELETE" || body !== undefined || options.rawBody !== undefined;
+
       return send(
         path,
         {
           method,
           headers,
-          body: new TextEncoder().encode(options.rawBody ?? JSON.stringify(body)),
+          body: sendsBody
+            ? new TextEncoder().encode(options.rawBody ?? JSON.stringify(body))
+            : null,
         },
         options,
       );

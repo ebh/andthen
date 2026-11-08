@@ -109,7 +109,7 @@ const MAX_PUSH_ENDPOINT_LENGTH = 2048;
 
 // Unpadded base64url, as a browser's `PushSubscription.toJSON()` writes it. A P-256 public key is
 // 65 bytes (87 characters) and the authentication secret is 16 bytes (22 characters).
-const pushKeySchema = (length: number) =>
+const subscriptionKeySchema = (length: number) =>
   z
     .string()
     .length(length)
@@ -145,12 +145,12 @@ export function isPushServiceEndpoint(endpoint: string): boolean {
 /** A browser's Web Push subscription, as `PushSubscription.toJSON()` gives it. */
 export const pushSubscriptionSchema = z.object({
   endpoint: pushEndpointSchema.refine(isPushServiceEndpoint, "not a known push service"),
-  keys: z.object({ p256dh: pushKeySchema(87), auth: pushKeySchema(22) }),
+  keys: z.object({ p256dh: subscriptionKeySchema(87), auth: subscriptionKeySchema(22) }),
 });
 export type PushSubscriptionRequest = z.infer<typeof pushSubscriptionSchema>;
 
-export const removePushSubscriptionRequestSchema = z.object({ endpoint: pushEndpointSchema });
-export type RemovePushSubscriptionRequest = z.infer<typeof removePushSubscriptionRequestSchema>;
+/** The shape of `pushSubscriptionIdOf`: a SHA-256 as 64 lowercase hex characters. */
+export const pushSubscriptionIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** The server's VAPID public key, which a browser passes to `pushManager.subscribe`. */
 export const pushKeyResponseSchema = z.object({ publicKey: z.string().min(1) });

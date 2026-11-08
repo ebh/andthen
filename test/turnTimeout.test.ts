@@ -13,6 +13,7 @@ import {
   type Browser,
   type Clock,
 } from "./support/browser";
+import { putPushSubscription } from "./support/pushSubscriptions";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -186,7 +187,7 @@ describe("passTimedOutTurn", () => {
 
 async function subscribe(browser: Browser, name: string): Promise<string> {
   const endpoint = `https://fcm.googleapis.com/send/${name}`;
-  const response = await browser.put("/api/push-subscription", {
+  const response = await putPushSubscription(browser, {
     endpoint,
     keys: { p256dh: P256DH, auth: AUTH },
   });

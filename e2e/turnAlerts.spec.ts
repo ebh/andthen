@@ -19,7 +19,9 @@ const SWITCH_LABEL = "Notify me when it's my turn";
 const IPHONE_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 const DESKTOP = { width: 1280, height: 800 };
-const SUBSCRIPTION_URL = "/api/push-subscription";
+// The stand-in's endpoint hashed with SHA-256, worked out outside the app so the test pins the ID.
+const SUBSCRIPTION_URL =
+  "/api/push-subscriptions/7808440c3e662d81aa91e1de554cc170cdf741df06c8aea757aa550a09bfd663";
 
 async function writerOn(
   browser: Browser,
@@ -181,9 +183,7 @@ test("with a stand-in for the push service: on sends the subscription, a reload 
 
   const removedResponse = await removed;
   expect(removedResponse.status()).toBe(204);
-  expect(removedResponse.request().postDataJSON()).toEqual({
-    endpoint: "https://fcm.googleapis.com/fcm/send/e2e-stand-in",
-  });
+  expect(removedResponse.request().postData()).toBeNull();
   await expect(notifySwitch(page)).not.toBeChecked();
 });
 

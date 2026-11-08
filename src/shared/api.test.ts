@@ -10,7 +10,7 @@ import {
   plainErrorCodeSchema,
   pushKeyResponseSchema,
   pushSubscriptionSchema,
-  removePushSubscriptionRequestSchema,
+  pushSubscriptionIdSchema,
   joinRequestSchema,
   liveMessageSchema,
   myStoriesResponseSchema,
@@ -369,14 +369,15 @@ describe("pushSubscriptionSchema endpoint host", () => {
   });
 });
 
-describe("removePushSubscriptionRequestSchema", () => {
-  it("takes an https endpoint only", () => {
-    expect(removePushSubscriptionRequestSchema.parse({ endpoint: ENDPOINT })).toEqual({
-      endpoint: ENDPOINT,
-    });
-    expect(
-      removePushSubscriptionRequestSchema.safeParse({ endpoint: "http://push.example/x" }).success,
-    ).toBe(false);
+describe("pushSubscriptionIdSchema", () => {
+  it.each([
+    ["64 lowercase hex characters", "a".repeat(64), true],
+    ["uppercase hex", "A".repeat(64), false],
+    ["one character short", "a".repeat(63), false],
+    ["a non-hex character", `${"a".repeat(63)}g`, false],
+    ["an empty string", "", false],
+  ])("on %s", (_name, id, accepted) => {
+    expect(pushSubscriptionIdSchema.safeParse(id).success).toBe(accepted);
   });
 });
 

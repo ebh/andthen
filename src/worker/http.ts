@@ -104,11 +104,14 @@ export function requireApiLevel(minApiLevel: number): (c: AppContext, next: Next
   };
 }
 
-/** Same-origin check on every mutating request, and `application/json` on every body. */
+/**
+ * Same-origin check on every mutating request, `application/json` on every body, and no body at
+ * all on a `DELETE`, whose path names everything it removes.
+ */
 export async function guardMutation(c: AppContext, next: Next): Promise<void> {
   if (!SAFE_METHODS.has(c.req.method)) {
     requireTrustedOrigin(c);
-    if (!isJson(c.req.header("Content-Type"))) {
+    if (!isJsonOrBodylessDelete(c)) {
       throw new ApiError("bad_request");
     }
   }
@@ -207,6 +210,10 @@ export async function noStore(c: AppContext, next: Next): Promise<void> {
   if (c.res.status !== 101) {
     c.header("Cache-Control", "no-store");
   }
+}
+
+function isJsonOrBodylessDelete(c: AppContext): boolean {
+  return c.req.method === "DELETE" ? c.req.raw.body === null : isJson(c.req.header("Content-Type"));
 }
 
 function isJson(contentType: string | undefined): boolean {

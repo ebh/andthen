@@ -24,6 +24,9 @@ import { UpdateReady } from "../ui/UpdateReady";
 
 const publishableKey = readPublishableKey();
 
+// Not in an effect: the browser can fire `beforeinstallprompt` before React mounts the layout.
+startAppInstall();
+
 export default function Layout() {
   const scheme = useColorScheme();
   // Render at once and let the fonts swap in. Returning null until they load left the page white
@@ -38,7 +41,6 @@ export default function Layout() {
   useEffect(() => {
     void startAppUpdates();
     void startTurnAlerts();
-    startAppInstall();
   }, []);
 
   return (

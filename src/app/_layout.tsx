@@ -14,6 +14,7 @@ import { ScrollView, TamaguiProvider, YStack } from "tamagui";
 import { z } from "zod";
 
 import { tamaguiConfig } from "../../tamagui.config";
+import { startAppInstall } from "../client/appInstall";
 import { startAppUpdates } from "../client/appUpdate";
 import { startTurnAlerts } from "../client/turnAlerts";
 import { AddDeviceUserOnLoad } from "../ui/AddDeviceUserOnLoad";
@@ -37,6 +38,7 @@ export default function Layout() {
   useEffect(() => {
     void startAppUpdates();
     void startTurnAlerts();
+    startAppInstall();
   }, []);
 
   return (

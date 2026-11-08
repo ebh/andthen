@@ -39,11 +39,15 @@ function renderBoard(view = withCompany, refreshFailed = false, refetch = vi.fn<
 }
 
 describe("StoryBoard", () => {
-  it("has the wordmark as its level-1 heading and links back to the writer's stories", () => {
+  it("has the wordmark as its level-1 heading, links back to the writer's stories and publishes the contact address", () => {
     renderBoard();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("And then…");
     expect(screen.getByRole("link", { name: /Your stories/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "support@andthen.page" })).toHaveAttribute(
+      "href",
+      "mailto:support@andthen.page",
+    );
   });
 
   it("offers the story's address as the invite link", () => {

@@ -226,13 +226,13 @@ describe("success", () => {
     expect(!result.ok && result.failure).toEqual({ type: "unreadable", status: 200 });
   });
 
-  it("accepts a 204 with no body for a contribution", async () => {
-    const fetchMock = stubFetch(noContentResponse());
+  it("reads the new contribution's ID from a 201", async () => {
+    const fetchMock = stubFetch(jsonResponse(201, { contributionId: "c7" }));
 
     expect(await contribute("abc12", { text: "x", turnVersion: 2, startsParagraph: true })).toEqual(
       {
         ok: true,
-        value: null,
+        value: { contributionId: "c7" },
       },
     );
     expect(fetchMock).toHaveBeenCalledWith(

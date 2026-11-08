@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { API_LEVEL, API_LEVEL_HEADER } from "../shared/apiLevel";
 import {
+  contributeResponseSchema,
   createStoryResponseSchema,
   errorBodySchema,
   errorCodeSchema,
@@ -11,6 +12,7 @@ import {
   storyViewSchema,
   suggestionsResponseSchema,
   type ContributeRequest,
+  type ContributeResponse,
   type CreateStoryRequest,
   type CreateStoryResponse,
   type JoinRequest,
@@ -56,8 +58,11 @@ export function joinStory(storyId: string, request: JoinRequest): Promise<ApiRes
   return call(`${storyPath(storyId)}/participants`, postJson(request), joinResponseSchema);
 }
 
-export function contribute(storyId: string, request: ContributeRequest): Promise<ApiResult<null>> {
-  return call(`${storyPath(storyId)}/contributions`, postJson(request), noBodySchema);
+export function contribute(
+  storyId: string,
+  request: ContributeRequest,
+): Promise<ApiResult<ContributeResponse>> {
+  return call(`${storyPath(storyId)}/contributions`, postJson(request), contributeResponseSchema);
 }
 
 export function skipTurn(storyId: string, turnVersion: number): Promise<ApiResult<null>> {

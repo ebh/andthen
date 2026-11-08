@@ -39,6 +39,10 @@ export const contributeRequestSchema = z.object({
 });
 export type ContributeRequest = z.infer<typeof contributeRequestSchema>;
 
+/** The new contribution's ID. */
+export const contributeResponseSchema = z.object({ contributionId: idSchema });
+export type ContributeResponse = z.infer<typeof contributeResponseSchema>;
+
 /** The body of a route that takes no input. Anything else in it is refused. */
 export const emptyRequestSchema = z.strictObject({});
 

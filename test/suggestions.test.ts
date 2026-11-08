@@ -202,7 +202,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
         startsParagraph: false,
       });
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
     });
 
     it("accepts a request with no body", async () => {

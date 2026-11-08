@@ -143,7 +143,7 @@ describe("passTimedOutTurn", () => {
             turnVersion: version,
             startsParagraph: false,
           });
-          if (written.status !== 204) {
+          if (written.status !== 201) {
             throw new Error(`Competing write answered ${String(written.status)}`);
           }
         }

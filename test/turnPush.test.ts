@@ -106,7 +106,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(sentTo()).toEqual([endpoints.cy]);
       expect(sender.sent[0]?.subscription).toEqual({
         endpoint: endpoints.cy,
@@ -180,7 +180,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(throwingSender).not.toHaveBeenCalled();
       expect(error).not.toHaveBeenCalledWith("Turn push failed", expect.anything());
     });
@@ -378,7 +378,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(sentTo().toSorted()).toEqual([endpoints.cy, second].toSorted());
       expect(error).toHaveBeenCalledWith("Push to one subscription failed", expect.any(Error));
     });
@@ -401,7 +401,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(error).toHaveBeenCalledWith("Turn push failed", expect.any(Error));
     });
 
@@ -434,7 +434,7 @@ describe("pushing the turn", () => {
 
       const response = await contribute(ben, storyId);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(ben.backgroundWork.length).toBeGreaterThan(before);
       release(undefined);
       await settle(ben);

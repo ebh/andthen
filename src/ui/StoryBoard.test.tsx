@@ -106,7 +106,9 @@ describe("composer", () => {
   });
 
   it("sends the passage with the shown turn version and clears it on success", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse(201, { contributionId: "c9" })),
+    );
     vi.stubGlobal("fetch", fetchMock);
     const refetch = renderBoard(myTurn);
     const user = userEvent.setup();
@@ -127,7 +129,9 @@ describe("composer", () => {
   });
 
   it("sends startsParagraph when New paragraph is ticked, then unticks it after sending", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonResponse(201, { contributionId: "c9" })),
+    );
     vi.stubGlobal("fetch", fetchMock);
     renderBoard(myTurn);
     const user = userEvent.setup();

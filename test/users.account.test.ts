@@ -344,7 +344,7 @@ describe("PUT /api/users/me/account", () => {
       });
       await settle(ben);
 
-      expect(written.status).toBe(204);
+      expect(written.status).toBe(201);
       expect(await storyIds(laptop)).toEqual([storyId, phoneStory].toSorted());
       expect(await storyIds(phone)).toEqual([storyId, phoneStory].toSorted());
       expect(sender.sent.map(({ subscription }) => subscription.endpoint).toSorted()).toEqual(

@@ -6,6 +6,7 @@ import {
   emptyRequestSchema,
   joinRequestSchema,
   skipRequestSchema,
+  type ContributeResponse,
   type CreateStoryResponse,
   type JoinResponse,
   type MyStoriesResponse,
@@ -262,12 +263,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError(result.reason);
     }
 
+    const contributionId = newId();
     const saved = await appendContribution(c.env.DB, {
       storyId,
       loadedVersion: loaded.state.turnVersion,
       next: result.state,
       contribution: {
-        id: newId(),
+        id: contributionId,
         participantId: me.id,
         text: passage.value,
         startsParagraph: body.startsParagraph,
@@ -287,7 +289,11 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       now,
     });
 
-    return c.body(null, 204);
+    const response: ContributeResponse = { contributionId };
+
+    c.header("Location", `/api/stories/${storyId}/contributions/${contributionId}`);
+
+    return c.json(response, 201);
   });
 
   routes.post("/api/stories/:storyId/skip", async (c) => {

@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createStoryResponseSchema, joinResponseSchema } from "../src/shared/api";
+import {
+  contributeResponseSchema,
+  createStoryResponseSchema,
+  joinResponseSchema,
+} from "../src/shared/api";
 import { TURN_WINDOW_MS } from "../src/shared/validation";
 import { app as defaultApp } from "../src/worker/app";
 import { hashBrowserToken } from "../src/worker/cookies";
@@ -90,7 +94,11 @@ describe("story journeys", () => {
       startsParagraph: false,
     });
 
-    expect(written.status).toBe(204);
+    expect(written.status).toBe(201);
+    const { contributionId } = contributeResponseSchema.parse(await written.json());
+    expect(written.headers.get("Location")).toBe(
+      `/api/stories/${storyId}/contributions/${contributionId}`,
+    );
     const after = await readStory(ana, storyId);
     expect(
       after.contributions.map((c) => [c.authorName, c.text, c.startsParagraph, c.createdAt]),
@@ -98,6 +106,7 @@ describe("story journeys", () => {
       ["Ana", "Once upon a time.", true, T0],
       ["Ben", "And then Ben wrote.", false, T0 + 1000],
     ]);
+    expect(after.contributions.at(-1)?.id).toBe(contributionId);
     expect(after.turn).toEqual({
       holderId: after.participants[0]?.id,
       endsAt: T0 + 1000 + TURN_WINDOW_MS,
@@ -194,7 +203,7 @@ describe("story journeys", () => {
 
     expect(stale.status).toBe(409);
     expect(await readError(stale)).toBe("stale_turn");
-    expect(late.status).toBe(204);
+    expect(late.status).toBe(201);
     const row = await testEnv.env.DB.prepare(
       "SELECT current_position AS p, turn_started_at AS t, turn_version AS v, last_contributor_position AS l FROM stories WHERE id = ?",
     )

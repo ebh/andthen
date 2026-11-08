@@ -115,7 +115,7 @@ describe("leaving and rejoining a story", () => {
       await leave(ben, storyId);
       const view = await readStory(ana, storyId);
 
-      expect(written.status).toBe(204);
+      expect(written.status).toBe(201);
       expect(view.contributions.map((turn) => turn.authorName)).toEqual(["Ana", "Ben"]);
       expect(names(view)).toEqual(["Ana", "Cal"]);
     });

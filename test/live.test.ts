@@ -434,7 +434,7 @@ describe("GET /api/stories/:storyId/live", () => {
       );
       await Promise.all(ben.backgroundWork);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(log).toHaveBeenCalledWith("StoryRoom notify failed", expect.any(Error));
       expect((await readStory(ben, storyId)).contributions.map((c) => c.text)).toContain(
         "Still saved.",
@@ -455,7 +455,7 @@ describe("GET /api/stories/:storyId/live", () => {
       );
       await Promise.all(ben.backgroundWork);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(log).toHaveBeenCalledWith("StoryRoom notify failed", expect.any(Error));
       log.mockRestore();
     });
@@ -471,7 +471,7 @@ describe("GET /api/stories/:storyId/live", () => {
         { env: rooms.env },
       );
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(rooms.notifications).toHaveLength(1);
       // The notification is handed to waitUntil and still pending; the write is committed.
       const notification = ben.backgroundWork.at(-1);

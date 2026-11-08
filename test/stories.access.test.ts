@@ -222,7 +222,7 @@ describe("story access", () => {
         startsParagraph: false,
       });
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
     });
 
     it("answers 404 for an unknown story", async () => {

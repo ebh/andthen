@@ -8,15 +8,15 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Passage:** a section of a story's text. It can be part of a sentence, a sentence or a whole paragraph, up to `MAX_PASSAGE_LENGTH` (280 graphemes) in `src/shared/validation.ts`. The error code is `invalid_passage`.
 - **Opening:** the first passage of a story, written by its creator when they start it. `opening` in `StorySummary`.
 - **Paragraph start:** whether a passage opens a new paragraph or continues the last one. `startsParagraph` in `ContributionView`; the opening always starts one.
-- **Contribution:** what a participant adds to a story. Today every contribution is a passage, because nothing else can be added yet. Edits, comments and votes are planned and will be contributions too (see "Reserved"). Lives in the append-only `contributions` table; `ContributionView` in `src/shared/api.ts`; `POST /api/stories/:id/contributions`.
+- **Contribution:** what a participant adds to a story. Today every contribution is a passage, because nothing else can be added yet. Edits, comments and votes are planned and will be contributions too (see "Reserved"). Lives in the append-only `contributions` table; `ContributionView` in `src/shared/api.ts`; `POST /api/stories/:storyId/contributions`.
 - **Author:** the participant who wrote a contribution. `authorId` and `authorName` in `ContributionView`.
 - **Contributor:** a participant who has made at least one contribution of any kind: a passage today, later an edit, comment or vote. It is the author link seen from the participant's side. The last contributor is the participant who made the most recent contribution; the turn passes over them (`lastContributorPosition`).
-- **Suggestion:** an AI-written passage offered to the turn holder. A request returns three; they only fill the text box, and the participant decides what to send. Limited to `SUGGESTION_LIMIT` per participant per hour. `POST /api/stories/:id/suggestions`.
+- **Suggestion:** an AI-written passage offered to the turn holder. A request returns three; they only fill the text box, and the participant decides what to send. Limited to `SUGGESTION_LIMIT` per participant per hour. `POST /api/stories/:storyId/suggestions`.
 
 ## People
 
 - **User:** one person across stories. A participant and a push subscription each belong to a user. A user is anonymous until it has an account. A user with an account is an account user. Lives in the `users` table.
-- **Participant:** someone who has joined a story. One row per user per story in the `participants` table; `ParticipantView`; `POST /api/stories/:id/participants`. The same person in two stories is two participants.
+- **Participant:** someone who has joined a story. One row per user per story in the `participants` table; `ParticipantView`; `POST /api/stories/:storyId/participants`. The same person in two stories is two participants.
 - **Writer:** a participant who may write passages. Today every participant is a writer, so the role is not stored. A writer is the author of the passages they write. The word appears in the README, the docs, UI copy and `writerCount` in `StorySummary`.
 - **Display name:** the name shown beside a participant's passages. Chosen per story, up to `MAX_DISPLAY_NAME_LENGTH` (40 graphemes), unique in a story ignoring case (`display_name_key`). A leaver's name stays reserved.
 - **Invite link:** a story's URL, shared so others can join. Anyone with it can join, up to `MAX_PARTICIPANTS` (50).
@@ -31,8 +31,10 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Merge:** folding the device user into the account user. Participants and push subscriptions move to the account user, and the device user is deleted. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
 - **`me`:** the reserved user ID in a path that means the user making the request, as in `/api/users/me/account`. See `.claude/rules/api.md`.
 - **Session token:** the short-lived proof that a request comes from a signed-in account. A signed-in client sends it as `Authorization: Bearer <token>` on every call. The Worker checks it (`src/worker/sessionToken.ts`). A request with a session token never falls back to the browser token. Error code `invalid_session_token`.
-- **My stories:** the stories a user is in and has not left, on every device that user is signed in on. `GET /api/stories`; `StorySummary`.
-- **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so passages keep an author and the name stays reserved. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:id/leave` and `/rejoin`.
+- **My stories:** the stories a user is in and has not left, on every device that user is signed in on. Listed a page at a time. `GET /api/stories`; `StorySummary`.
+- **Page:** the next batch of a user's stories, at most `limit` of them (`MY_STORIES_DEFAULT_LIMIT` 20, `MY_STORIES_MAX_LIMIT` 50). The response carries the cursor for the page after it, or null on the last page. `StoriesPage`.
+- **Cursor:** where a page ended: the sort key of its last story (whose turn it is, newest passage time, story ID). It is opaque to clients, and the next page is every story that sorts after it. `nextCursor`; `StoryCursor`.
+- **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so passages keep an author and the name stays reserved. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:storyId/leave` and `/rejoin`.
 
 ## Turns
 
@@ -42,13 +44,14 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Waiting:** a story with no turn holder and no timer. It happens when its only participant wrote last, or when nobody is left in it. It waits until someone joins.
 - **Turn window:** how long a holder has, `TURN_WINDOW_MS` (24 hours). When it ends the turn moves on, checked lazily on the next read or write, and by the `StoryRoom` alarm for the push.
 - **Turn version:** `turnVersion`, a counter that goes up by one for each contribution, skip, expired window, join and leave. A request that carries an old one fails with `stale_turn`.
-- **Skip:** any participant but the holder passes the turn to the next one. `POST /api/stories/:id/skip`.
+- **Skip:** any participant but the holder passes the turn to the next one. `POST /api/stories/:storyId/skip`.
 
 ## Live and background
 
-- **Live update:** a message from the story's WebSocket telling clients to refetch. `GET /api/stories/:id/live`; `liveMessageSchema`.
+- **Live update:** a message from the story's WebSocket telling clients to refetch. `GET /api/stories/:storyId/live`; `liveMessageSchema`.
 - **StoryRoom:** the Durable Object that fans out live updates and runs the turn window alarm. It holds no story data; D1 does.
-- **Push subscription:** a browser's Web Push endpoint, used to say "it's your turn". Belongs to a user, not a story. `/api/push-subscription`.
+- **Push subscription:** a browser's Web Push endpoint, used to say "it's your turn". Belongs to a user, not a story. Its ID is the hash of its endpoint. `/api/push-subscriptions/:pushSubscriptionId`.
+- **VAPID public key:** the public half of the key pair the Worker signs pushes with (VAPID, Voluntary Application server Identification). A browser passes it to `pushManager.subscribe` so the push service knows who may send. It is the same for every user and is not a subscription. `GET /api/vapid-public-key`; `VapidPublicKeyResponse`.
 - **API level:** the whole number in `src/shared/apiLevel.ts` that a client sends as `X-Api-Level`. Raised only for a change that breaks shipped clients. A client below `MIN_API_LEVEL` gets 426 `client_outdated`.
 
 ## Reserved

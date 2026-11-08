@@ -201,7 +201,7 @@ describe("StoryRoom in workerd", () => {
         ben.cookie,
       );
 
-      expect(written.status).toBe(204);
+      expect(written.status).toBe(201);
       const message = liveMessageSchema.parse(JSON.parse(await heard));
       expect(message.version).toBe(turn.version + 1);
     });
@@ -238,7 +238,7 @@ describe("StoryRoom in workerd", () => {
         { text: "Zed's story moves on.", turnVersion: zedsTurn.version, startsParagraph: false },
         yan.cookie,
       );
-      expect(written.status).toBe(204);
+      expect(written.status).toBe(201);
 
       const sentinel = await heardSentinel;
       expect(zedHeard).toEqual([sentinel]);
@@ -256,7 +256,7 @@ describe("StoryRoom in workerd", () => {
         ben.cookie,
       );
 
-      expect(written.status).toBe(204);
+      expect(written.status).toBe(201);
     });
   });
 

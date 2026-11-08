@@ -16,6 +16,7 @@ import {
   type Browser,
   type Clock,
 } from "./support/browser";
+import { putPushSubscription } from "./support/pushSubscriptions";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 import { userIdOf } from "./support/users";
@@ -106,7 +107,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(sentTo()).toEqual([endpoints.cy]);
       expect(sender.sent[0]?.subscription).toEqual({
         endpoint: endpoints.cy,
@@ -180,7 +181,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(throwingSender).not.toHaveBeenCalled();
       expect(error).not.toHaveBeenCalledWith("Turn push failed", expect.anything());
     });
@@ -378,7 +379,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(sentTo().toSorted()).toEqual([endpoints.cy, second].toSorted());
       expect(error).toHaveBeenCalledWith("Push to one subscription failed", expect.any(Error));
     });
@@ -401,7 +402,7 @@ describe("pushing the turn", () => {
       const response = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(error).toHaveBeenCalledWith("Turn push failed", expect.any(Error));
     });
 
@@ -434,7 +435,7 @@ describe("pushing the turn", () => {
 
       const response = await contribute(ben, storyId);
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
       expect(ben.backgroundWork.length).toBeGreaterThan(before);
       release(undefined);
       await settle(ben);
@@ -453,7 +454,7 @@ async function contribute(browser: Browser, storyId: string): Promise<Response> 
 
 async function subscribe(browser: Browser, name: string): Promise<string> {
   const endpoint = endpointOf(name);
-  const response = await browser.put("/api/push-subscription", {
+  const response = await putPushSubscription(browser, {
     endpoint,
     keys: { p256dh: P256DH, auth: AUTH },
   });

@@ -104,11 +104,14 @@ export function requireApiLevel(minApiLevel: number): (c: AppContext, next: Next
   };
 }
 
-/** Same-origin check on every mutating request, and `application/json` on every body. */
+/**
+ * Same-origin check on every mutating request, `application/json` on every body, and no body at
+ * all on a `DELETE`, whose path names everything it removes.
+ */
 export async function guardMutation(c: AppContext, next: Next): Promise<void> {
   if (!SAFE_METHODS.has(c.req.method)) {
     requireTrustedOrigin(c);
-    if (!isJson(c.req.header("Content-Type"))) {
+    if (!isJsonOrBodylessDelete(c)) {
       throw new ApiError("bad_request");
     }
   }
@@ -162,6 +165,16 @@ export const limitBody = bodyLimit({
   onError: (c) => c.json(errorBody("payload_too_large"), ERROR_STATUS.payload_too_large),
 });
 
+/** Reads and validates the query string. A failure is `bad_request`. */
+export function parseQuery<T>(c: AppContext, schema: z.ZodType<T>): T {
+  const parsed = schema.safeParse(c.req.query());
+  if (!parsed.success) {
+    throw new ApiError("bad_request");
+  }
+
+  return parsed.data;
+}
+
 /** Reads and validates a JSON body. A parse or schema failure is `bad_request`. */
 export async function parseJsonBody<T>(c: AppContext, schema: z.ZodType<T>): Promise<T> {
   // Read as text first: an oversize body must surface as the body-limit error, not bad_request.
@@ -207,6 +220,20 @@ export async function noStore(c: AppContext, next: Next): Promise<void> {
   if (c.res.status !== 101) {
     c.header("Cache-Control", "no-store");
   }
+}
+
+function isJsonOrBodylessDelete(c: AppContext): boolean {
+  return c.req.method === "DELETE" ? hasNoBody(c) : isJson(c.req.header("Content-Type"));
+}
+
+// Not `request.body === null`: behind the dev proxy and in browsers' fetch the runtime can hand a
+// bodyless DELETE an empty stream. HTTP says a body is announced by one of these two headers.
+function hasNoBody(c: AppContext): boolean {
+  const length = c.req.header("Content-Length");
+
+  return (
+    c.req.header("Transfer-Encoding") === undefined && (length === undefined || length === "0")
+  );
 }
 
 function isJson(contentType: string | undefined): boolean {

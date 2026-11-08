@@ -90,7 +90,7 @@ describe("concurrent writes to one story", () => {
 
     const { statuses, errors } = await raced([send, send, send, send]);
 
-    expect(statuses).toEqual([204, 409, 409, 409]);
+    expect(statuses).toEqual([201, 409, 409, 409]);
     expect(errors).toEqual(["stale_turn", "stale_turn", "stale_turn"]);
     expect((await readStory(ben, storyId)).contributions).toHaveLength(2);
   });
@@ -110,7 +110,9 @@ describe("concurrent writes to one story", () => {
       () => cat.post(`/api/stories/${storyId}/skip`, { turnVersion: 2 }, gate),
     ]);
 
-    expect(statuses).toEqual([204, 409]);
+    // The contribution wins with 201 and the skip with 204; the other one loses with 409.
+    expect(statuses.filter((status) => status === 409)).toHaveLength(1);
+    expect(statuses.filter((status) => status === 201 || status === 204)).toHaveLength(1);
     expect(errors).toEqual(["stale_turn"]);
     const view = await readStory(cat, storyId);
     expect(view.turn.version).toBe(3);
@@ -132,7 +134,9 @@ describe("concurrent writes to one story", () => {
       () => ben.post(`/api/stories/${storyId}/leave`, {}, gate),
     ]);
 
-    expect(statuses).toEqual([204, 409]);
+    // The contribution wins with 201 and the leave with 204; the other one loses with 409.
+    expect(statuses.filter((status) => status === 409)).toHaveLength(1);
+    expect(statuses.filter((status) => status === 201 || status === 204)).toHaveLength(1);
     expect(errors).toEqual(["stale_turn"]);
     expect((await readStory(cat, storyId)).turn.version).toBe(3);
   });
@@ -216,9 +220,9 @@ describe("concurrent writes to one story", () => {
       () => cat.post(`/api/stories/${storyId}/participants`, { displayName: "Cat" }, gate),
     ]);
 
-    // Either the join won (201, three participants) or the contribution did (204, two passages).
+    // Either the join won (three participants) or the contribution did (two passages).
     expect(statuses.filter((status) => status === 409)).toHaveLength(1);
-    expect(statuses.filter((status) => status === 201 || status === 204)).toHaveLength(1);
+    expect(statuses.filter((status) => status === 201)).toHaveLength(1);
     const view = await readStory(ben, storyId);
     expect(view.turn.version).toBe(2);
     expect(view.participants.length + view.contributions.length).toBe(4);

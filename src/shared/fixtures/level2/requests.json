@@ -1,0 +1,25 @@
+{
+  "createStory": {
+    "displayName": "Ana",
+    "opening": "Once upon a time."
+  },
+  "join": {
+    "displayName": "Ben"
+  },
+  "contribute": {
+    "text": "Then the door opened.",
+    "turnVersion": 1,
+    "startsParagraph": false
+  },
+  "skip": {
+    "turnVersion": 1
+  },
+  "empty": {},
+  "pushSubscription": {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/abc",
+    "keys": {
+      "p256dh": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "auth": "aaaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+}

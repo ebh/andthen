@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { normaliseStoryId } from "./validation";
+import { MY_STORIES_DEFAULT_LIMIT, MY_STORIES_MAX_LIMIT, normaliseStoryId } from "./validation";
 
 // Request bodies carry plain strings: routes run validatePassage and validateDisplayName, so the
 // length rules live in one place and fail with invalid_passage or invalid_display_name.
@@ -38,6 +38,10 @@ export const contributeRequestSchema = z.object({
   startsParagraph: z.boolean(),
 });
 export type ContributeRequest = z.infer<typeof contributeRequestSchema>;
+
+/** The new contribution's ID. */
+export const contributeResponseSchema = z.object({ contributionId: idSchema });
+export type ContributeResponse = z.infer<typeof contributeResponseSchema>;
 
 /** The body of a route that takes no input. Anything else in it is refused. */
 export const emptyRequestSchema = z.strictObject({});
@@ -88,8 +92,28 @@ export const storySummarySchema = z.object({
 });
 export type StorySummary = z.infer<typeof storySummarySchema>;
 
-/** The caller's stories that they have not left: the one they hold the turn in first, then newest passage first. */
-export const myStoriesResponseSchema = z.object({ stories: z.array(storySummarySchema) });
+/**
+ * The query of `GET /api/stories`. `limit` is a plain positive decimal; `cursor` is the
+ * `nextCursor` of the previous page, which is opaque to the client.
+ */
+export const myStoriesQuerySchema = z.object({
+  limit: z
+    .string()
+    .regex(/^[1-9][0-9]*$/)
+    .transform(Number)
+    .pipe(z.number().max(MY_STORIES_MAX_LIMIT))
+    .default(MY_STORIES_DEFAULT_LIMIT),
+  cursor: z.string().min(1).optional(),
+});
+
+/**
+ * One page of the caller's stories that they have not left: the one they hold the turn in first,
+ * then newest passage first. `nextCursor` is null on the last page.
+ */
+export const myStoriesResponseSchema = z.object({
+  stories: z.array(storySummarySchema),
+  nextCursor: z.string().nullable(),
+});
 export type MyStoriesResponse = z.infer<typeof myStoriesResponseSchema>;
 
 export const suggestionsResponseSchema = z.object({
@@ -105,7 +129,7 @@ const MAX_PUSH_ENDPOINT_LENGTH = 2048;
 
 // Unpadded base64url, as a browser's `PushSubscription.toJSON()` writes it. A P-256 public key is
 // 65 bytes (87 characters) and the authentication secret is 16 bytes (22 characters).
-const pushKeySchema = (length: number) =>
+const subscriptionKeySchema = (length: number) =>
   z
     .string()
     .length(length)
@@ -141,16 +165,16 @@ export function isPushServiceEndpoint(endpoint: string): boolean {
 /** A browser's Web Push subscription, as `PushSubscription.toJSON()` gives it. */
 export const pushSubscriptionSchema = z.object({
   endpoint: pushEndpointSchema.refine(isPushServiceEndpoint, "not a known push service"),
-  keys: z.object({ p256dh: pushKeySchema(87), auth: pushKeySchema(22) }),
+  keys: z.object({ p256dh: subscriptionKeySchema(87), auth: subscriptionKeySchema(22) }),
 });
 export type PushSubscriptionRequest = z.infer<typeof pushSubscriptionSchema>;
 
-export const removePushSubscriptionRequestSchema = z.object({ endpoint: pushEndpointSchema });
-export type RemovePushSubscriptionRequest = z.infer<typeof removePushSubscriptionRequestSchema>;
+/** The shape of `pushSubscriptionIdOf`: a SHA-256 as 64 lowercase hex characters. */
+export const pushSubscriptionIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** The server's VAPID public key, which a browser passes to `pushManager.subscribe`. */
-export const pushKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
-export type PushKeyResponse = z.infer<typeof pushKeyResponseSchema>;
+export const vapidPublicKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
+export type VapidPublicKeyResponse = z.infer<typeof vapidPublicKeyResponseSchema>;
 
 /**
  * The push message the Worker sends and the service worker shows: the declarative Web Push shape

@@ -8,11 +8,12 @@ import {
   errorBodySchema,
   errorCodeSchema,
   plainErrorCodeSchema,
-  pushKeyResponseSchema,
+  vapidPublicKeyResponseSchema,
   pushSubscriptionSchema,
-  removePushSubscriptionRequestSchema,
+  pushSubscriptionIdSchema,
   joinRequestSchema,
   liveMessageSchema,
+  myStoriesQuerySchema,
   myStoriesResponseSchema,
   skipRequestSchema,
   storyIdSchema,
@@ -20,6 +21,7 @@ import {
   suggestionsResponseSchema,
 } from "./api";
 import type { TurnRejection } from "./turnOrder";
+import { MY_STORIES_DEFAULT_LIMIT, MY_STORIES_MAX_LIMIT } from "./validation";
 
 const turnRejections = {
   stale_turn: true,
@@ -223,15 +225,23 @@ describe("myStoriesResponseSchema", () => {
   it("accepts a waiting story and a running one", () => {
     const running = { ...waiting, holderName: "Ben", isMyTurn: true, endsAt: 5 };
 
-    expect(myStoriesResponseSchema.parse({ stories: [waiting, running] }).stories).toHaveLength(2);
+    expect(
+      myStoriesResponseSchema.parse({ stories: [waiting, running], nextCursor: null }).stories,
+    ).toHaveLength(2);
   });
 
   it("refuses a story with no writers or a malformed ID", () => {
     expect(
-      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, writerCount: 0 }] }).success,
+      myStoriesResponseSchema.safeParse({
+        stories: [{ ...waiting, writerCount: 0 }],
+        nextCursor: null,
+      }).success,
     ).toBe(false);
     expect(
-      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, id: "ABC12" }] }).success,
+      myStoriesResponseSchema.safeParse({
+        stories: [{ ...waiting, id: "ABC12" }],
+        nextCursor: null,
+      }).success,
     ).toBe(false);
   });
 });
@@ -369,20 +379,54 @@ describe("pushSubscriptionSchema endpoint host", () => {
   });
 });
 
-describe("removePushSubscriptionRequestSchema", () => {
-  it("takes an https endpoint only", () => {
-    expect(removePushSubscriptionRequestSchema.parse({ endpoint: ENDPOINT })).toEqual({
-      endpoint: ENDPOINT,
-    });
-    expect(
-      removePushSubscriptionRequestSchema.safeParse({ endpoint: "http://push.example/x" }).success,
-    ).toBe(false);
+describe("myStoriesQuerySchema", () => {
+  it("defaults the limit and leaves the cursor out", () => {
+    expect(myStoriesQuerySchema.parse({})).toEqual({ limit: MY_STORIES_DEFAULT_LIMIT });
+  });
+
+  it.each([
+    ["1", 1],
+    ["20", 20],
+    [String(MY_STORIES_MAX_LIMIT), MY_STORIES_MAX_LIMIT],
+  ])("reads a limit of %s", (limit, expected) => {
+    expect(myStoriesQuerySchema.parse({ limit }).limit).toBe(expected);
+  });
+
+  it.each([
+    ["zero", "0"],
+    ["one past the maximum", String(MY_STORIES_MAX_LIMIT + 1)],
+    ["a fraction", "1.5"],
+    ["a sign", "+5"],
+    ["leading zeros", "05"],
+    ["text", "many"],
+    ["empty", ""],
+  ])("refuses a limit that is %s", (_name, limit) => {
+    expect(myStoriesQuerySchema.safeParse({ limit }).success).toBe(false);
+  });
+
+  it("keeps a cursor and refuses an empty one", () => {
+    expect(myStoriesQuerySchema.parse({ cursor: "abc" }).cursor).toBe("abc");
+    expect(myStoriesQuerySchema.safeParse({ cursor: "" }).success).toBe(false);
   });
 });
 
-describe("pushKeyResponseSchema", () => {
+describe("pushSubscriptionIdSchema", () => {
+  it.each([
+    ["64 lowercase hex characters", "a".repeat(64), true],
+    ["uppercase hex", "A".repeat(64), false],
+    ["one character short", "a".repeat(63), false],
+    ["a non-hex character", `${"a".repeat(63)}g`, false],
+    ["an empty string", "", false],
+  ])("on %s", (_name, id, accepted) => {
+    expect(pushSubscriptionIdSchema.safeParse(id).success).toBe(accepted);
+  });
+});
+
+describe("vapidPublicKeyResponseSchema", () => {
   it("needs a non-empty key", () => {
-    expect(pushKeyResponseSchema.parse({ publicKey: "BKey" })).toEqual({ publicKey: "BKey" });
-    expect(pushKeyResponseSchema.safeParse({ publicKey: "" }).success).toBe(false);
+    expect(vapidPublicKeyResponseSchema.parse({ publicKey: "BKey" })).toEqual({
+      publicKey: "BKey",
+    });
+    expect(vapidPublicKeyResponseSchema.safeParse({ publicKey: "" }).success).toBe(false);
   });
 });

@@ -1,17 +1,19 @@
 import { Hono } from "hono";
 
 import {
+  pushSubscriptionIdSchema,
   pushSubscriptionSchema,
-  removePushSubscriptionRequestSchema,
-  type PushKeyResponse,
+  type VapidPublicKeyResponse,
 } from "../../shared/api";
+import { pushSubscriptionIdOf } from "../../shared/pushSubscriptionId";
 import { parseVapidPublicKey } from "../config";
 import {
   deletePushSubscription,
   deletePushSubscriptionByEndpoint,
+  loadPushSubscriptions,
   savePushSubscription,
 } from "../db/pushRepo";
-import { parseJsonBody } from "../http";
+import { ApiError, parseJsonBody, type AppContext } from "../http";
 import { resolveMe, type MeDeps } from "../me";
 
 export type PushSubscriptionDeps = MeDeps;
@@ -20,8 +22,8 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
   const routes = new Hono<{ Bindings: Env }>();
 
   // Only reads the public key, so it works in an environment that has no private key yet.
-  routes.get("/api/push-subscription/key", (c) => {
-    const response: PushKeyResponse = { publicKey: parseVapidPublicKey(c.env) };
+  routes.get("/api/vapid-public-key", (c) => {
+    const response: VapidPublicKeyResponse = { publicKey: parseVapidPublicKey(c.env) };
 
     return c.json(response);
   });
@@ -30,8 +32,12 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
   // from that browser. A browser with no user has nothing to be pushed, so it is answered as for a
   // save but its endpoint is dropped: a session that ended elsewhere stops pushing on the next
   // load. The client must wait for its session to load before it sends this.
-  routes.put("/api/push-subscription", async (c) => {
+  routes.put("/api/push-subscriptions/:pushSubscriptionId", async (c) => {
     const body = await parseJsonBody(c, pushSubscriptionSchema);
+    if (c.req.param("pushSubscriptionId") !== (await pushSubscriptionIdOf(body.endpoint))) {
+      throw new ApiError("bad_request");
+    }
+
     const me = await resolveMe(c, deps);
     if (me === null) {
       await deletePushSubscriptionByEndpoint(c.env.DB, body.endpoint);
@@ -52,15 +58,41 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
 
   // Removing what isn't there is not an error, so a client can unsubscribe without checking first.
   // That includes a browser with no user, which owns nothing.
-  routes.delete("/api/push-subscription", async (c) => {
-    const body = await parseJsonBody(c, removePushSubscriptionRequestSchema);
+  routes.delete("/api/push-subscriptions/:pushSubscriptionId", async (c) => {
+    const pushSubscriptionId = parsePushSubscriptionId(c);
     const me = await resolveMe(c, deps);
     if (me !== null) {
-      await deletePushSubscription(c.env.DB, me.id, body.endpoint);
+      const owned = await loadPushSubscriptions(c.env.DB, me.id);
+      const endpoint = await findEndpoint(
+        owned.map((subscription) => subscription.endpoint),
+        pushSubscriptionId,
+      );
+      if (endpoint !== undefined) {
+        await deletePushSubscription(c.env.DB, me.id, endpoint);
+      }
     }
 
     return c.body(null, 204);
   });
 
   return routes;
+}
+
+// An ID that can't be a push subscription ID is an unknown subscription.
+function parsePushSubscriptionId(c: AppContext): string {
+  const parsed = pushSubscriptionIdSchema.safeParse(c.req.param("pushSubscriptionId"));
+  if (!parsed.success) {
+    throw new ApiError("not_found");
+  }
+
+  return parsed.data;
+}
+
+async function findEndpoint(
+  endpoints: string[],
+  pushSubscriptionId: string,
+): Promise<string | undefined> {
+  const ids = await Promise.all(endpoints.map(pushSubscriptionIdOf));
+
+  return endpoints[ids.indexOf(pushSubscriptionId)];
 }

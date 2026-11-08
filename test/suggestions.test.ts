@@ -67,7 +67,7 @@ function scriptedProvider(
   };
 }
 
-describe("POST /api/stories/:id/suggestions", () => {
+describe("POST /api/stories/:storyId/suggestions", () => {
   let testEnv: TestEnv;
   const clock: Clock = { now: T0 };
   let answer = goodAnswer;
@@ -202,7 +202,7 @@ describe("POST /api/stories/:id/suggestions", () => {
         startsParagraph: false,
       });
 
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(201);
     });
 
     it("accepts a request with no body", async () => {

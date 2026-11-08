@@ -80,7 +80,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
       turnVersion: 1,
       startsParagraph: false,
     });
-    expect(written.status).toBe(204);
+    expect(written.status).toBe(201);
     expect((await readStory(ana, storyId)).contributions).toHaveLength(2);
   });
 

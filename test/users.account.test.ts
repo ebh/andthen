@@ -15,6 +15,7 @@ import {
   type Browser,
   type Clock,
 } from "./support/browser";
+import { deletePushSubscription, putPushSubscription } from "./support/pushSubscriptions";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
 import { signSessionToken, type SessionTokenOptions } from "./support/sessionToken";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
@@ -344,7 +345,7 @@ describe("PUT /api/users/me/account", () => {
       });
       await settle(ben);
 
-      expect(written.status).toBe(204);
+      expect(written.status).toBe(201);
       expect(await storyIds(laptop)).toEqual([storyId, phoneStory].toSorted());
       expect(await storyIds(phone)).toEqual([storyId, phoneStory].toSorted());
       expect(sender.sent.map(({ subscription }) => subscription.endpoint).toSorted()).toEqual(
@@ -361,7 +362,7 @@ describe("PUT /api/users/me/account", () => {
       await signIn(phone, "user_sign_out_push");
       const endpoint = await subscribe(phone, "phone-sign-out");
 
-      const removed = await phone.delete("/api/push-subscription", { endpoint });
+      const removed = await deletePushSubscription(phone, endpoint);
 
       expect(removed.status).toBe(204);
       expect(await pushEndpoints()).not.toContain(endpoint);
@@ -376,7 +377,7 @@ describe("PUT /api/users/me/account", () => {
       expect(await pushEndpoints()).toContain(endpoint);
 
       phone.sessionToken = null;
-      const reload = await phone.put("/api/push-subscription", {
+      const reload = await putPushSubscription(phone, {
         endpoint,
         keys: { p256dh: P256DH, auth: AUTH },
       });
@@ -554,7 +555,7 @@ async function storyIds(browser: Browser): Promise<string[]> {
 
 async function subscribe(browser: Browser, name: string): Promise<string> {
   const endpoint = `https://fcm.googleapis.com/send/${name}`;
-  const response = await browser.put("/api/push-subscription", {
+  const response = await putPushSubscription(browser, {
     endpoint,
     keys: { p256dh: P256DH, auth: AUTH },
   });

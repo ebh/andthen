@@ -143,15 +143,18 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
         headers.set("Content-Type", contentType);
       }
 
-      return send(
-        path,
-        {
-          method,
-          headers,
-          body: new TextEncoder().encode(options.rawBody ?? JSON.stringify(body)),
-        },
-        options,
-      );
+      // A DELETE given neither a body nor a raw body sends none, as a real client does.
+      const sendsBody = method !== "DELETE" || body !== undefined || options.rawBody !== undefined;
+
+      const bytes = sendsBody
+        ? new TextEncoder().encode(options.rawBody ?? JSON.stringify(body))
+        : null;
+      // A real client announces its body; the Worker tells a bodyless DELETE by this header.
+      if (bytes !== null) {
+        headers.set("Content-Length", String(bytes.length));
+      }
+
+      return send(path, { method, headers, body: bytes }, options);
     };
 
   const browser: Browser = {

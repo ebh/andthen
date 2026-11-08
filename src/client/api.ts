@@ -2,26 +2,29 @@ import { z } from "zod";
 
 import { API_LEVEL, API_LEVEL_HEADER } from "../shared/apiLevel";
 import {
+  contributeResponseSchema,
   createStoryResponseSchema,
   errorBodySchema,
   errorCodeSchema,
   joinResponseSchema,
   myStoriesResponseSchema,
-  pushKeyResponseSchema,
+  vapidPublicKeyResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
   type ContributeRequest,
+  type ContributeResponse,
   type CreateStoryRequest,
   type CreateStoryResponse,
   type JoinRequest,
   type JoinResponse,
   type MyStoriesResponse,
   type PlainErrorCode,
-  type PushKeyResponse,
+  type VapidPublicKeyResponse,
   type PushSubscriptionRequest,
   type StoryView,
   type SuggestionsResponse,
 } from "../shared/api";
+import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { setClientOutdated } from "./clientOutdated";
 import { getSessionToken } from "./sessionToken";
 
@@ -40,8 +43,11 @@ export type ApiFailure =
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; failure: ApiFailure };
 
-export function listMyStories(): Promise<ApiResult<MyStoriesResponse>> {
-  return call("/api/stories", { method: "GET" }, myStoriesResponseSchema);
+/** One page of the user's stories: the first, or the one after `cursor`. */
+export function listMyStories(cursor?: string): Promise<ApiResult<MyStoriesResponse>> {
+  const query = cursor === undefined ? "" : `?${new URLSearchParams({ cursor }).toString()}`;
+
+  return call(`/api/stories${query}`, { method: "GET" }, myStoriesResponseSchema);
 }
 
 export function createStory(request: CreateStoryRequest): Promise<ApiResult<CreateStoryResponse>> {
@@ -56,8 +62,11 @@ export function joinStory(storyId: string, request: JoinRequest): Promise<ApiRes
   return call(`${storyPath(storyId)}/participants`, postJson(request), joinResponseSchema);
 }
 
-export function contribute(storyId: string, request: ContributeRequest): Promise<ApiResult<null>> {
-  return call(`${storyPath(storyId)}/contributions`, postJson(request), noBodySchema);
+export function contribute(
+  storyId: string,
+  request: ContributeRequest,
+): Promise<ApiResult<ContributeResponse>> {
+  return call(`${storyPath(storyId)}/contributions`, postJson(request), contributeResponseSchema);
 }
 
 export function skipTurn(storyId: string, turnVersion: number): Promise<ApiResult<null>> {
@@ -76,18 +85,22 @@ export function requestSuggestions(storyId: string): Promise<ApiResult<Suggestio
   return call(`${storyPath(storyId)}/suggestions`, postJson({}), suggestionsResponseSchema);
 }
 
-export function fetchPushKey(): Promise<ApiResult<PushKeyResponse>> {
-  return call("/api/push-subscription/key", { method: "GET" }, pushKeyResponseSchema);
+export function fetchVapidPublicKey(): Promise<ApiResult<VapidPublicKeyResponse>> {
+  return call("/api/vapid-public-key", { method: "GET" }, vapidPublicKeyResponseSchema);
 }
 
-export function savePushSubscription(
+export async function savePushSubscription(
   subscription: PushSubscriptionRequest,
 ): Promise<ApiResult<null>> {
-  return call("/api/push-subscription", jsonRequest("PUT", subscription), noBodySchema);
+  return call(
+    await pushSubscriptionPath(subscription.endpoint),
+    jsonRequest("PUT", subscription),
+    noBodySchema,
+  );
 }
 
-export function removePushSubscription(endpoint: string): Promise<ApiResult<null>> {
-  return call("/api/push-subscription", jsonRequest("DELETE", { endpoint }), noBodySchema);
+export async function removePushSubscription(endpoint: string): Promise<ApiResult<null>> {
+  return call(await pushSubscriptionPath(endpoint), { method: "DELETE" }, noBodySchema);
 }
 
 /** Brings this device's stories into the signed-in account. Needs a session token; safe to repeat. */
@@ -185,6 +198,10 @@ function unrecognisedError(status: number, body: unknown): ApiFailure {
   }
 
   return { type: "unknown_code", status, code: parsed.data.error };
+}
+
+async function pushSubscriptionPath(endpoint: string): Promise<string> {
+  return `/api/push-subscriptions/${await pushSubscriptionIdOf(endpoint)}`;
 }
 
 function storyPath(storyId: string): string {

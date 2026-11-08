@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import { pushSubscriptionSchema } from "../shared/api";
-import { fetchPushKey, removePushSubscription, savePushSubscription } from "./api";
+import { fetchVapidPublicKey, removePushSubscription, savePushSubscription } from "./api";
 
 /** What a page needs to know about "your turn" alerts, and how to switch them on and off. */
 export interface TurnAlerts {
@@ -218,7 +218,7 @@ export function createTurnAlerts(environment: TurnAlertsEnvironment): TurnAlerts
   }
 
   async function loadPublicKey(): Promise<string | undefined> {
-    const result = await fetchPushKey();
+    const result = await fetchVapidPublicKey();
     if (result.ok) {
       publicKey = result.value.publicKey;
     }

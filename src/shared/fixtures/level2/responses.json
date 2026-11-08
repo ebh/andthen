@@ -1,0 +1,69 @@
+{
+  "health": {
+    "status": "ok"
+  },
+  "createStory": {
+    "storyId": "abc12"
+  },
+  "join": {
+    "participantId": "p2"
+  },
+  "contribute": {
+    "contributionId": "c2"
+  },
+  "storyView": {
+    "contributions": [
+      {
+        "id": "c1",
+        "authorId": "p1",
+        "authorName": "Ana",
+        "text": "Once upon a time.",
+        "startsParagraph": true,
+        "createdAt": 1700000000000
+      }
+    ],
+    "participants": [
+      {
+        "id": "p1",
+        "displayName": "Ana"
+      },
+      {
+        "id": "p2",
+        "displayName": "Ben"
+      }
+    ],
+    "turn": {
+      "holderId": "p2",
+      "endsAt": 1700086400000,
+      "version": 1
+    },
+    "me": "p1"
+  },
+  "myStories": {
+    "stories": [
+      {
+        "id": "abc12",
+        "opening": "Once upon a time.",
+        "holderName": "Ben",
+        "isMyTurn": false,
+        "endsAt": 1700086400000,
+        "writerCount": 2
+      },
+      {
+        "id": "def34",
+        "opening": "It was a quiet night.",
+        "holderName": null,
+        "isMyTurn": false,
+        "endsAt": null,
+        "writerCount": 1
+      }
+    ],
+    "nextCursor": "eyJpc015VHVybiI6ZmFsc2UsImxhdGVzdEF0IjoxNzAwMDAwMDAwMDAwLCJpZCI6ImRlZjM0In0"
+  },
+  "suggestions": {
+    "suggestions": ["Then the door opened.", "A bell rang.", "Nobody came."]
+  },
+  "liveMessage": {
+    "version": 7
+  }
+}

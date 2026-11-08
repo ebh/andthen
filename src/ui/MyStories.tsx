@@ -1,19 +1,24 @@
 import { Link } from "expo-router";
-import { Anchor, H2, Paragraph, YStack, useMedia } from "tamagui";
+import { Anchor, Button, H2, Paragraph, YStack, useMedia } from "tamagui";
 
 import { describeTimeLeft } from "../client/format";
+import type { MoreStoriesStatus } from "../client/useMyStories";
 import { useNow } from "../client/useNow";
 import type { StorySummary } from "../shared/api";
 
 interface MyStoriesProps {
   /** The stories to list, in the order to show them. */
   stories: readonly StorySummary[];
+  /** Whether the list goes on past `stories`. */
+  hasMore: boolean;
+  moreStatus: MoreStoriesStatus;
+  onShowMore: () => void;
 }
 
 const CLOCK_TICK_MS = 10_000;
 
 /** The stories this browser is in, each a link to its page, with whose turn it is. */
-export function MyStories({ stories }: MyStoriesProps) {
+export function MyStories({ stories, hasMore, moreStatus, onShowMore }: MyStoriesProps) {
   const now = useNow(CLOCK_TICK_MS);
   const media = useMedia();
 
@@ -54,6 +59,21 @@ export function MyStories({ stories }: MyStoriesProps) {
           </YStack>
         ))}
       </YStack>
+      {hasMore && (
+        <YStack gap="2" items="flex-start">
+          <Button
+            size="xl"
+            variant="outlined"
+            disabled={moreStatus === "loading"}
+            onPress={onShowMore}
+          >
+            {moreStatus === "loading" ? "Loading…" : "Show more"}
+          </Button>
+          <Paragraph role="alert" minH="6" color="error">
+            {moreStatus === "failed" ? "Couldn’t load more stories." : ""}
+          </Paragraph>
+        </YStack>
+      )}
     </YStack>
   );
 }

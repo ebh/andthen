@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { API_LEVEL } from "../shared/apiLevel";
+import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
   contribute,
-  fetchPushKey,
+  fetchVapidPublicKey,
   createStory,
   fetchStory,
   joinStory,
@@ -34,7 +35,7 @@ afterEach(() => {
   setClientOutdated(false);
 });
 
-const stories = () => jsonResponse(200, { stories: [] });
+const stories = () => jsonResponse(200, { stories: [], nextCursor: null });
 const rejected = () => jsonResponse(401, { error: "invalid_session_token" });
 
 function stubReplies(...responses: Response[]) {
@@ -226,13 +227,13 @@ describe("success", () => {
     expect(!result.ok && result.failure).toEqual({ type: "unreadable", status: 200 });
   });
 
-  it("accepts a 204 with no body for a contribution", async () => {
-    const fetchMock = stubFetch(noContentResponse());
+  it("reads the new contribution's ID from a 201", async () => {
+    const fetchMock = stubFetch(jsonResponse(201, { contributionId: "c7" }));
 
     expect(await contribute("abc12", { text: "x", turnVersion: 2, startsParagraph: true })).toEqual(
       {
         ok: true,
-        value: null,
+        value: { contributionId: "c7" },
       },
     );
     expect(fetchMock).toHaveBeenCalledWith(
@@ -255,13 +256,27 @@ describe("my stories, leaving and rejoining", () => {
     writerCount: 1,
   };
 
-  it("parses the list of stories from GET /api/stories", async () => {
-    const fetchMock = stubFetch(jsonResponse(200, { stories: [summary] }));
+  it("asks for the page after a cursor in the query", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { stories: [], nextCursor: null }));
 
-    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [summary] } });
+    await listMyStories("eyJh_-");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/stories?cursor=eyJh_-", {
+      method: "GET",
+      headers: { "X-Api-Level": String(API_LEVEL) },
+    });
+  });
+
+  it("parses the list of stories from GET /api/stories", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { stories: [summary], nextCursor: null }));
+
+    expect(await listMyStories()).toEqual({
+      ok: true,
+      value: { stories: [summary], nextCursor: null },
+    });
     expect(fetchMock).toHaveBeenCalledWith("/api/stories", {
       method: "GET",
-      headers: { "X-Api-Level": "1" },
+      headers: { "X-Api-Level": String(API_LEVEL) },
     });
   });
 
@@ -274,7 +289,7 @@ describe("my stories, leaving and rejoining", () => {
     expect(await send("abc12")).toEqual({ ok: true, value: null });
     expect(fetchMock).toHaveBeenCalledWith(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
+      headers: { "Content-Type": "application/json", "X-Api-Level": String(API_LEVEL) },
       body: "{}",
     });
   });
@@ -289,10 +304,10 @@ describe("push subscription", () => {
   it("reads the public key", async () => {
     const fetchMock = stubFetch(jsonResponse(200, { publicKey: "key" }));
 
-    expect(await fetchPushKey()).toEqual({ ok: true, value: { publicKey: "key" } });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription/key", {
+    expect(await fetchVapidPublicKey()).toEqual({ ok: true, value: { publicKey: "key" } });
+    expect(fetchMock).toHaveBeenCalledWith("/api/vapid-public-key", {
       method: "GET",
-      headers: { "X-Api-Level": "1" },
+      headers: { "X-Api-Level": String(API_LEVEL) },
     });
   });
 
@@ -300,22 +315,27 @@ describe("push subscription", () => {
     const fetchMock = stubFetch(noContentResponse());
 
     expect(await savePushSubscription(subscription)).toEqual({ ok: true, value: null });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
-      body: JSON.stringify(subscription),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/push-subscriptions/${await pushSubscriptionIdOf(subscription.endpoint)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Api-Level": String(API_LEVEL) },
+        body: JSON.stringify(subscription),
+      },
+    );
   });
 
-  it("deletes by endpoint and accepts a 204", async () => {
+  it("deletes at the subscription's path with no body and accepts a 204", async () => {
     const fetchMock = stubFetch(noContentResponse());
 
     expect(await removePushSubscription(subscription.endpoint)).toEqual({ ok: true, value: null });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-subscription", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
-      body: JSON.stringify({ endpoint: subscription.endpoint }),
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/push-subscriptions/${await pushSubscriptionIdOf(subscription.endpoint)}`,
+      {
+        method: "DELETE",
+        headers: { "X-Api-Level": String(API_LEVEL) },
+      },
+    );
   });
 
   it("reports a rejected save as a failure value", async () => {
@@ -364,7 +384,7 @@ describe("the session token on API calls", () => {
     });
     const fetchMock = stubReplies(rejected(), stories());
 
-    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [] } });
+    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [], nextCursor: null } });
     expect(authorizationOf(fetchMock, 0)).toBe("Bearer stale");
     expect(authorizationOf(fetchMock, 1)).toBe("Bearer fresh");
   });

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "./api";
 
 vi.mock("./api", () => ({
-  fetchPushKey: vi.fn<typeof api.fetchPushKey>(),
+  fetchVapidPublicKey: vi.fn<typeof api.fetchVapidPublicKey>(),
   savePushSubscription: vi.fn<typeof api.savePushSubscription>(),
   removePushSubscription: vi.fn<typeof api.removePushSubscription>(),
 }));
@@ -76,7 +76,10 @@ function stubBrowser({
 }
 
 beforeEach(() => {
-  vi.mocked(api.fetchPushKey).mockResolvedValue({ ok: true, value: { publicKey: "server-key" } });
+  vi.mocked(api.fetchVapidPublicKey).mockResolvedValue({
+    ok: true,
+    value: { publicKey: "server-key" },
+  });
   vi.mocked(api.savePushSubscription).mockResolvedValue({ ok: true, value: null });
 });
 

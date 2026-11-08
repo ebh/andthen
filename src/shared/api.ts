@@ -173,8 +173,8 @@ export type PushSubscriptionRequest = z.infer<typeof pushSubscriptionSchema>;
 export const pushSubscriptionIdSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** The server's VAPID public key, which a browser passes to `pushManager.subscribe`. */
-export const pushKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
-export type PushKeyResponse = z.infer<typeof pushKeyResponseSchema>;
+export const vapidPublicKeyResponseSchema = z.object({ publicKey: z.string().min(1) });
+export type VapidPublicKeyResponse = z.infer<typeof vapidPublicKeyResponseSchema>;
 
 /**
  * The push message the Worker sends and the service worker shows: the declarative Web Push shape

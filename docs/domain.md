@@ -49,7 +49,7 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Live update:** a message from the story's WebSocket telling clients to refetch. `GET /api/stories/:storyId/live`; `liveMessageSchema`.
 - **StoryRoom:** the Durable Object that fans out live updates and runs the turn window alarm. It holds no story data; D1 does.
 - **Push subscription:** a browser's Web Push endpoint, used to say "it's your turn". Belongs to a user, not a story. Its ID is the hash of its endpoint. `/api/push-subscriptions/:pushSubscriptionId`.
-- **Push key:** the server's VAPID public key, which a browser passes to `pushManager.subscribe` so the push service knows who may send. It is the same for every user and is not a subscription. `GET /api/push-key`; `PushKeyResponse`.
+- **VAPID public key:** the public half of the key pair the Worker signs pushes with (VAPID, Voluntary Application server Identification). A browser passes it to `pushManager.subscribe` so the push service knows who may send. It is the same for every user and is not a subscription. `GET /api/vapid-public-key`; `VapidPublicKeyResponse`.
 - **API level:** the whole number in `src/shared/apiLevel.ts` that a client sends as `X-Api-Level`. Raised only for a change that breaks shipped clients. A client below `MIN_API_LEVEL` gets 426 `client_outdated`.
 
 ## Reserved

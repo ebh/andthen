@@ -8,7 +8,7 @@ import {
   errorBodySchema,
   errorCodeSchema,
   plainErrorCodeSchema,
-  pushKeyResponseSchema,
+  vapidPublicKeyResponseSchema,
   pushSubscriptionSchema,
   pushSubscriptionIdSchema,
   joinRequestSchema,
@@ -422,9 +422,11 @@ describe("pushSubscriptionIdSchema", () => {
   });
 });
 
-describe("pushKeyResponseSchema", () => {
+describe("vapidPublicKeyResponseSchema", () => {
   it("needs a non-empty key", () => {
-    expect(pushKeyResponseSchema.parse({ publicKey: "BKey" })).toEqual({ publicKey: "BKey" });
-    expect(pushKeyResponseSchema.safeParse({ publicKey: "" }).success).toBe(false);
+    expect(vapidPublicKeyResponseSchema.parse({ publicKey: "BKey" })).toEqual({
+      publicKey: "BKey",
+    });
+    expect(vapidPublicKeyResponseSchema.safeParse({ publicKey: "" }).success).toBe(false);
   });
 });

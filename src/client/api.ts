@@ -8,7 +8,7 @@ import {
   errorCodeSchema,
   joinResponseSchema,
   myStoriesResponseSchema,
-  pushKeyResponseSchema,
+  vapidPublicKeyResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
   type ContributeRequest,
@@ -19,7 +19,7 @@ import {
   type JoinResponse,
   type MyStoriesResponse,
   type PlainErrorCode,
-  type PushKeyResponse,
+  type VapidPublicKeyResponse,
   type PushSubscriptionRequest,
   type StoryView,
   type SuggestionsResponse,
@@ -85,8 +85,8 @@ export function requestSuggestions(storyId: string): Promise<ApiResult<Suggestio
   return call(`${storyPath(storyId)}/suggestions`, postJson({}), suggestionsResponseSchema);
 }
 
-export function fetchPushKey(): Promise<ApiResult<PushKeyResponse>> {
-  return call("/api/push-key", { method: "GET" }, pushKeyResponseSchema);
+export function fetchVapidPublicKey(): Promise<ApiResult<VapidPublicKeyResponse>> {
+  return call("/api/vapid-public-key", { method: "GET" }, vapidPublicKeyResponseSchema);
 }
 
 export async function savePushSubscription(

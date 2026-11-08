@@ -6,7 +6,7 @@ import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
   contribute,
-  fetchPushKey,
+  fetchVapidPublicKey,
   createStory,
   fetchStory,
   joinStory,
@@ -304,8 +304,8 @@ describe("push subscription", () => {
   it("reads the public key", async () => {
     const fetchMock = stubFetch(jsonResponse(200, { publicKey: "key" }));
 
-    expect(await fetchPushKey()).toEqual({ ok: true, value: { publicKey: "key" } });
-    expect(fetchMock).toHaveBeenCalledWith("/api/push-key", {
+    expect(await fetchVapidPublicKey()).toEqual({ ok: true, value: { publicKey: "key" } });
+    expect(fetchMock).toHaveBeenCalledWith("/api/vapid-public-key", {
       method: "GET",
       headers: { "X-Api-Level": String(API_LEVEL) },
     });

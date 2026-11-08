@@ -166,7 +166,7 @@ Preview, on the `workers.dev` URL, with two browsers (or a normal and a private 
 - [ ] B writes a passage. A shows it without a reload, and the turn moves to A.
 - [ ] B asks for suggestions on a later turn: three real suggestions appear and fill the composer, and nothing is sent. A fourth request in an hour shows the rate-limit message.
 - [ ] With a third window, skip the turn holder.
-- [ ] `GET /api/push-key` returns the environment's `VAPID_PUBLIC_KEY`. Then, with a real subscription (the "Notify me when it's my turn" switch in the app), have another window pass the turn to the subscribed one: the push arrives, and the Workers logs show no "Turn push failed" or `Push to … answered` line.
+- [ ] `GET /api/vapid-public-key` returns the environment's `VAPID_PUBLIC_KEY`. Then, with a real subscription (the "Notify me when it's my turn" switch in the app), have another window pass the turn to the subscribed one: the push arrives, and the Workers logs show no "Turn push failed" or `Push to … answered` line.
 - [ ] Reload every window: the story and the turn are unchanged.
 - [ ] Sign in with an email from the home page ("Sign in"). The stories started before signing in are still listed, and a second browser signed in to the same account lists them too. Sign out: the list is empty again.
 - [ ] Leave a window open for a few minutes with nothing happening, then have the other window write. The idle window still updates (the Durable Object woke from hibernation).

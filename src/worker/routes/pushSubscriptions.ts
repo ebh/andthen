@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import {
   pushSubscriptionIdSchema,
   pushSubscriptionSchema,
-  type PushKeyResponse,
+  type VapidPublicKeyResponse,
 } from "../../shared/api";
 import { pushSubscriptionIdOf } from "../../shared/pushSubscriptionId";
 import { parseVapidPublicKey } from "../config";
@@ -22,8 +22,8 @@ export function pushSubscriptionRoutes(deps: PushSubscriptionDeps): Hono<{ Bindi
   const routes = new Hono<{ Bindings: Env }>();
 
   // Only reads the public key, so it works in an environment that has no private key yet.
-  routes.get("/api/push-key", (c) => {
-    const response: PushKeyResponse = { publicKey: parseVapidPublicKey(c.env) };
+  routes.get("/api/vapid-public-key", (c) => {
+    const response: VapidPublicKeyResponse = { publicKey: parseVapidPublicKey(c.env) };
 
     return c.json(response);
   });

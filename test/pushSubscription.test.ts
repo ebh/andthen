@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { z } from "zod";
 
-import { pushKeyResponseSchema } from "../src/shared/api";
+import { vapidPublicKeyResponseSchema } from "../src/shared/api";
 import { pushSubscriptionIdOf } from "../src/shared/pushSubscriptionId";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
 import { findUserByClerkUserId } from "../src/worker/db/userRepo";
@@ -322,21 +322,21 @@ describe("push subscription routes", () => {
     });
   });
 
-  describe("GET /api/push-key", () => {
+  describe("GET /api/vapid-public-key", () => {
     it("returns the public key from the environment, to a browser with no cookie", async () => {
       const browser = newBrowser();
 
-      const response = await browser.get("/api/push-key");
+      const response = await browser.get("/api/vapid-public-key");
 
       expect(response.status).toBe(200);
-      expect(pushKeyResponseSchema.parse(await response.json())).toEqual({
+      expect(vapidPublicKeyResponseSchema.parse(await response.json())).toEqual({
         publicKey: testEnv.env.VAPID_PUBLIC_KEY,
       });
       expect(browser.cookies.size).toBe(0);
     });
 
     it("answers 500 internal_error when the public key is missing", async () => {
-      const response = await newBrowser().get("/api/push-key", {
+      const response = await newBrowser().get("/api/vapid-public-key", {
         env: { ...testEnv.env, VAPID_PUBLIC_KEY: undefined },
       });
 

@@ -14,7 +14,7 @@ import {
 } from "./turnAlerts";
 
 vi.mock("./api", () => ({
-  fetchPushKey: vi.fn<typeof api.fetchPushKey>(),
+  fetchVapidPublicKey: vi.fn<typeof api.fetchVapidPublicKey>(),
   savePushSubscription: vi.fn<typeof api.savePushSubscription>(),
   removePushSubscription: vi.fn<typeof api.removePushSubscription>(),
 }));
@@ -77,7 +77,10 @@ function setUp(options: Options = {}) {
 }
 
 beforeEach(() => {
-  vi.mocked(api.fetchPushKey).mockResolvedValue({ ok: true, value: { publicKey: "server-key" } });
+  vi.mocked(api.fetchVapidPublicKey).mockResolvedValue({
+    ok: true,
+    value: { publicKey: "server-key" },
+  });
   vi.mocked(api.savePushSubscription).mockResolvedValue(OK);
   vi.mocked(api.removePushSubscription).mockResolvedValue(OK);
 });
@@ -131,7 +134,7 @@ describe("turning on", () => {
     await alerts.turnOn();
 
     expect(environment.requestPermission).toHaveBeenCalledTimes(1);
-    expect(api.fetchPushKey).toHaveBeenCalledTimes(1);
+    expect(api.fetchVapidPublicKey).toHaveBeenCalledTimes(1);
     expect(manager.subscribe).toHaveBeenCalledExactlyOnceWith({
       userVisibleOnly: true,
       applicationServerKey: "server-key",
@@ -151,7 +154,7 @@ describe("turning on", () => {
 
       return Promise.resolve("granted");
     });
-    vi.mocked(api.fetchPushKey).mockImplementation(() => {
+    vi.mocked(api.fetchVapidPublicKey).mockImplementation(() => {
       order.push("key");
 
       return Promise.resolve({ ok: true, value: { publicKey: "k" } });
@@ -202,7 +205,7 @@ describe("turning on", () => {
 
     expect(alerts.getSnapshot()).toEqual({ type: "blocked" });
     expect(manager.subscribe).not.toHaveBeenCalled();
-    expect(api.fetchPushKey).not.toHaveBeenCalled();
+    expect(api.fetchVapidPublicKey).not.toHaveBeenCalled();
   });
 
   it("stays off, with no error, when the prompt is dismissed", async () => {
@@ -246,7 +249,7 @@ describe("turning on", () => {
   });
 
   it("fails when the server's key cannot be fetched, and tries again on the next tap", async () => {
-    vi.mocked(api.fetchPushKey).mockResolvedValueOnce(FAILED);
+    vi.mocked(api.fetchVapidPublicKey).mockResolvedValueOnce(FAILED);
     const { alerts, manager } = setUp();
 
     await alerts.turnOn();
@@ -305,10 +308,10 @@ describe("turning on", () => {
     const { alerts } = setUp();
 
     await alerts.start();
-    expect(api.fetchPushKey).toHaveBeenCalledTimes(1);
+    expect(api.fetchVapidPublicKey).toHaveBeenCalledTimes(1);
     await alerts.turnOn();
 
-    expect(api.fetchPushKey).toHaveBeenCalledTimes(1);
+    expect(api.fetchVapidPublicKey).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when alerts are not offered here", async () => {
@@ -460,7 +463,7 @@ describe("start, on every app load", () => {
 
     await alerts.start();
 
-    expect(api.fetchPushKey).toHaveBeenCalledTimes(1);
+    expect(api.fetchVapidPublicKey).toHaveBeenCalledTimes(1);
     expect(environment.pushManager).not.toHaveBeenCalled();
     expect(alerts.getSnapshot()).toEqual({ type: "ready", on: false, busy: false, failed: false });
   });
@@ -476,7 +479,7 @@ describe("start, on every app load", () => {
 
     expect(alerts.getSnapshot()).toEqual({ type });
     expect(environment.pushManager).not.toHaveBeenCalled();
-    expect(api.fetchPushKey).not.toHaveBeenCalled();
+    expect(api.fetchVapidPublicKey).not.toHaveBeenCalled();
   });
 });
 

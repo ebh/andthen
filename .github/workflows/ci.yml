@@ -58,9 +58,8 @@ jobs:
   # Runs beside `check` so a slow mutation run doesn't hold up the fast checks.
   mutation:
     runs-on: ubuntu-latest
-    # Sized for a full run: a run with no cache, a push to main after a config or dependency change,
-    # or a change to a shared schema that most mutants depend on. A full run took over 40 minutes.
-    timeout-minutes: 90
+    # Sized for a full run: a run with no cache, or a push to main after a config or dependency change.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
 

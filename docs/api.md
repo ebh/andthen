@@ -8,20 +8,20 @@ Routes live in `src/worker/routes/stories.ts`, `src/worker/routes/pushSubscripti
 | ------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
 | `GET /api/stories`                    | 200 `{stories: [...]}`         | The stories this user is in and has not left. See "Your stories".                                |
 | `POST /api/stories`                   | 201 `{storyId}`                | Creates the user if there is none. An anonymous browser gets the cookie. See "Identity".         |
-| `GET /api/stories/:id`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.             |
-| `POST /api/stories/:id/participants`  | 201 `{participantId}`          | Creates the user if there is none. An anonymous browser gets the cookie.                         |
-| `POST /api/stories/:id/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.      |
-| `POST /api/stories/:id/skip`          | 204                            | Body `{turnVersion}`.                                                                            |
-| `POST /api/stories/:id/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                          |
-| `POST /api/stories/:id/rejoin`        | 204                            | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                |
-| `POST /api/stories/:id/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                             |
-| `GET /api/stories/:id/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                           |
+| `GET /api/stories/:storyId`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.             |
+| `POST /api/stories/:storyId/participants`  | 201 `{participantId}`          | Creates the user if there is none. An anonymous browser gets the cookie.                         |
+| `POST /api/stories/:storyId/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.      |
+| `POST /api/stories/:storyId/skip`          | 204                            | Body `{turnVersion}`.                                                                            |
+| `POST /api/stories/:storyId/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                          |
+| `POST /api/stories/:storyId/rejoin`        | 204                            | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                |
+| `POST /api/stories/:storyId/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                             |
+| `GET /api/stories/:storyId/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                           |
 | `PUT /api/push-subscription`          | 204                            | Body is a `PushSubscription.toJSON()`. See "Web Push".                                           |
 | `PUT /api/users/me/account`           | 204                            | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts". |
 | `DELETE /api/push-subscription`       | 204                            | Body `{endpoint}`. See "Web Push".                                                               |
 | `GET /api/push-subscription/key`      | 200 `{publicKey}`              | The VAPID public key. See "Web Push".                                                            |
 
-Every route resolves who is asking as described under "Identity". Mutating routes send no body back, except suggestions, which is a read. Clients refetch `GET /api/stories/:id`; the live socket tells them when.
+Every route resolves who is asking as described under "Identity". Mutating routes send no body back, except suggestions, which is a read. Clients refetch `GET /api/stories/:storyId`; the live socket tells them when.
 
 ## Error statuses
 
@@ -65,12 +65,12 @@ Order of checks on a mutating route: API level (400 malformed, 426 too low), Ori
 
 ## Leaving and rejoining
 
-Leaving is soft. `POST /api/stories/:id/leave` sets `participants.left_at` and keeps the row, because passages join to their author and a name stays reserved in its story.
+Leaving is soft. `POST /api/stories/:storyId/leave` sets `participants.left_at` and keeps the row, because passages join to their author and a name stays reserved in its story.
 
 - **Turn:** `onLeave` takes the position out of the turn order and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
 - **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the name the writer had there and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the old name and user stay on the row, so a leaver gets back only through rejoin.
 - **Names:** a leaver's name stays taken in that story, so a new joiner can't reuse it.
-- **Rejoin:** `POST /api/stories/:id/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a user who was never in the story, 409 `already_joined` for one who is in it, 409 `story_full` when the story filled while they were away.
+- **Rejoin:** `POST /api/stories/:storyId/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a user who was never in the story, 409 `already_joined` for one who is in it, 409 `story_full` when the story filled while they were away.
 - **Races:** both routes are guarded by the loaded `turn_version` like every write, so one that loses a race answers 409 `stale_turn`.
 - **Body:** `{}` and nothing else; a body with anything in it is 400 `bad_request` (`emptyRequestSchema`).
 
@@ -150,7 +150,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 
 ## Suggestions
 
-`POST /api/stories/:id/suggestions` returns three ways to continue the story. It reads the story and writes only its quota row: no story text, no turn change, no `turnVersion` bump, no live message. The request body is ignored (the `Content-Type` and Origin guards still apply).
+`POST /api/stories/:storyId/suggestions` returns three ways to continue the story. It reads the story and writes only its quota row: no story text, no turn change, no `turnVersion` bump, no live message. The request body is ignored (the `Content-Type` and Origin guards still apply).
 
 - **Checks, in order:** story exists (404), caller is a participant (403 `not_participant`), caller holds the turn (403 `not_your_turn`), caller is under the limit (429 `ai_rate_limited`), provider answers (503 `ai_unavailable`).
 - **Holder:** decided by `resolveTurn(state, now)`, as in `docs/turn-persistence.md`. A holder whose window has lapsed gets `not_your_turn`; the next holder is allowed. A waiting story has no holder, so everyone gets `not_your_turn`. A turn that lapses while the model is thinking doesn't matter: nothing is written, and the client's later contribution is checked by its own `turnVersion`.
@@ -169,7 +169,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 
 ## Live updates
 
-`GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
+`GET /api/stories/:storyId/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
 
 - **Checks, in order:** `Upgrade: websocket`, any case (else 426), the Origin rule under "Guards" (403 `forbidden_origin`), ID shape and story (404 `not_found`), the caller is a participant (403 `not_participant`; 401 `invalid_session_token` for a bad session token). Only then is the request forwarded to the room.
 - **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, rejoin, leave, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any message that is JSON text, whatever its shape, so a message kind from a newer Worker still triggers a refetch. It ignores text that isn't JSON and binary frames, and does not need the version.

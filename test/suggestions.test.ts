@@ -67,7 +67,7 @@ function scriptedProvider(
   };
 }
 
-describe("POST /api/stories/:id/suggestions", () => {
+describe("POST /api/stories/:storyId/suggestions", () => {
   let testEnv: TestEnv;
   const clock: Clock = { now: T0 };
   let answer = goodAnswer;

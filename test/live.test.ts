@@ -26,7 +26,7 @@ interface FakeRooms {
   notifications: { storyId: string; version: number; timer: RoomTimer }[];
 }
 
-describe("GET /api/stories/:id/live", () => {
+describe("GET /api/stories/:storyId/live", () => {
   let testEnv: TestEnv;
   const clock: Clock = { now: T0 };
   const app = createTestApp(clock);

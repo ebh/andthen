@@ -57,7 +57,7 @@ describe("leaving and rejoining a story", () => {
     };
   }
 
-  describe("POST /api/stories/:id/leave", () => {
+  describe("POST /api/stories/:storyId/leave", () => {
     it("takes a writer who does not hold the turn out of the story and bumps the version", async () => {
       const { storyId, as } = await storyWith(["Ben", "Cal"]);
       const ana = as("Ana");
@@ -265,7 +265,7 @@ describe("leaving and rejoining a story", () => {
     });
   });
 
-  describe("POST /api/stories/:id/rejoin", () => {
+  describe("POST /api/stories/:storyId/rejoin", () => {
     it("puts a writer back at the end of the turn order under their old name", async () => {
       const { storyId, as } = await storyWith(["Ben", "Cal"]);
       const ana = as("Ana");

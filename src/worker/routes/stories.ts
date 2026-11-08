@@ -116,8 +116,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.json(response);
   });
 
-  routes.get("/api/stories/:id", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.get("/api/stories/:storyId", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     const found = await loadStoryWithContributions(c.env.DB, storyId);
     if (found === null) {
       throw new ApiError("not_found");
@@ -127,8 +127,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.json(buildStoryView(found.loaded, found.contributions, me, deps.now()));
   });
 
-  routes.post("/api/stories/:id/participants", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.post("/api/stories/:storyId/participants", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     const body = await parseJsonBody(c, joinRequestSchema);
     const loaded = await requireStory(c, storyId);
     const name = validateDisplayName(body.displayName);
@@ -181,8 +181,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.json(response, 201);
   });
 
-  routes.post("/api/stories/:id/leave", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.post("/api/stories/:storyId/leave", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     await parseJsonBody(c, emptyRequestSchema);
     const loaded = await requireStory(c, storyId);
     const me = await requireParticipant(c, deps, loaded);
@@ -194,8 +194,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.body(null, 204);
   });
 
-  routes.post("/api/stories/:id/rejoin", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.post("/api/stories/:storyId/rejoin", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     await parseJsonBody(c, emptyRequestSchema);
     const loaded = await requireStory(c, storyId);
     const me = await findParticipant(c, deps, loaded);
@@ -238,8 +238,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.body(null, 204);
   });
 
-  routes.post("/api/stories/:id/contributions", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.post("/api/stories/:storyId/contributions", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     const body = await parseJsonBody(c, contributeRequestSchema);
     const loaded = await requireStory(c, storyId);
     const me = await requireParticipant(c, deps, loaded);
@@ -285,8 +285,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.body(null, 204);
   });
 
-  routes.post("/api/stories/:id/skip", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.post("/api/stories/:storyId/skip", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     const body = await parseJsonBody(c, skipRequestSchema);
     const loaded = await requireStory(c, storyId);
     const me = await requireParticipant(c, deps, loaded);
@@ -318,8 +318,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
   });
 
   // Reads the story and writes only the quota row: no text, no turn change, no version bump.
-  routes.post("/api/stories/:id/suggestions", async (c) => {
-    const storyId = parseStoryId(c.req.param("id"));
+  routes.post("/api/stories/:storyId/suggestions", async (c) => {
+    const storyId = parseStoryId(c.req.param("storyId"));
     const found = await loadStoryWithContributions(c.env.DB, storyId);
     if (found === null) {
       throw new ApiError("not_found");
@@ -361,13 +361,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
   });
 
   // Same checks as reading the story, so a socket never hears about a story its browser can't read.
-  routes.get("/api/stories/:id/live", async (c) => {
+  routes.get("/api/stories/:storyId/live", async (c) => {
     if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") {
       return c.text("Expected a WebSocket upgrade", 426);
     }
     requireTrustedOrigin(c);
 
-    const storyId = parseStoryId(c.req.param("id"));
+    const storyId = parseStoryId(c.req.param("storyId"));
     const loaded = await requireStory(c, storyId);
     await requireParticipant(c, deps, loaded);
 

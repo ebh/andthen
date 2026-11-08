@@ -70,6 +70,16 @@ describe("createAppInstall", () => {
     expect(appInstall.getSnapshot()).toStrictEqual({ type: "unavailable" });
   });
 
+  it("listens once however many times it is started", () => {
+    const { appInstall, environment } = setUp();
+
+    appInstall.start();
+    appInstall.start();
+
+    expect(environment.onPromptOffered).toHaveBeenCalledTimes(1);
+    expect(environment.onInstalled).toHaveBeenCalledTimes(1);
+  });
+
   it("is ready, and tells subscribers, when the browser makes an offer", () => {
     const { appInstall, offer } = setUp();
     const first = vi.fn<() => void>();

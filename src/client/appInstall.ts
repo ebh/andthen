@@ -44,6 +44,7 @@ export function createAppInstall(environment: AppInstallEnvironment): AppInstall
   const listeners = new Set<() => void>();
   let state: AppInstallState = UNAVAILABLE;
   let prompt: InstallPrompt | undefined;
+  let started = false;
 
   function setState(next: AppInstallState): void {
     state = next;
@@ -53,6 +54,11 @@ export function createAppInstall(environment: AppInstallEnvironment): AppInstall
   }
 
   function start(): void {
+    if (started) {
+      return;
+    }
+
+    started = true;
     environment.onPromptOffered((offered) => {
       if (environment.installed()) {
         return;

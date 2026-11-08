@@ -11,6 +11,7 @@ import { useNow } from "../client/useNow";
 import { useStoryLive } from "../client/useStoryLive";
 import type { StoryView } from "../shared/api";
 import { Composer } from "./Composer";
+import { ContactLink } from "./ContactLink";
 import { InviteLink } from "./InviteLink";
 import { LeaveDialog } from "./LeaveDialog";
 import { StoryText } from "./StoryText";
@@ -163,6 +164,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
       <YStack gap="4" items="flex-start">
         <TurnBanner view={view} now={now} skipping={skipping} onSkip={skip} />
         <TurnAlertsSwitch />
+        <ContactLink />
       </YStack>
     </YStack>
   );

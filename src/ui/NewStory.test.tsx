@@ -69,12 +69,16 @@ async function fillIn(name: string, opening: string) {
 }
 
 describe("NewStory", () => {
-  it("has the wordmark as its level-1 heading, then the pitch and the form title", async () => {
+  it("has the wordmark as its level-1 heading, then the pitch, the form title and the contact address", async () => {
     renderPage(<NewStory />);
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("And then…");
     expect(await screen.findByRole("heading", { name: /write it together/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Start a story" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "support@andthen.page" })).toHaveAttribute(
+      "href",
+      "mailto:support@andthen.page",
+    );
   });
 
   it("keeps the submit button disabled until there is an opening passage", async () => {

@@ -25,6 +25,7 @@ import { createStory } from "../client/api";
 import { takeLeftStoryNote } from "../client/leftStoryNote";
 import { describeFailure } from "../client/messages";
 import { useMyStories } from "../client/useMyStories";
+import { ContactLink } from "./ContactLink";
 import { SignInStatus } from "./SignInStatus";
 import { MyStories } from "./MyStories";
 import { Wordmark } from "./Wordmark";
@@ -107,6 +108,9 @@ export function NewStory() {
             </Button>
           </YStack>
         )}
+        <YStack mt={media.md ? "24" : "10"}>
+          <ContactLink />
+        </YStack>
       </YStack>
       <YStack
         flex={media.md ? 1 : undefined}

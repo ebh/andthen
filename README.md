@@ -66,6 +66,10 @@ Before you push: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test 
 
 `wrangler.jsonc` has three setups: the top level is local development, `env.preview` and `env.production` are deployed. GitHub Actions deploys a pull request to preview and a green `main` to production. [docs/deployment.md](docs/deployment.md) covers first-time Cloudflare setup, the domain, a smoke-test checklist and the accepted risks.
 
+## Native builds
+
+The iOS and Android apps are built with EAS. With an Expo account (`pnpm eas login`), `pnpm eas build --local --profile preview --platform ios` (or `android`) makes an iOS simulator build or an Android APK on your machine, with no Apple or Google developer account. The app is still being ported, so a preview build may not start yet. [docs/deployment.md](docs/deployment.md#native-builds) lists the profiles, the environment variables and the install steps.
+
 ## Known limits
 
 Short story IDs are guessable, the preview Worker is public, and the real Workers AI call has not been run end to end. These and the other accepted risks are listed in [docs/deployment.md](docs/deployment.md#accepted-risks), and what was only proven locally under [Proven only locally](docs/deployment.md#proven-only-locally).

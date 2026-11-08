@@ -12,6 +12,8 @@ on:
       - pnpm-lock.yaml
       - assets/**
       - scripts/ensureGeneratedCss.ts
+      - scripts/icons.ts
+      - scripts/renderIcons.ts
       - .github/workflows/native-build.yml
 
 permissions:

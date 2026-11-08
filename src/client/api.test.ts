@@ -263,7 +263,7 @@ describe("my stories, leaving and rejoining", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/stories?cursor=eyJh_-", {
       method: "GET",
-      headers: { "X-Api-Level": "1" },
+      headers: { "X-Api-Level": String(API_LEVEL) },
     });
   });
 
@@ -276,7 +276,7 @@ describe("my stories, leaving and rejoining", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/stories", {
       method: "GET",
-      headers: { "X-Api-Level": "1" },
+      headers: { "X-Api-Level": String(API_LEVEL) },
     });
   });
 
@@ -289,7 +289,7 @@ describe("my stories, leaving and rejoining", () => {
     expect(await send("abc12")).toEqual({ ok: true, value: null });
     expect(fetchMock).toHaveBeenCalledWith(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
+      headers: { "Content-Type": "application/json", "X-Api-Level": String(API_LEVEL) },
       body: "{}",
     });
   });
@@ -307,7 +307,7 @@ describe("push subscription", () => {
     expect(await fetchPushKey()).toEqual({ ok: true, value: { publicKey: "key" } });
     expect(fetchMock).toHaveBeenCalledWith("/api/push-key", {
       method: "GET",
-      headers: { "X-Api-Level": "1" },
+      headers: { "X-Api-Level": String(API_LEVEL) },
     });
   });
 
@@ -319,7 +319,7 @@ describe("push subscription", () => {
       `/api/push-subscriptions/${await pushSubscriptionIdOf(subscription.endpoint)}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Api-Level": "1" },
+        headers: { "Content-Type": "application/json", "X-Api-Level": String(API_LEVEL) },
         body: JSON.stringify(subscription),
       },
     );
@@ -333,7 +333,7 @@ describe("push subscription", () => {
       `/api/push-subscriptions/${await pushSubscriptionIdOf(subscription.endpoint)}`,
       {
         method: "DELETE",
-        headers: { "X-Api-Level": "1" },
+        headers: { "X-Api-Level": String(API_LEVEL) },
       },
     );
   });

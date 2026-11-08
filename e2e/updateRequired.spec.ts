@@ -5,7 +5,7 @@ test("every request to the API says which API level the app speaks", async ({ pa
 
   await page.goto("/");
 
-  expect((await listRequest).headers()["x-api-level"]).toBe("1");
+  expect((await listRequest).headers()["x-api-level"]).toBe("2");
 });
 
 test("a Worker that refuses the app's API level replaces the page with an update screen", async ({

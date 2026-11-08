@@ -148,6 +148,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 - **The client's reaction:** `call` turns a `client_outdated` answer into the failure `{type: "client_outdated"}` and sets the flag in `src/client/clientOutdated.ts`. The root layout then shows `UpdateRequired` (heading "Update to continue", one "Update now" button that calls `applyUpdate` from `useAppUpdate` in `src/client/appUpdate.ts`: it hands over to a waiting service worker and reloads, or, with none waiting, removes the service worker and the caches and reloads) in place of the routed page. Unmounting the page closes its live socket, so nothing keeps retrying.
 - **Only add.** A change that keeps `API_LEVEL` may add an optional response field, a route or an error code, and nothing else. A client ignores a field it doesn't know. An error code it doesn't know becomes the failure `{type: "unknown_code", status, code}` with the generic message, and a live message of a shape it doesn't know still triggers a refetch.
 - **Fixtures:** `src/shared/fixtures/level1/` holds a frozen sample of every message of level 1, and `src/shared/compat.test.ts` checks that the current schemas still parse them. The fixtures are append-only: never edit one to make a test pass.
+- **Level 2** raised `MIN_API_LEVEL` along with `API_LEVEL`, so a level-1 client gets 426 `client_outdated`. It changed four things a level-1 client reads: `POST /api/stories/:storyId/contributions` answers 201 `{contributionId}` instead of 204, the push subscription routes moved to `/api/push-subscriptions/:pushSubscriptionId`, the public key moved to `GET /api/push-key`, and `GET /api/stories` answers a page with `nextCursor`.
 - **Shipping a break:** raise `API_LEVEL`, add a `src/shared/fixtures/level2/` folder with the new messages (keep `level1/`, so the test still shows what changed), and set `MIN_API_LEVEL` to the new level only once old clients must be locked out. See "Raising `MIN_API_LEVEL`" in `deployment.md`.
 
 ## Suggestions
@@ -225,7 +226,6 @@ A browser that allows notifications is told when a change hands it the turn. Thi
     `body` is the start of the story's opening: whitespace collapsed to single spaces, at most 60 characters, cut at a word and ended with `…` when shortened. `navigate` uses the origin of the request that made the change. `web_push` is the number 8030.
   - **Headers:** `Topic: turn-<storyId>` (a newer message for the story replaces an undelivered older one), `Urgency: high`, and `TTL` the seconds left in the new holder's turn window, never under 60.
 - **Config:** `VAPID_PUBLIC_KEY` (a var in `wrangler.jsonc`, per environment) and `VAPID_PRIVATE_KEY` (a Worker secret) are parsed with Zod by `parseVapidConfig` and `parseVapidPublicKey` in `src/worker/config.ts`. The subject is the constant `VAPID_SUBJECT`. The private key is not in the generated `Env` type, because `wrangler types` runs in CI without secrets. `docs/deployment.md` says how to make and set the keys.
-- **Only added:** no `API_LEVEL` bump. The routes are new and no existing message changed.
 
 ### How the app uses these routes
 

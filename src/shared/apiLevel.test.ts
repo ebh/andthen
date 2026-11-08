@@ -7,9 +7,9 @@ describe("API level constants", () => {
     expect(API_LEVEL).toBeGreaterThanOrEqual(MIN_API_LEVEL);
   });
 
-  it("starts at level 1 and names the header", () => {
-    expect(API_LEVEL).toBe(1);
-    expect(MIN_API_LEVEL).toBe(1);
+  it("is at level 2, with level 1 clients locked out, and names the header", () => {
+    expect(API_LEVEL).toBe(2);
+    expect(MIN_API_LEVEL).toBe(2);
     expect(API_LEVEL_HEADER).toBe("X-Api-Level");
   });
 });

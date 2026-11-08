@@ -8,10 +8,10 @@ export type ParsedApiLevel =
  * clients that already shipped, such as removing or renaming a field they read. Adding an
  * optional field or a route does not need a bump.
  */
-export const API_LEVEL = 1;
+export const API_LEVEL = 2;
 
 /** The oldest API level the Worker accepts. Raising it past a shipped client's level locks that client out. */
-export const MIN_API_LEVEL = 1;
+export const MIN_API_LEVEL = 2;
 
 export const API_LEVEL_HEADER = "X-Api-Level";
 

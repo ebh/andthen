@@ -84,7 +84,7 @@ export function createAppInstall(environment: AppInstallEnvironment): AppInstall
     try {
       await offered.show();
     } catch {
-      // The browser refused to open the dialog. Offering again would fail the same way.
+      // The dialog would not open, or the browser's answer was unreadable. Offering again would fail the same way.
     }
 
     // A browser offer works once, whichever way the reader answers. Chrome offers again on a later load.

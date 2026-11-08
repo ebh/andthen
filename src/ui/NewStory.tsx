@@ -39,7 +39,7 @@ export function NewStory() {
   const [opening, setOpening] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { load: stories, reload } = useMyStories();
+  const { load: stories, reload, loadMore, moreStatus } = useMyStories();
   const [leftAStory] = useState(takeLeftStoryNote);
   const hasStories = stories.type === "loaded" && stories.stories.length > 0;
   const length = passageLength(opening);
@@ -96,7 +96,12 @@ export function NewStory() {
             <Pitch />
           ) : (
             <YStack mt={media.md ? "24" : "8"}>
-              <MyStories stories={stories.stories} />
+              <MyStories
+                stories={stories.stories}
+                hasMore={stories.nextCursor !== null}
+                moreStatus={moreStatus}
+                onShowMore={loadMore}
+              />
             </YStack>
           ))}
         {stories.type === "failed" && (

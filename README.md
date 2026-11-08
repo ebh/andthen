@@ -4,7 +4,7 @@ A group writes a story together, one passage each, in turns.
 
 - Someone starts a story with an opening passage and shares the link. Anyone with the link can join with a name.
 - Writers take turns in a fixed turn order. A turn lasts 24 hours; if the writer doesn't write, the turn moves on. Anyone else in the story can skip the writer whose turn it is.
-- The home page lists every story you're in, so you don't need to keep the links. You can leave a story and rejoin it later from its link.
+- The home page lists the stories you're in, a page at a time, so you don't need to keep the links. You can leave a story and rejoin it later from its link.
 - Every open page updates live, with no reload.
 - Signing in is optional. A signed-in writer sees the same stories, and gets the same "your turn" notifications, on every device.
 - The writer whose turn it is can ask for three AI suggestions. A suggestion only fills the text box; the writer decides what to send.

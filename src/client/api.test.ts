@@ -35,7 +35,7 @@ afterEach(() => {
   setClientOutdated(false);
 });
 
-const stories = () => jsonResponse(200, { stories: [] });
+const stories = () => jsonResponse(200, { stories: [], nextCursor: null });
 const rejected = () => jsonResponse(401, { error: "invalid_session_token" });
 
 function stubReplies(...responses: Response[]) {
@@ -256,10 +256,24 @@ describe("my stories, leaving and rejoining", () => {
     writerCount: 1,
   };
 
-  it("parses the list of stories from GET /api/stories", async () => {
-    const fetchMock = stubFetch(jsonResponse(200, { stories: [summary] }));
+  it("asks for the page after a cursor in the query", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { stories: [], nextCursor: null }));
 
-    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [summary] } });
+    await listMyStories("eyJh_-");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/stories?cursor=eyJh_-", {
+      method: "GET",
+      headers: { "X-Api-Level": "1" },
+    });
+  });
+
+  it("parses the list of stories from GET /api/stories", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { stories: [summary], nextCursor: null }));
+
+    expect(await listMyStories()).toEqual({
+      ok: true,
+      value: { stories: [summary], nextCursor: null },
+    });
     expect(fetchMock).toHaveBeenCalledWith("/api/stories", {
       method: "GET",
       headers: { "X-Api-Level": "1" },
@@ -370,7 +384,7 @@ describe("the session token on API calls", () => {
     });
     const fetchMock = stubReplies(rejected(), stories());
 
-    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [] } });
+    expect(await listMyStories()).toEqual({ ok: true, value: { stories: [], nextCursor: null } });
     expect(authorizationOf(fetchMock, 0)).toBe("Bearer stale");
     expect(authorizationOf(fetchMock, 1)).toBe("Bearer fresh");
   });

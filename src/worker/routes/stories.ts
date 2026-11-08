@@ -5,6 +5,7 @@ import {
   createStoryRequestSchema,
   emptyRequestSchema,
   joinRequestSchema,
+  myStoriesQuerySchema,
   skipRequestSchema,
   type ContributeResponse,
   type CreateStoryResponse,
@@ -49,10 +50,12 @@ import {
   ApiError,
   LeftStoryError,
   parseJsonBody,
+  parseQuery,
   requireTrustedOrigin,
   type AppContext,
 } from "../http";
 import { newId } from "../ids";
+import { decodeStoryCursor } from "../storyCursor";
 import { leaveAsParticipant } from "../leave";
 import { notifyRoom, upgradeRequestForRoom } from "../live";
 import { requireOrCreateMe, resolveMe, type MeDeps } from "../me";
@@ -111,10 +114,20 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
 
   // Only reads: no cookie is issued or user created, and a browser without a user has no stories.
   routes.get("/api/stories", async (c) => {
+    const query = parseQuery(c, myStoriesQuerySchema);
+    const after = query.cursor === undefined ? null : decodeStoryCursor(query.cursor);
+    if (query.cursor !== undefined && after === null) {
+      throw new ApiError("bad_request");
+    }
+
     const me = await resolveMe(c, deps);
-    const stories =
-      me === null ? [] : summariseMyStories(await loadMyStories(c.env.DB, me.id), deps.now());
-    const response: MyStoriesResponse = { stories };
+    const response: MyStoriesResponse =
+      me === null
+        ? { stories: [], nextCursor: null }
+        : summariseMyStories(await loadMyStories(c.env.DB, me.id), deps.now(), {
+            limit: query.limit,
+            after,
+          });
 
     return c.json(response);
   });

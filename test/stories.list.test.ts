@@ -1,12 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { myStoriesResponseSchema, type StorySummary } from "../src/shared/api";
+import {
+  myStoriesResponseSchema,
+  type MyStoriesResponse,
+  type StorySummary,
+} from "../src/shared/api";
 import { TURN_WINDOW_MS } from "../src/shared/validation";
 import {
   createBrowser,
   createStory,
   createTestApp,
   joinStory,
+  readError,
   T0,
   type Browser,
   type Clock,
@@ -155,7 +160,50 @@ describe("GET /api/stories", () => {
     ]);
     expect(await listStories(cal)).toMatchObject([{ isMyTurn: true }]);
   });
+
+  it("pages the list with limit and cursor, and ends with a null cursor", async () => {
+    clock.now = T0;
+    const ana = newBrowser();
+    const first = await createStory(ana, "Ana", "First.");
+    clock.now = T0 + 1000;
+    const second = await createStory(ana, "Ana", "Second.");
+    clock.now = T0 + 2000;
+    const third = await createStory(ana, "Ana", "Third.");
+
+    const page1 = await listPage(ana, "limit=2");
+    const page2 = await listPage(ana, `limit=2&cursor=${page1.nextCursor ?? ""}`);
+
+    expect(page1.stories.map(({ id }) => id)).toEqual([third, second]);
+    expect(page1.nextCursor).not.toBeNull();
+    expect(page2.stories.map(({ id }) => id)).toEqual([first]);
+    expect(page2.nextCursor).toBeNull();
+  });
+
+  it("gives an empty page with no cursor to a browser with no user", async () => {
+    expect(await listPage(newBrowser(), "limit=5")).toEqual({ stories: [], nextCursor: null });
+  });
+
+  it.each([
+    ["a limit of zero", "limit=0"],
+    ["a limit over the maximum", "limit=51"],
+    ["a limit that is not a whole number", "limit=1.5"],
+    ["a limit that is not a number", "limit=many"],
+    ["an empty cursor", "cursor="],
+    ["a cursor this API never made", "cursor=not-a-cursor"],
+  ])("answers 400 bad_request for %s", async (_name, query) => {
+    const response = await newBrowser().get(`/api/stories?${query}`);
+
+    expect(response.status).toBe(400);
+    expect(await readError(response)).toBe("bad_request");
+  });
 });
+
+async function listPage(browser: Browser, query: string): Promise<MyStoriesResponse> {
+  const response = await browser.get(`/api/stories?${query}`);
+  expect(response.status).toBe(200);
+
+  return myStoriesResponseSchema.parse(await response.json());
+}
 
 async function listStories(browser: Browser): Promise<StorySummary[]> {
   const response = await browser.get("/api/stories");

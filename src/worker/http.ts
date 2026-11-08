@@ -165,6 +165,16 @@ export const limitBody = bodyLimit({
   onError: (c) => c.json(errorBody("payload_too_large"), ERROR_STATUS.payload_too_large),
 });
 
+/** Reads and validates the query string. A failure is `bad_request`. */
+export function parseQuery<T>(c: AppContext, schema: z.ZodType<T>): T {
+  const parsed = schema.safeParse(c.req.query());
+  if (!parsed.success) {
+    throw new ApiError("bad_request");
+  }
+
+  return parsed.data;
+}
+
 /** Reads and validates a JSON body. A parse or schema failure is `bad_request`. */
 export async function parseJsonBody<T>(c: AppContext, schema: z.ZodType<T>): Promise<T> {
   // Read as text first: an oversize body must surface as the body-limit error, not bad_request.

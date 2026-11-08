@@ -43,8 +43,11 @@ export type ApiFailure =
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; failure: ApiFailure };
 
-export function listMyStories(): Promise<ApiResult<MyStoriesResponse>> {
-  return call("/api/stories", { method: "GET" }, myStoriesResponseSchema);
+/** One page of the user's stories: the first, or the one after `cursor`. */
+export function listMyStories(cursor?: string): Promise<ApiResult<MyStoriesResponse>> {
+  const query = cursor === undefined ? "" : `?${new URLSearchParams({ cursor }).toString()}`;
+
+  return call(`/api/stories${query}`, { method: "GET" }, myStoriesResponseSchema);
 }
 
 export function createStory(request: CreateStoryRequest): Promise<ApiResult<CreateStoryResponse>> {

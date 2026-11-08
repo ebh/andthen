@@ -31,7 +31,7 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Merge:** folding the device user into the account user. Participants and push subscriptions move to the account user, and the device user is deleted. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
 - **`me`:** the reserved user ID in a path that means the user making the request, as in `/api/users/me/account`. See `.claude/rules/api.md`.
 - **Session token:** the short-lived proof that a request comes from a signed-in account. A signed-in client sends it as `Authorization: Bearer <token>` on every call. The Worker checks it (`src/worker/sessionToken.ts`). A request with a session token never falls back to the browser token. Error code `invalid_session_token`.
-- **My stories:** the stories a user is in and has not left, on every device that user is signed in on. `GET /api/stories`; `StorySummary`.
+- **My stories:** the stories a user is in and has not left, on every device that user is signed in on. Listed a page at a time. `GET /api/stories`; `StorySummary`.
 - **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so passages keep an author and the name stays reserved. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:storyId/leave` and `/rejoin`.
 
 ## Turns

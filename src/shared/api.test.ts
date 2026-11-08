@@ -13,6 +13,7 @@ import {
   pushSubscriptionIdSchema,
   joinRequestSchema,
   liveMessageSchema,
+  myStoriesQuerySchema,
   myStoriesResponseSchema,
   skipRequestSchema,
   storyIdSchema,
@@ -20,6 +21,7 @@ import {
   suggestionsResponseSchema,
 } from "./api";
 import type { TurnRejection } from "./turnOrder";
+import { MY_STORIES_DEFAULT_LIMIT, MY_STORIES_MAX_LIMIT } from "./validation";
 
 const turnRejections = {
   stale_turn: true,
@@ -223,15 +225,23 @@ describe("myStoriesResponseSchema", () => {
   it("accepts a waiting story and a running one", () => {
     const running = { ...waiting, holderName: "Ben", isMyTurn: true, endsAt: 5 };
 
-    expect(myStoriesResponseSchema.parse({ stories: [waiting, running] }).stories).toHaveLength(2);
+    expect(
+      myStoriesResponseSchema.parse({ stories: [waiting, running], nextCursor: null }).stories,
+    ).toHaveLength(2);
   });
 
   it("refuses a story with no writers or a malformed ID", () => {
     expect(
-      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, writerCount: 0 }] }).success,
+      myStoriesResponseSchema.safeParse({
+        stories: [{ ...waiting, writerCount: 0 }],
+        nextCursor: null,
+      }).success,
     ).toBe(false);
     expect(
-      myStoriesResponseSchema.safeParse({ stories: [{ ...waiting, id: "ABC12" }] }).success,
+      myStoriesResponseSchema.safeParse({
+        stories: [{ ...waiting, id: "ABC12" }],
+        nextCursor: null,
+      }).success,
     ).toBe(false);
   });
 });
@@ -366,6 +376,37 @@ describe("pushSubscriptionSchema endpoint host", () => {
     ["http", "http://fcm.googleapis.com/x"],
   ])("rejects %s", (_name, endpoint) => {
     expect(accepts(endpoint)).toBe(false);
+  });
+});
+
+describe("myStoriesQuerySchema", () => {
+  it("defaults the limit and leaves the cursor out", () => {
+    expect(myStoriesQuerySchema.parse({})).toEqual({ limit: MY_STORIES_DEFAULT_LIMIT });
+  });
+
+  it.each([
+    ["1", 1],
+    ["20", 20],
+    [String(MY_STORIES_MAX_LIMIT), MY_STORIES_MAX_LIMIT],
+  ])("reads a limit of %s", (limit, expected) => {
+    expect(myStoriesQuerySchema.parse({ limit }).limit).toBe(expected);
+  });
+
+  it.each([
+    ["zero", "0"],
+    ["one past the maximum", String(MY_STORIES_MAX_LIMIT + 1)],
+    ["a fraction", "1.5"],
+    ["a sign", "+5"],
+    ["leading zeros", "05"],
+    ["text", "many"],
+    ["empty", ""],
+  ])("refuses a limit that is %s", (_name, limit) => {
+    expect(myStoriesQuerySchema.safeParse({ limit }).success).toBe(false);
+  });
+
+  it("keeps a cursor and refuses an empty one", () => {
+    expect(myStoriesQuerySchema.parse({ cursor: "abc" }).cursor).toBe("abc");
+    expect(myStoriesQuerySchema.safeParse({ cursor: "" }).success).toBe(false);
   });
 });
 

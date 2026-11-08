@@ -42,8 +42,10 @@ function summary(overrides: Partial<StorySummary>): StorySummary {
 
 /** Stubs `fetch`: the first reply answers the list of the writer's stories (none by default), the rest follow in order. */
 function stubFetch(stories: Response | null = null, ...responses: Response[]) {
-  const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(200, { stories: [] })));
-  fetchMock.mockResolvedValueOnce(stories ?? jsonResponse(200, { stories: [] }));
+  const fetchMock = vi.fn<typeof fetch>(() =>
+    Promise.resolve(jsonResponse(200, { stories: [], nextCursor: null })),
+  );
+  fetchMock.mockResolvedValueOnce(stories ?? jsonResponse(200, { stories: [], nextCursor: null }));
   for (const response of responses) {
     fetchMock.mockResolvedValueOnce(response);
   }
@@ -244,6 +246,7 @@ describe("NewStory", () => {
           }),
           summary({ id: "ccccc", opening: "Nobody yet." }),
         ],
+        nextCursor: null,
       }),
     );
     renderPage(<NewStory />);
@@ -260,10 +263,41 @@ describe("NewStory", () => {
     expect(screen.getByRole("heading", { name: "Start a new story" })).toBeInTheDocument();
   });
 
+  it("shows more stories on request, says when a page fails, and drops the button on the last page", async () => {
+    const fetchMock = stubFetch(
+      jsonResponse(200, {
+        stories: [summary({ id: "aaaaa", opening: "First." })],
+        nextCursor: "c1",
+      }),
+      jsonResponse(500, { error: "internal_error" }),
+      jsonResponse(200, {
+        stories: [summary({ id: "bbbbb", opening: "Second." })],
+        nextCursor: null,
+      }),
+    );
+    renderPage(<NewStory />);
+    const user = userEvent.setup();
+    const region = await screen.findByRole("region", { name: "Your stories" });
+
+    await user.click(within(region).getByRole("button", { name: "Show more" }));
+
+    expect(await within(region).findByText("Couldn’t load more stories.")).toBeInTheDocument();
+    expect(within(region).getAllByRole("link")).toHaveLength(1);
+
+    await user.click(within(region).getByRole("button", { name: "Show more" }));
+
+    await waitFor(() => {
+      expect(within(region).getAllByRole("link")).toHaveLength(2);
+    });
+    expect(within(region).queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+    expect(within(region).queryByText("Couldn’t load more stories.")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/stories?cursor=c1", expect.anything());
+  });
+
   it("says the stories didn't load, keeps the form, and loads them again on retry", async () => {
     const fetchMock = stubFetch(
       jsonResponse(500, { error: "internal_error" }),
-      jsonResponse(200, { stories: [summary({})] }),
+      jsonResponse(200, { stories: [summary({})], nextCursor: null }),
     );
     renderPage(<NewStory />);
 
@@ -303,8 +337,8 @@ describe("NewStory", () => {
     clerk.isSignedIn = true;
     clerk.email = "ana@example.com";
     const fetchMock = stubFetch(
-      jsonResponse(200, { stories: [summary({})] }),
-      jsonResponse(200, { stories: [] }),
+      jsonResponse(200, { stories: [summary({})], nextCursor: null }),
+      jsonResponse(200, { stories: [], nextCursor: null }),
     );
     renderPage(<NewStory />);
     await screen.findByRole("region", { name: "Your stories" });

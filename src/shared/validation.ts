@@ -8,6 +8,10 @@ export const MAX_PASSAGE_LENGTH = 280;
 export const MAX_DISPLAY_NAME_LENGTH = 40;
 /** Creator included. Anyone with the link can join, and each joiner can hold the turn for a day. */
 export const MAX_PARTICIPANTS = 50;
+/** How many of a user's stories one page of `GET /api/stories` holds when the request names no limit. */
+export const MY_STORIES_DEFAULT_LIMIT = 20;
+/** The most stories one page may ask for. */
+export const MY_STORIES_MAX_LIMIT = 50;
 export const TURN_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Checked before lowercasing: toLowerCase maps some non-ASCII letters (e.g. U+212A KELVIN SIGN)

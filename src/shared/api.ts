@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { normaliseStoryId } from "./validation";
+import { MY_STORIES_DEFAULT_LIMIT, MY_STORIES_MAX_LIMIT, normaliseStoryId } from "./validation";
 
 // Request bodies carry plain strings: routes run validatePassage and validateDisplayName, so the
 // length rules live in one place and fail with invalid_passage or invalid_display_name.
@@ -92,8 +92,28 @@ export const storySummarySchema = z.object({
 });
 export type StorySummary = z.infer<typeof storySummarySchema>;
 
-/** The caller's stories that they have not left: the one they hold the turn in first, then newest passage first. */
-export const myStoriesResponseSchema = z.object({ stories: z.array(storySummarySchema) });
+/**
+ * The query of `GET /api/stories`. `limit` is a plain positive decimal; `cursor` is the
+ * `nextCursor` of the previous page, which is opaque to the client.
+ */
+export const myStoriesQuerySchema = z.object({
+  limit: z
+    .string()
+    .regex(/^[1-9][0-9]*$/)
+    .transform(Number)
+    .pipe(z.number().max(MY_STORIES_MAX_LIMIT))
+    .default(MY_STORIES_DEFAULT_LIMIT),
+  cursor: z.string().min(1).optional(),
+});
+
+/**
+ * One page of the caller's stories that they have not left: the one they hold the turn in first,
+ * then newest passage first. `nextCursor` is null on the last page.
+ */
+export const myStoriesResponseSchema = z.object({
+  stories: z.array(storySummarySchema),
+  nextCursor: z.string().nullable(),
+});
 export type MyStoriesResponse = z.infer<typeof myStoriesResponseSchema>;
 
 export const suggestionsResponseSchema = z.object({

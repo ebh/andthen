@@ -4,22 +4,22 @@ Routes live in `src/worker/routes/stories.ts`, `src/worker/routes/pushSubscripti
 
 ## Routes
 
-| Route                                 | Success                        | Notes                                                                                            |
-| ------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `GET /api/stories`                    | 200 `{stories: [...]}`         | The stories this user is in and has not left. See "Your stories".                                |
-| `POST /api/stories`                   | 201 `{storyId}`                | Creates the user if there is none. An anonymous browser gets the cookie. See "Identity".         |
-| `GET /api/stories/:storyId`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.             |
-| `POST /api/stories/:storyId/participants`  | 201 `{participantId}`          | Creates the user if there is none. An anonymous browser gets the cookie.                         |
-| `POST /api/stories/:storyId/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.      |
-| `POST /api/stories/:storyId/skip`          | 204                            | Body `{turnVersion}`.                                                                            |
-| `POST /api/stories/:storyId/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                          |
-| `POST /api/stories/:storyId/rejoin`        | 204                            | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                |
-| `POST /api/stories/:storyId/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                             |
-| `GET /api/stories/:storyId/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                           |
-| `PUT /api/push-subscription`          | 204                            | Body is a `PushSubscription.toJSON()`. See "Web Push".                                           |
-| `PUT /api/users/me/account`           | 204                            | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts". |
-| `DELETE /api/push-subscription`       | 204                            | Body `{endpoint}`. See "Web Push".                                                               |
-| `GET /api/push-subscription/key`      | 200 `{publicKey}`              | The VAPID public key. See "Web Push".                                                            |
+| Route                                      | Success                        | Notes                                                                                                             |
+| ------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `GET /api/stories`                         | 200 `{stories: [...]}`         | The stories this user is in and has not left. See "Your stories".                                                 |
+| `POST /api/stories`                        | 201 `{storyId}`                | `Location` is the story. Creates the user if there is none. An anonymous browser gets the cookie. See "Identity". |
+| `GET /api/stories/:storyId`                | 200 `StoryView`                | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.                              |
+| `POST /api/stories/:storyId/participants`  | 201 `{participantId}`          | `Location` is the participant. Creates the user if there is none. An anonymous browser gets the cookie.           |
+| `POST /api/stories/:storyId/contributions` | 204                            | Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.                       |
+| `POST /api/stories/:storyId/skip`          | 204                            | Body `{turnVersion}`.                                                                                             |
+| `POST /api/stories/:storyId/leave`         | 204                            | Body `{}`. See "Leaving and rejoining".                                                                           |
+| `POST /api/stories/:storyId/rejoin`        | 204                            | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                                 |
+| `POST /api/stories/:storyId/suggestions`   | 200 `{suggestions: [s, s, s]}` | Turn holder only. No body needed. See "Suggestions".                                                              |
+| `GET /api/stories/:storyId/live`           | 101 (WebSocket)                | Participants only. See "Live updates".                                                                            |
+| `PUT /api/push-subscription`               | 204                            | Body is a `PushSubscription.toJSON()`. See "Web Push".                                                            |
+| `PUT /api/users/me/account`                | 204                            | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts".                  |
+| `DELETE /api/push-subscription`            | 204                            | Body `{endpoint}`. See "Web Push".                                                                                |
+| `GET /api/push-subscription/key`           | 200 `{publicKey}`              | The VAPID public key. See "Web Push".                                                                             |
 
 Every route resolves who is asking as described under "Identity". Mutating routes send no body back, except suggestions, which is a read. Clients refetch `GET /api/stories/:storyId`; the live socket tells them when.
 

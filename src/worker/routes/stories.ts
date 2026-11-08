@@ -103,6 +103,8 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     }));
     const response: CreateStoryResponse = { storyId };
 
+    c.header("Location", `/api/stories/${storyId}`);
+
     return c.json(response, 201);
   });
 
@@ -178,6 +180,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     });
 
     const response: JoinResponse = { participantId: participant.id };
+
+    c.header("Location", `/api/stories/${storyId}/participants/${participant.id}`);
+
     return c.json(response, 201);
   });
 

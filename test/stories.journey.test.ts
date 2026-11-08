@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { createStoryResponseSchema, joinResponseSchema } from "../src/shared/api";
 import { TURN_WINDOW_MS } from "../src/shared/validation";
 import { app as defaultApp } from "../src/worker/app";
 import { hashBrowserToken } from "../src/worker/cookies";
@@ -51,6 +52,22 @@ describe("story journeys", () => {
     expect(opening?.id).not.toBe("");
     expect(view.participants).toEqual([{ id: view.me, displayName: "Ana" }]);
     expect(view.turn).toEqual({ holderId: null, endsAt: null, version: 0 });
+  });
+
+  it("points a Location header at the story and the participant it creates", async () => {
+    clock.now = T0;
+    const ana = newBrowser();
+    const ben = newBrowser();
+
+    const created = await ana.post("/api/stories", { displayName: "Ana", opening: "Once." });
+    const { storyId } = createStoryResponseSchema.parse(await created.json());
+    const joined = await ben.post(`/api/stories/${storyId}/participants`, { displayName: "Ben" });
+    const { participantId } = joinResponseSchema.parse(await joined.json());
+
+    expect(created.headers.get("Location")).toBe(`/api/stories/${storyId}`);
+    expect(joined.headers.get("Location")).toBe(
+      `/api/stories/${storyId}/participants/${participantId}`,
+    );
   });
 
   it("gives the turn to the first joiner and sends it back after they write", async () => {

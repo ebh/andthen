@@ -32,6 +32,8 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **`me`:** the reserved user ID in a path that means the user making the request, as in `/api/users/me/account`. See `.claude/rules/api.md`.
 - **Session token:** the short-lived proof that a request comes from a signed-in account. A signed-in client sends it as `Authorization: Bearer <token>` on every call. The Worker checks it (`src/worker/sessionToken.ts`). A request with a session token never falls back to the browser token. Error code `invalid_session_token`.
 - **My stories:** the stories a user is in and has not left, on every device that user is signed in on. Listed a page at a time. `GET /api/stories`; `StorySummary`.
+- **Page:** the next batch of a user's stories, at most `limit` of them (`MY_STORIES_DEFAULT_LIMIT` 20, `MY_STORIES_MAX_LIMIT` 50). The response carries the cursor for the page after it, or null on the last page. `StoriesPage`.
+- **Cursor:** where a page ended: the sort key of its last story (whose turn it is, newest passage time, story ID). It is opaque to clients, and the next page is every story that sorts after it. `nextCursor`; `StoryCursor`.
 - **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so passages keep an author and the name stays reserved. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:storyId/leave` and `/rejoin`.
 
 ## Turns

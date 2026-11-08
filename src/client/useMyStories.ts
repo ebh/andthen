@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { StorySummary } from "../shared/api";
 import { onDeviceUserAdded } from "./account";
 import { listMyStories, type ApiFailure } from "./api";
+import { withPageAppended } from "./withPageAppended";
 
 export type MyStoriesLoad =
   | { type: "loading" }
@@ -98,7 +99,7 @@ export function useMyStories(): {
       setMoreStatus("idle");
       setLoad({
         type: "loaded",
-        stories: [...stories, ...result.value.stories],
+        stories: withPageAppended(stories, result.value.stories),
         nextCursor: result.value.nextCursor,
       });
     })();

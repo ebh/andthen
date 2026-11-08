@@ -70,6 +70,10 @@ Before you push: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test 
 
 Short story IDs are guessable, the preview Worker is public, and the real Workers AI call has not been run end to end. These and the other accepted risks are listed in [docs/deployment.md](docs/deployment.md#accepted-risks), and what was only proven locally under [Proven only locally](docs/deployment.md#proven-only-locally).
 
+## Contact
+
+Questions, feedback and reports: support@andthen.page.
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE).

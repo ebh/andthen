@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 
 import { pushSubscriptionSchema } from "../shared/api";
 import { fetchVapidPublicKey, removePushSubscription, savePushSubscription } from "./api";
+import { isAppleTouchDevice, isInstalled } from "./browserFacts";
 
 /** What a page needs to know about "your turn" alerts, and how to switch them on and off. */
 export interface TurnAlerts {
@@ -281,14 +282,6 @@ function initialState(environment: TurnAlertsEnvironment): TurnAlertsState {
     : { type: "ready", on: false, busy: false, failed: false };
 }
 
-// iPadOS 13 and later reports itself as a Mac, so a Mac with a touch screen is an iPad.
-function isAppleTouchDevice(facts: BrowserFacts): boolean {
-  return (
-    /iPhone|iPad|iPod/.test(facts.userAgent) ||
-    (facts.platform === "MacIntel" && facts.maxTouchPoints > 1)
-  );
-}
-
 // Created on first use, because it reads `navigator`, which the test and server environments may lack.
 let browserInstance: TurnAlerts | undefined;
 
@@ -317,14 +310,6 @@ function browserEnvironment(): TurnAlertsEnvironment {
     requestPermission: () => Notification.requestPermission(),
     pushManager: async () => (await navigator.serviceWorker.ready).pushManager,
   };
-}
-
-// `navigator.standalone` is Safari's own flag, absent from the DOM typings.
-function isInstalled(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    ("standalone" in navigator && navigator.standalone === true)
-  );
 }
 
 async function withinTime<T>(promise: Promise<T>, ms: number): Promise<T> {

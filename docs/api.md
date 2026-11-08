@@ -40,7 +40,7 @@ Every error body is JSON `{error: <code>}`, so a client can parse it with `error
 
 - **426:** `client_outdated`, an `X-Api-Level` below the Worker's minimum. See "Versioning". A live upgrade without `Upgrade: websocket` is also 426, with a different body.
 
-Order of checks on a mutating route: API level (400 malformed, 426 too low), Origin (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409). A session token is checked when a route first needs to know the user: with the participant check on a story route, and before the body on `PUT /api/users/me/account`. A bad token is 401 whatever follows.
+Order of checks on a mutating route: API level (400 malformed, 426 too low), Origin or credential header (403), Content-Type (400), body size (413), ID shape (404), JSON and shape (400), story exists (404), caller is a participant (403; 403 `left_story` for one who left), content validation (400), turn rules (403/409), guarded write (409). A session token is checked when a route first needs to know the user: with the participant check on a story route, and before the body on `PUT /api/users/me/account`. A bad token is 401 whatever follows.
 
 ## Things a client or reviewer might not expect
 
@@ -49,6 +49,8 @@ Order of checks on a mutating route: API level (400 malformed, 426 too low), Ori
 - **Body parsing comes before the story lookup.** A malformed body is 400 even for a story that doesn't exist or that you aren't in.
 - **A rejected join still creates the user.** An anonymous browser with no cookie gets one, and a user row, before the join is checked, and keeps both after a `name_taken` or `stale_turn`. It is harmless: the user is in no story until a join succeeds, and a retry with another name reuses it.
 - **A waiting story answers contribute and skip differently.** A contribution is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
+- **A cookie is ignored when the header is present.** A client that sends `X-Device-Token` is identified by it alone, even if it also sends a cookie that names another user.
+- **A store app's device token is made by the client.** The Worker issues nothing for it, so the first request already carries it, and a `GET` before the first write works.
 - **Plain cookie only on `http://localhost`.** `127.0.0.1` and LAN hosts get the `__Host-` Secure cookie, which browsers drop over plain HTTP, so dev must use `localhost`.
 
 ## Your stories
@@ -84,11 +86,12 @@ A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone 
 
 ## Identity
 
-Every route that needs to know who is asking resolves a user (`resolveMe` and `requireOrCreateMe` in `src/worker/me.ts`). Accounts are optional, so there are two ways to be identified, and a request uses exactly one.
+Every route that needs to know who is asking resolves a user (`resolveMe` and `requireOrCreateMe` in `src/worker/me.ts`). Accounts are optional, so there are three ways to be identified, and a request uses exactly one, in this order.
 
-- **Session token.** A signed-in client sends the session token as `Authorization: Bearer <token>` on every call. The Worker checks it and the user is the one who holds that account. A request with a session token never looks at the cookie.
-- **Browser token.** With no `Authorization` header the cookie decides (see "Cookie"). A browser with no cookie, or a cookie that names no user, has no user yet.
-- **Where a user is made.** `GET` routes and `DELETE` never create a user. `POST /api/stories` and the join route do: an account user for a session token, otherwise an anonymous user with the cookie issued when the browser has none.
+- **Session token.** A signed-in client sends the session token as `Authorization: Bearer <token>` on every call. The Worker checks it and the user is the one who holds that account. A request with a session token never looks at the device token.
+- **Device token in a header.** A store app has no cookie jar to rely on, so it sends `X-Device-Token: <token>` (`DEVICE_TOKEN_HEADER` in `src/shared/deviceToken.ts`). The token is 64 lowercase hex characters (`deviceTokenSchema`), which the phone makes itself from 32 random bytes on first launch and keeps in secure storage. Only its SHA-256 hash is stored, as for the cookie. A request with the header never looks at the cookie, because a native HTTP client may keep a cookie store of its own, and is never given a `Set-Cookie`. An empty or malformed header is 400 `bad_request`; it never counts as "no token".
+- **Device token in a cookie.** With neither of the above, the cookie decides (see "Cookie"). A browser with no cookie, or a cookie that names no user, has no user yet.
+- **Where a user is made.** `GET` routes and `DELETE` never create a user. `POST /api/stories` and the join route do: an account user for a session token, otherwise an anonymous user. A browser with no cookie is given one; a request with the header is not.
 - **The live socket** carries the token in its subprotocols instead (see "Live updates").
 
 The token check lives in `src/worker/sessionToken.ts`. It verifies the signature against the instance's public key (`CLERK_JWT_KEY`, a Worker var), so it makes no network call.
@@ -122,7 +125,11 @@ The device user is the user the cookie names. With no cookie, or a cookie that n
 ## Guards
 
 - **API level, on every `/api/*` request:** see "Versioning". It runs first, so a stale client gets `client_outdated` whatever else is wrong with its request.
-- **On a mutating request:** `Origin` must equal the request's own origin; a missing `Origin` fails. `GET`, `HEAD` and `OPTIONS` are exempt. The live upgrade is a `GET` but runs the same check (`requireSameOrigin`).
+- **On a mutating request:** `isTrustedOrigin` in `src/worker/http.ts` decides, and a refusal is 403 `forbidden_origin`. `GET`, `HEAD` and `OPTIONS` are exempt. The live upgrade is a `GET` but runs the same check (`requireTrustedOrigin`).
+  - **An `Origin` that is present must be the request's own,** whatever else the request carries. The string `null` is a value, so it fails. A device token or session token never excuses a wrong `Origin`.
+  - **A missing `Origin` passes only with a credential header:** `X-Device-Token`, `Authorization`, or on an upgrade a session token among the offered subprotocols. A cookie does not count. The check is for presence only; whether the value is good is decided where the user is resolved (400 or 401).
+  - **Why that is safe against cross-site request forgery:** a page on another site can send a request to this Worker with the browser's cookie, but it can't add `X-Device-Token` or `Authorization` without a CORS preflight, and the Worker answers none. Such a request therefore arrives with an `Origin` that isn't ours, or with no credential header, and is refused.
+  - **There is no CORS handling,** for the same reason: native clients don't use CORS, and the web app is same-origin.
 - **On a mutating request:** `Content-Type` must be `application/json`, parameters allowed.
 - **Session token, where a route needs the user:** a token that is present must verify, or the answer is 401 `invalid_session_token`. See "Identity".
 
@@ -164,7 +171,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 
 `GET /api/stories/:id/live` upgrades to a WebSocket held by that story's `StoryRoom` Durable Object. The room holds no story data: D1 stays the only store.
 
-- **Checks, in order:** `Upgrade: websocket`, any case (else 426), same-origin `Origin` (403 `forbidden_origin`), ID shape and story (404 `not_found`), the caller is a participant (403 `not_participant`; 401 `invalid_session_token` for a bad session token). Only then is the request forwarded to the room.
+- **Checks, in order:** `Upgrade: websocket`, any case (else 426), the Origin rule under "Guards" (403 `forbidden_origin`), ID shape and story (404 `not_found`), the caller is a participant (403 `not_participant`; 401 `invalid_session_token` for a bad session token). Only then is the request forwarded to the room.
 - **Message:** the room sends the JSON text `{"version": <turnVersion>}` (`liveMessageSchema` in `src/shared/api.ts`) to every socket of the story after each join, rejoin, leave, contribution and skip. The version is the turn version the write produced. Create sends nothing: nobody can be connected yet. A client refetches on any message that is JSON text, whatever its shape, so a message kind from a newer Worker still triggers a refetch. It ignores text that isn't JSON and binary frames, and does not need the version.
 - **Notify:** routes call `notifyRoom` (`src/worker/live.ts`) after the D1 write succeeds. It hands the room's `notify` RPC call to `waitUntil` and returns at once, so a slow or hung room can't delay a committed write. A failure is logged and swallowed, never turned into an error response: clients catch up on their next refetch or reconnect. Browsers can't call `notify`; they only reach the room's `fetch` (the upgrade) through the guarded route.
 - **Client:** the live logic in `src/client/live.ts` says when to refetch: on every open, every JSON message and a second after `turn.endsAt` (a turn that times out sends no message). `useStoryLive` mounts it on the story page. The socket sends no `X-Api-Level`; the refetch on open does (see "Versioning").
@@ -178,7 +185,7 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
   - **Safe to repeat:** a second fire, a fire before the deadline (the alarm is re-armed for the real one), a story that waits, and a write that wins the version guard first all save and push nothing. After a lost race the room arms the deadline the winning write left.
   - **Failures:** a push failure is logged. Any other failure (D1 down, bad stored timer) throws, and the runtime retries the alarm.
 - **Hibernation:** the room uses the hibernation API. `ping` is answered by the runtime with `pong` without waking the object.
-- **Subprotocols carry the session token.** A browser's WebSocket can't set an `Authorization` header, so a signed-in client offers `["andthen-live", <session token>]` (`LIVE_SUBPROTOCOL` and `liveSubprotocolsFor` in `src/shared/liveSubprotocol.ts`). An anonymous client offers `["andthen-live"]` and the cookie decides. The Worker reads the token from the offered entries, cuts it from what it forwards to the room (`upgradeRequestForRoom`) and answers `andthen-live` alone (`upgradeResponseHeaders`), because a browser closes a socket whose answer is not one it offered. The client fetches a token for each connection, so a reconnect never offers an expired one.
+- **Subprotocols carry the session token.** A browser's WebSocket can't set an `Authorization` header, so a signed-in client offers `["andthen-live", <session token>]` (`LIVE_SUBPROTOCOL` and `liveSubprotocolsFor` in `src/shared/liveSubprotocol.ts`). An anonymous browser offers `["andthen-live"]` and the cookie decides. A store app sets headers on its socket, so it sends `X-Device-Token` (or `Authorization`) and no `Origin`. The Worker reads the token from the offered entries, cuts it from what it forwards to the room (`upgradeRequestForRoom`) and answers `andthen-live` alone (`upgradeResponseHeaders`), because a browser closes a socket whose answer is not one it offered. The client fetches a token for each connection, so a reconnect never offers an expired one.
 - **Identity is read at the upgrade only.** An open socket is not rechecked, and a session token lasts about a minute. A writer who leaves keeps their sockets, so they go on receiving version numbers (nothing else is sent) until the socket closes; a refetch then answers 403 `left_story`. Closing them would need the room to tag sockets by participant, which it does not do.
 
 ## Web Push
@@ -229,7 +236,7 @@ All three calls go through `src/client/api.ts` (`fetchPushKey`, `savePushSubscri
 
 ## Cookie
 
-`__Host-andthen_bt` (HttpOnly, Secure, SameSite=Lax, Path=/, 1 year) everywhere except `http://localhost`, where it is `andthen_bt` without `Secure`. The value is 32 random bytes in hex; only its SHA-256 hash is stored, in `users.browser_token_hash`. `readBrowserToken` returns `""` for no cookie, which matches no user. A user who attaches an account loses the hash, so the cookie names no user from then on.
+`__Host-andthen_bt` (HttpOnly, Secure, SameSite=Lax, Path=/, 1 year) everywhere except `http://localhost`, where it is `andthen_bt` without `Secure`. The value is 32 random bytes in hex; only its SHA-256 hash is stored, in `users.browser_token_hash`. `readDeviceToken` (`src/worker/cookies.ts`) returns null for no cookie, which matches no user; it reads the cookie only when the request has no `X-Device-Token` header. A user who attaches an account loses the hash, so the cookie names no user from then on.
 
 ## Writes and races
 
@@ -240,7 +247,7 @@ Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEM
 ## Testing
 
 - `createApp({ now, newStoryId, suggestionProvider, pushSender, sessionVerifier, minApiLevel })` in `src/worker/app.ts` takes the clock, the ID source, a function from `env` to a `SuggestionProvider`, a function from `env` to a `PushSender`, a function from `env` to a `SessionVerifier` (`selectSessionVerifier` in the real app) and, optionally, the minimum API level (`MIN_API_LEVEL` by default), which a test raises to get `client_outdated`. `app` is the real-clock default; `index.ts` re-exports it.
-- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider, minApiLevel?, pushSender = createFakePushSender())` and `createBrowser(app, env)`, a browser with its own cookie jar (`get`, `post`, `put` and `delete`) that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie. Set its `sessionToken` to make it send `Authorization: Bearer <token>` on every request, as a signed-in client does.
+- `test/support/browser.ts`: `createTestApp(clock, newStoryId?, suggestionProvider = fakeProvider, minApiLevel?, pushSender = createFakePushSender())` and `createBrowser(app, env)`, a browser with its own cookie jar (`get`, `post`, `put` and `delete`) that sends a same-origin `Origin`, `Content-Type: application/json` and the current `X-Api-Level` by default. Its request options take `apiLevel`: a string to send instead, or `null` to send no header. Build a `Browser` with an `https://app.andthen.page` origin to get the `__Host-` cookie. Set its `sessionToken` to make it send `Authorization: Bearer <token>` on every request, as a signed-in client does, or its `deviceToken` to send `X-Device-Token`. `createPhone(app, env, deviceToken?)` is a store app: it sends the header and no `Origin`, and drops every `Set-Cookie`, so assert on the response to see whether one was sent. `newDeviceToken()` makes a token of the right shape.
 - `test/support/sessionToken.ts`: `signSessionToken(clerkUserId, origin, options?)` signs a token with a key made for the test run, and `TEST_JWT_KEY` is its public half. `options` takes `expiresInSeconds` (negative for an expired token), `omitAuthorizedParty` (leaves out `azp`) and `signWithOtherKey`. `createTestEnv` (`test/support/testEnv.ts`) sets `CLERK_JWT_KEY` to `TEST_JWT_KEY`, so the real verifier runs in the tests. A token's `origin` must equal the origin the browser sends to.
 - `test/live.test.ts`: the live guard and `notifyRoom` calls in Node, with a stand-in `STORY_ROOM` passed as `env` (Node can't build a 101 response, so its `fetch` answers 200). A browser's `backgroundWork` holds what the app gave `waitUntil`.
 - `test/storyRoom.workerd.test.ts`: the real Worker and `StoryRoom` in workerd through wrangler's `createTestHarness`, with real WebSockets. It reads `wrangler.jsonc` and drops `assets` (which needs a built `dist/`). `index.ts` and `storyRoom.ts` aren't mutated by Stryker, so this is their only coverage.

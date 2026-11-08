@@ -1,22 +1,44 @@
 import { getCookie, setCookie } from "hono/cookie";
 
+import { DEVICE_TOKEN_HEADER, deviceTokenSchema } from "../shared/deviceToken";
 import { BROWSER_TOKEN_MAX_AGE_SECONDS } from "./config";
-import type { AppContext } from "./http";
+import { ApiError, type AppContext } from "./http";
 
 interface CookieSettings {
   name: string;
   secure: boolean;
 }
 
-/** The browser's secret from its cookie; empty when it has none, which matches no participant. */
-export function readBrowserToken(c: AppContext): string {
-  return getCookie(c, cookieSettings(c.req.url).name) ?? "";
+/**
+ * The device token a request carries, or null when it carries none. The `X-Device-Token` header
+ * decides alone: a client that sends it never has its cookie read, because a native HTTP client
+ * may keep a cookie store of its own. A header that is present but malformed, an empty one
+ * included, is `bad_request`, so it can't pass for "no token". Without the header the cookie
+ * decides.
+ */
+export function readDeviceToken(c: AppContext): string | null {
+  const header = c.req.header(DEVICE_TOKEN_HEADER);
+  if (header !== undefined) {
+    const parsed = deviceTokenSchema.safeParse(header);
+    if (!parsed.success) {
+      throw new ApiError("bad_request");
+    }
+
+    return parsed.data;
+  }
+
+  const cookie = getCookie(c, cookieSettings(c.req.url).name);
+
+  return cookie === undefined || cookie === "" ? null : cookie;
 }
 
-/** The browser's secret; a browser with none gets a new one in a `Set-Cookie` header. */
-export function readOrIssueBrowserToken(c: AppContext): string {
-  const existing = readBrowserToken(c);
-  if (existing !== "") {
+/**
+ * The request's device token. A request with none gets a new one in a `Set-Cookie` header, so
+ * only a request without the header can be given a cookie.
+ */
+export function readOrIssueDeviceToken(c: AppContext): string {
+  const existing = readDeviceToken(c);
+  if (existing !== null) {
     return existing;
   }
 

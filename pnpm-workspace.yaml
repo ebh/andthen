@@ -3,3 +3,5 @@ allowBuilds:
   workerd: true
   browser-tabs-lock: false
   core-js: false
+  dtrace-provider: false
+  protobufjs: false

@@ -23,6 +23,7 @@ Needs Node 26.13.0 and pnpm 12.16.1. No Cloudflare account or login is needed.
    ```sh
    pnpm install
    ```
+   This also draws the app icons from `assets/brand/` (see `docs/assets.md`).
 3. Create the local database tables (answer `y` if Wrangler asks to apply the migration):
    ```sh
    pnpm db:migrate:local

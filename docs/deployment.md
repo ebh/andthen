@@ -35,7 +35,7 @@ The app is installable and its pages load offline. A service worker, `dist/sw.js
 - **The single-page fallback hides a missing `/sw.js`.** A path that is not a file in `dist/` gets `index.html` with a 200, so without `dist/sw.js` the deploy looks healthy and browsers reject the registration only on the user's device. `buildServiceWorker.ts` therefore fails the build if `dist/sw.js` is missing or empty, or if the precache list lacks `index.html`, a file under `_expo/` or a font.
 - **The same worker shows "your turn" notifications.** `src/serviceWorker/sw.ts` also handles `push` and `notificationclick` (logic in `src/client/pushHandlers.ts`). The "Notify me when it's my turn" switch needs this worker registered, so it exists only in a production build. iOS and iPadOS need the app added to the Home Screen first (iOS 16.4 or later); in a browser tab there the page shows a hint instead. See "Web Push" in `docs/api.md`.
 - **Fonts sit under a `.pnpm` folder.** Expo puts them in `assets/node_modules/.pnpm/…`. A `**` glob skips a folder whose name starts with a dot, so the precache pattern names `.pnpm` in full. The font check above fails the build if it stops matching.
-- **The icons are placeholders.** `public/` holds `icon.svg` (the source and the SVG favicon), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` and `favicon.ico`. The final art replaces these files under the same names, with no code change. The store apps have their own placeholders in `assets/` (see "Native builds").
+- **The icons are placeholders, made from one source.** `assets/brand/icon-foreground.svg` is the glyph. `pnpm install` renders every web and store-app icon from it (`docs/assets.md` lists them), so the final art replaces that one file and `pnpm icons` redraws everything.
 - **Testing it.** `e2e/pwa.spec.ts` covers registration, offline loading, the API staying uncached and the update flow. The update test goes through `e2e/versionProxy.ts`, which swaps `/sw.js` to stand in for a deploy, because `wrangler dev` reads its asset list once at start.
 
 ## First-time Cloudflare setup
@@ -126,7 +126,7 @@ The iOS and Android apps are built with [EAS Build](https://docs.expo.dev/build/
 - **Targets.** React Native 0.88 sets Android `targetSdkVersion` 36, which meets Google Play's target API level. iOS builds use the `auto` image, which for Expo SDK 58 is Xcode 27.1, so the iOS 26 SDK minimum is met. Check both when upgrading Expo. Do not pin an image in `eas.json`.
 - **Pinned tools.** `eas.json` pins the Node and pnpm versions to `engines` and `packageManager` in `package.json`. The EAS CLI is a dev dependency, so run it as `pnpm eas …`; never install it globally.
 - **Generated CSS.** The root layout imports `tamagui.generated.css`, which `pnpm build` writes and git ignores, so a cloud build has none. The `eas-build-post-install` script in `package.json` creates an empty file (`scripts/ensureGeneratedCss.ts`). Native ignores CSS.
-- **Placeholder art.** `assets/icon.png`, `assets/adaptive-icon.png` and `assets/splash-icon.png` are rendered from `public/icon.svg`. The final art replaces them under the same names. Keep the adaptive icon's glyph inside the centre 66%, because Android masks the rest.
+- **Placeholder art.** `assets/generated/icon.png`, `adaptive-icon.png` and `splash-icon.png` are rendered from `assets/brand/icon-foreground.svg` on `pnpm install`, so a build runner has them too. See `docs/assets.md` for the size rules.
 - **Sign in with Apple.** The `@clerk/expo` plugin adds the Sign in with Apple entitlement to the iOS app. A build for a real iPhone therefore needs an App ID with that capability. The simulator build does not.
 
 Environment variables are set on EAS (`pnpm eas env:set`), one value per environment, and chosen by the profile's `environment` field. Expo inlines `EXPO_PUBLIC_*` values into the JavaScript bundle at build time.
@@ -148,7 +148,7 @@ Environment variables are set on EAS (`pnpm eas env:set`), one value per environ
 
 ### Builds on GitHub Actions
 
-`.github/workflows/native-build.yml` builds the preview iOS simulator app and Android APK with `eas build --local` on GitHub's runners, for a pull request that changes `app.json`, `eas.json`, `assets/`, the dependencies or the workflow itself. It uploads each build as an artifact of the run. A fork's pull request does not build, because forks get no secrets.
+`.github/workflows/native-build.yml` builds the preview iOS simulator app and Android APK with `eas build --local` on GitHub's runners, for a pull request that changes `app.json`, `eas.json`, `assets/`, the icon scripts, the dependencies or the workflow itself. It uploads each build as an artifact of the run. A fork's pull request does not build, because forks get no secrets.
 
 To set it up, create the GitHub environment `native-preview` and give it one secret, `EXPO_TOKEN`: an Expo [access token](https://expo.dev/settings/access-tokens). The token reaches only the build step, as in `deploy.yml`. The `preview` EAS environment variables are fetched by that step, so they must exist on Expo first.
 

@@ -217,8 +217,3 @@ Paper with only a theme looked close to the web design, but its web accessibilit
 - Clerk 6.42.3 draws input and button borders as box-shadows at a fixed 11% opacity of `colorBorder`, so in dark mode a dark `colorBorder` disappears. `colorBorder` maps to the theme's text colour.
 - Clerk logs "expo-web-browser not available, OAuth/SSO on web will not work". Google sign-in on web therefore needs `expo-web-browser`, which is not added. Only email sign-in works today.
 - Headless Chromium fails Clerk's bot check at sign-up. Headed Chromium passes. The e2e tests therefore cover anonymous journeys only.
-
-## Known gaps to review before production
-
-- `/api/health` runs a D1 query for any unauthenticated caller. Fine while nothing is deployed; review its cost and exposure before production.
-- `requireSameOrigin` rejects a request with no `Origin` header. iOS and Android `fetch` and `WebSocket` send none, so native apps cannot write or go live until the Worker accepts a second credential. This was read from the code, not run on a device.

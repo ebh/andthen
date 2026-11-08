@@ -222,6 +222,8 @@ These were chosen for the first release. None has a mitigation in the code.
 - **A push can be lost without the app knowing.** A push service that fails or rejects a message is logged and not retried. The page still shows the turn on the next visit.
 - **A story mid-turn when the alarm code deploys gets no timer until its next write.** The room arms its alarm only when a write notifies it, so a turn already running at deploy time lapses without a push. After that write the story is covered. There is no backfill.
 - **`suggestion_requests` rows are never deleted.** The table grows by one row per suggestion request. Each is small, and D1's free storage is large, but it needs a cleanup job before heavy use.
+- **`/api/health` runs a D1 query for any caller.** It is exempt from the request guards so a monitor works, which also lets anyone spend D1 reads on it. Review its cost and exposure before real traffic.
+- **Native apps cannot write yet.** `requireSameOrigin` rejects a request with no `Origin` header (see `docs/api.md`), and iOS and Android `fetch` and `WebSocket` send none. A native app can neither write nor go live until the Worker accepts a second credential. This comes from reading the code, not from a device run.
 
 ## Proven only locally
 

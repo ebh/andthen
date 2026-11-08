@@ -48,7 +48,7 @@ import {
   ApiError,
   LeftStoryError,
   parseJsonBody,
-  requireSameOrigin,
+  requireTrustedOrigin,
   type AppContext,
 } from "../http";
 import { newId } from "../ids";
@@ -365,7 +365,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") {
       return c.text("Expected a WebSocket upgrade", 426);
     }
-    requireSameOrigin(c);
+    requireTrustedOrigin(c);
 
     const storyId = parseStoryId(c.req.param("id"));
     const loaded = await requireStory(c, storyId);

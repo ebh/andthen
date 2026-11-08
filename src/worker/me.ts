@@ -1,5 +1,5 @@
 import { readOfferedSubprotocols } from "../shared/liveSubprotocol";
-import { hashBrowserToken, readBrowserToken, readOrIssueBrowserToken } from "./cookies";
+import { hashBrowserToken, readDeviceToken, readOrIssueDeviceToken } from "./cookies";
 import {
   createAccountUser,
   createAnonymousUser,
@@ -7,7 +7,7 @@ import {
   findUserByClerkUserId,
   type UserRow,
 } from "./db/userRepo";
-import { ApiError, NO_TOKEN_CHALLENGE, type AppContext } from "./http";
+import { ApiError, isWebSocketUpgrade, NO_TOKEN_CHALLENGE, type AppContext } from "./http";
 import { newId } from "./ids";
 import type { SessionVerifier } from "./sessionToken";
 
@@ -57,7 +57,7 @@ export async function requireOrCreateMe(c: AppContext, deps: MeDeps): Promise<Us
     );
   }
 
-  const browserTokenHash = await hashBrowserToken(readOrIssueBrowserToken(c));
+  const browserTokenHash = await hashBrowserToken(readOrIssueDeviceToken(c));
 
   return (
     (await findUserByBrowserTokenHash(c.env.DB, browserTokenHash)) ??
@@ -76,12 +76,12 @@ export async function requireSession(c: AppContext, deps: MeDeps): Promise<Verif
 }
 
 /**
- * The user this browser's token names, whether or not the request also carries a session token.
+ * The user this device's token names, whether or not the request also carries a session token.
  * Null when it has no token or the token names no user.
  */
 export async function findDeviceUser(c: AppContext): Promise<UserRow | null> {
-  const token = readBrowserToken(c);
-  if (token === "") {
+  const token = readDeviceToken(c);
+  if (token === null) {
     return null;
   }
 
@@ -121,8 +121,4 @@ function readSessionToken(c: AppContext): string | null {
   }
 
   return token;
-}
-
-function isWebSocketUpgrade(c: AppContext): boolean {
-  return c.req.header("Upgrade")?.toLowerCase() === "websocket";
 }

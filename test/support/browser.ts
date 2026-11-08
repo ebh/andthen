@@ -7,6 +7,7 @@ import {
   type StoryView,
 } from "../../src/shared/api";
 import { API_LEVEL, API_LEVEL_HEADER } from "../../src/shared/apiLevel";
+import { DEVICE_TOKEN_HEADER } from "../../src/shared/deviceToken";
 import { createApp } from "../../src/worker/app";
 import type { PushSender } from "../../src/worker/push";
 import { selectSessionVerifier } from "../../src/worker/sessionToken";
@@ -33,6 +34,8 @@ export interface RequestOptions {
   env?: object;
   /** The X-Api-Level header value; the current API_LEVEL by default. `null` sends none. */
   apiLevel?: string | null;
+  /** Extra request headers. */
+  headers?: Record<string, string>;
 }
 
 export interface GetOptions {
@@ -52,6 +55,8 @@ export interface Browser {
   delete: (path: string, body?: unknown, options?: RequestOptions) => Promise<Response>;
   /** Sent as `Authorization: Bearer` on every request while set; null sends none. */
   sessionToken: string | null;
+  /** Sent as `X-Device-Token` on every request while set; null sends none. */
+  deviceToken: string | null;
   /** Raw cookie values by name. */
   cookies: Map<string, string>;
   /** Promises the app passed to `waitUntil`, in order. A hung one stays pending forever. */
@@ -102,6 +107,9 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
     if (browser.sessionToken !== null && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${browser.sessionToken}`);
     }
+    if (browser.deviceToken !== null) {
+      headers.set(DEVICE_TOKEN_HEADER, browser.deviceToken);
+    }
     if (cookies.size > 0) {
       headers.set("Cookie", Array.from(cookies, ([name, value]) => `${name}=${value}`).join("; "));
     }
@@ -124,7 +132,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
   const sendWithBody =
     (method: string): Browser["post"] =>
     (path, body, options = {}) => {
-      const headers = new Headers();
+      const headers = new Headers(options.headers);
       const sentOrigin = options.origin === undefined ? origin : options.origin;
       if (sentOrigin !== null) {
         headers.set("Origin", sentOrigin);
@@ -148,6 +156,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
 
   const browser: Browser = {
     sessionToken: null,
+    deviceToken: null,
     cookies,
     backgroundWork: background,
     get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options),
@@ -157,6 +166,44 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
   };
 
   return browser;
+}
+
+/**
+ * A store app: it sends `X-Device-Token` and no `Origin`, and has no cookie jar, so every
+ * `Set-Cookie` is dropped. A test asserts on the response when it wants to know one was sent.
+ */
+export function createPhone(app: TestApp, env: Env, deviceToken = newDeviceToken()): Browser {
+  const phone = createBrowser(app, env);
+  phone.deviceToken = deviceToken;
+
+  const withoutCookies =
+    <Args extends unknown[]>(call: (...args: Args) => Promise<Response>) =>
+    async (...args: Args): Promise<Response> => {
+      const response = await call(...args);
+      phone.cookies.clear();
+
+      return response;
+    };
+
+  const { get, post, put, delete: del } = phone;
+  phone.get = withoutCookies(get);
+  phone.post = withoutCookies((path, body, options) => post(path, body, noOrigin(options)));
+  phone.put = withoutCookies((path, body, options) => put(path, body, noOrigin(options)));
+  phone.delete = withoutCookies((path, body, options) => del(path, body, noOrigin(options)));
+
+  return phone;
+}
+
+// A write sends no Origin unless the test asks for one.
+function noOrigin(options: RequestOptions = {}): RequestOptions {
+  return { origin: null, ...options };
+}
+
+/** A device token of the shape a client generates: 64 lowercase hex characters. */
+export function newDeviceToken(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 /** Creates a story as `browser` and returns its ID. */

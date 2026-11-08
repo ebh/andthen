@@ -5,9 +5,21 @@ import type { z } from "zod";
 
 import type { ErrorBody, ErrorCode, PlainErrorCode } from "../shared/api";
 import { API_LEVEL_HEADER, parseApiLevel } from "../shared/apiLevel";
+import { DEVICE_TOKEN_HEADER } from "../shared/deviceToken";
+import { readOfferedSubprotocols } from "../shared/liveSubprotocol";
 import { MAX_BODY_BYTES } from "./config";
 
 export type AppContext = Context<{ Bindings: Env }>;
+
+/** What `isTrustedOrigin` weighs: the request's `Origin` header and whether it names a caller. */
+export interface OriginCheck {
+  /** The `Origin` header, or undefined when the request sent none. The string "null" is a value. */
+  origin: string | undefined;
+  /** The request's own origin. */
+  ownOrigin: string;
+  /** Whether the request carries a device token or a session token. Presence only: the value is checked where the user is resolved. */
+  carriesCredential: boolean;
+}
 
 /** Thrown by routes and guards; `handleError` turns it into the status and body for its code. */
 export class ApiError extends Error {
@@ -95,7 +107,7 @@ export function requireApiLevel(minApiLevel: number): (c: AppContext, next: Next
 /** Same-origin check on every mutating request, and `application/json` on every body. */
 export async function guardMutation(c: AppContext, next: Next): Promise<void> {
   if (!SAFE_METHODS.has(c.req.method)) {
-    requireSameOrigin(c);
+    requireTrustedOrigin(c);
     if (!isJson(c.req.header("Content-Type"))) {
       throw new ApiError("bad_request");
     }
@@ -105,13 +117,43 @@ export async function guardMutation(c: AppContext, next: Next): Promise<void> {
 }
 
 /**
- * Throws `forbidden_origin` unless the Origin header is the request's own origin. A missing
- * Origin fails too: browsers always send one on a POST and on a WebSocket handshake.
+ * Throws `forbidden_origin` unless `isTrustedOrigin` accepts the request. The live upgrade is a
+ * `GET`, so its route calls this itself.
  */
-export function requireSameOrigin(c: AppContext): void {
-  if (c.req.header("Origin") !== new URL(c.req.url).origin) {
+export function requireTrustedOrigin(c: AppContext): void {
+  const trusted = isTrustedOrigin({
+    origin: c.req.header("Origin"),
+    ownOrigin: new URL(c.req.url).origin,
+    carriesCredential: hasCredentialHeader(c),
+  });
+  if (!trusted) {
     throw new ApiError("forbidden_origin");
   }
+}
+
+/**
+ * An `Origin` that is present must be the request's own, whatever else the request carries. A
+ * browser always sends one on a POST and on a WebSocket handshake, so a missing `Origin` means a
+ * native client, and it is accepted only with a credential in a header. A cross-site page can't
+ * add a header like that without a preflight, and the Worker answers none, so the credential
+ * stands in for the same-origin check.
+ */
+export function isTrustedOrigin({ origin, ownOrigin, carriesCredential }: OriginCheck): boolean {
+  return origin === undefined ? carriesCredential : origin === ownOrigin;
+}
+
+/** Whether the request names a caller in a header a cross-site page can't add: a device token or a session token. */
+function hasCredentialHeader(c: AppContext): boolean {
+  return (
+    c.req.header(DEVICE_TOKEN_HEADER) !== undefined ||
+    c.req.header("Authorization") !== undefined ||
+    (isWebSocketUpgrade(c) &&
+      readOfferedSubprotocols(c.req.header("Sec-WebSocket-Protocol")).sessionToken !== null)
+  );
+}
+
+export function isWebSocketUpgrade(c: AppContext): boolean {
+  return c.req.header("Upgrade")?.toLowerCase() === "websocket";
 }
 
 /** Refuses a body over MAX_BODY_BYTES (413) before a route reads it. */

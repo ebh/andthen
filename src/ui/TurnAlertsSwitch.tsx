@@ -12,7 +12,12 @@ export function TurnAlertsSwitch() {
     return null;
   }
   if (state.type === "needs_install") {
-    return <Paragraph color="muted">Add to Home Screen to get notified</Paragraph>;
+    return (
+      <Paragraph color="muted">
+        To get notified, add this app to your Home Screen: tap Share (under ⋯ on newer iPhones),
+        then Add to Home Screen.
+      </Paragraph>
+    );
   }
 
   const blocked = state.type === "blocked";

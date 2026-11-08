@@ -8,6 +8,12 @@
     // Node runs scripts/*.ts as they are and needs the extension on an import. Nothing is emitted.
     "allowImportingTsExtensions": true
   },
-  "include": ["*.config.ts", "eslint.config.ts", "scripts", "src/worker/vapidKeys.ts"],
+  "include": [
+    "*.config.ts",
+    "eslint.config.ts",
+    "scripts",
+    "src/worker/vapidKeys.ts",
+    "src/shared/legalVersionCheck.ts"
+  ],
   "exclude": ["tamagui.config.ts"]
 }

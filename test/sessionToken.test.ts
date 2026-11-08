@@ -57,11 +57,10 @@ describe("the session verifier", () => {
     expect(verdict.type).toBe("rejected");
   });
 
-  it("rejects every token when the key is the committed placeholder", async () => {
-    const verify = selectSessionVerifier({
-      ...testEnv.env,
-      CLERK_JWT_KEY: "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
-    });
+  it("rejects every token when the key is not a public key", async () => {
+    const env = { ...testEnv.env };
+    Object.defineProperty(env, "CLERK_JWT_KEY", { value: "not-a-public-key", enumerable: true });
+    const verify = selectSessionVerifier(env);
 
     const verdict = await verify(await signSessionToken("user_x", ORIGIN), ORIGIN);
 

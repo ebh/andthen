@@ -30,8 +30,8 @@
   // as a Worker secret.
   //
   // CLERK_JWT_KEY is the Clerk instance's public key (PEM), so it is safe to commit. Verifying a
-  // session token needs it and nothing else. The placeholder rejects every token until the real
-  // key replaces it; the dev instance's key serves local and preview, production has its own.
+  // session token needs it and nothing else. Local and preview use the dev instance's key and
+  // production uses the production instance's key.
   "vars": {
     "AI_PROVIDER": "fake",
     "CLERK_JWT_KEY": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0tCAv+NMQD8ZIEQx1DQe\nltHZ2cHdI/9OIobyaZ5nr/+HhNzZQV21azV5C7MXMdWY1SnlkcSjkwT1NfKAg/9F\njAiYOlEWWwZ41vzBiD+hZ2jGR5UhMaf/glec9lG1ZAStqO+FJKuWmrNuWJ+ZE3/G\nwsfoA2F4i3vymbKYz3aqUPQnxNjoZz6Cm9AbP9C3qHvIggY047GWtwIeY9uOz1gQ\nhUQSZQAc+KOUmJGZh9SJgMQxjNzIRQ7lSRa/87Dj/QL4k5N/9uaenc1WB3THr9lx\n0YE43PZsG0/WVQ3ze6ky40hQvHp5cNYjCabKpoLyg91tENSqbGMOB7xyih6GKere\nIQIDAQAB\n-----END PUBLIC KEY-----",
@@ -79,7 +79,7 @@
       // `vars` aren't inherited from the top level.
       "vars": {
         "AI_PROVIDER": "workers-ai",
-        "CLERK_JWT_KEY": "PLACEHOLDER-not-a-key-replace-with-the-clerk-instance-public-key-pem",
+        "CLERK_JWT_KEY": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqxL0K4sJTKAef3sxCu4j\nSodNmN/dKnuAxEaIDJnsB6VMBrrOeZwaua84mzAs9zKJmE7mIE3Dem2/BnDpNYE4\nyUOXQ02gGMTpMN38w8kBdGf+Nb8IiF8pAuDH9CyFwCJjEJXSHpkpJ5AO+vsCU1PA\nu4hq75H0G2VBZe3V3z/1QtxZ0pECOnz9ancNQ1k/naTZLckbYVlIRlU8E5EqruLx\nLw099rcC5Jsq18m5+fbHQtiw40LwhirsM3hNw96K4USCygSQ8jZ2bVYC+3S3q1dk\nkz6X9KCsUm5yIa2wNeCnpcnKZd1QscqWrz1o8XkwvdSeSJPjnd89vS9NxEc7pjF+\nWQIDAQAB\n-----END PUBLIC KEY-----",
         "VAPID_PUBLIC_KEY": "BNqSWSuX5Uv2Zq162Ea7DLp0MANwRW-XMzmbqsZI3ngfEBmeVKgWXnbYxFokQBJzDHXDeTaY8zDCn7hgJTto3o0",
       },
     },

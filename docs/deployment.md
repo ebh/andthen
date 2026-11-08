@@ -146,6 +146,12 @@ Environment variables are set on EAS (`pnpm eas env:set`), one value per environ
    - iOS: unpack the `.tar.gz` the build wrote (or downloaded from the build page) and run `xcrun simctl install booted <path to .app>` on a booted simulator.
    - Android: copy the APK to the phone and open it, or run `adb install <file.apk>`.
 
+### Builds on GitHub Actions
+
+`.github/workflows/native-build.yml` builds the preview iOS simulator app and Android APK with `eas build --local` on GitHub's runners, for a pull request that changes `app.json`, `eas.json`, `assets/`, the dependencies or the workflow itself. It uploads each build as an artifact of the run. A fork's pull request does not build, because forks get no secrets.
+
+To set it up, create the GitHub environment `native-preview` and give it one secret, `EXPO_TOKEN`: an Expo [access token](https://expo.dev/settings/access-tokens). The token reaches only the build step, as in `deploy.yml`. The `preview` EAS environment variables are fetched by that step, so they must exist on Expo first.
+
 Until [#100](https://github.com/ebh/andthen/issues/100) the app has browser-only code and relative API paths. A preview build installs, but it may not start or reach the Worker.
 
 ## The domain

@@ -223,7 +223,17 @@ export async function noStore(c: AppContext, next: Next): Promise<void> {
 }
 
 function isJsonOrBodylessDelete(c: AppContext): boolean {
-  return c.req.method === "DELETE" ? c.req.raw.body === null : isJson(c.req.header("Content-Type"));
+  return c.req.method === "DELETE" ? hasNoBody(c) : isJson(c.req.header("Content-Type"));
+}
+
+// Not `request.body === null`: behind the dev proxy and in browsers' fetch the runtime can hand a
+// bodyless DELETE an empty stream. HTTP says a body is announced by one of these two headers.
+function hasNoBody(c: AppContext): boolean {
+  const length = c.req.header("Content-Length");
+
+  return (
+    c.req.header("Transfer-Encoding") === undefined && (length === undefined || length === "0")
+  );
 }
 
 function isJson(contentType: string | undefined): boolean {

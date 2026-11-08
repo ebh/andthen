@@ -132,7 +132,7 @@ The device user is the user the cookie names. With no cookie, or a cookie that n
   - **A missing `Origin` passes only with a credential header:** `X-Device-Token`, `Authorization`, or on an upgrade a session token among the offered subprotocols. A cookie does not count. The check is for presence only; whether the value is good is decided where the user is resolved (400 or 401).
   - **Why that is safe against cross-site request forgery:** a page on another site can send a request to this Worker with the browser's cookie, but it can't add `X-Device-Token` or `Authorization` without a CORS preflight, and the Worker answers none. Such a request therefore arrives with an `Origin` that isn't ours, or with no credential header, and is refused.
   - **There is no CORS handling,** for the same reason: native clients don't use CORS, and the web app is same-origin.
-- **On a mutating request:** `Content-Type` must be `application/json`, parameters allowed. A `DELETE` is the exception: its path names everything it removes, so it must send no body, and a body is 400 `bad_request`.
+- **On a mutating request:** `Content-Type` must be `application/json`, parameters allowed. A `DELETE` is the exception: its path names everything it removes, so it must send no body, and a body is 400 `bad_request`. A body is one announced by a non-zero `Content-Length` or by `Transfer-Encoding`; the runtime can hand a bodyless `DELETE` an empty stream, so the guard does not test `request.body`.
 - **Session token, where a route needs the user:** a token that is present must verify, or the answer is 401 `invalid_session_token`. See "Identity".
 
 ## Versioning

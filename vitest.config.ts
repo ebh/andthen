@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "test/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "test/**/*.test.ts", "scripts/**/*.test.ts"],
     setupFiles: ["src/client/testSetup.ts", "src/ui/testSetup.ts"],
     server: {
       // Inlined so the alias above also reaches the `react-native` imports inside these packages.

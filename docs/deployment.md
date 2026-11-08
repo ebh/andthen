@@ -35,7 +35,7 @@ The app is installable and its pages load offline. A service worker, `dist/sw.js
 - **The single-page fallback hides a missing `/sw.js`.** A path that is not a file in `dist/` gets `index.html` with a 200, so without `dist/sw.js` the deploy looks healthy and browsers reject the registration only on the user's device. `buildServiceWorker.ts` therefore fails the build if `dist/sw.js` is missing or empty, or if the precache list lacks `index.html`, a file under `_expo/` or a font.
 - **The same worker shows "your turn" notifications.** `src/serviceWorker/sw.ts` also handles `push` and `notificationclick` (logic in `src/client/pushHandlers.ts`). The "Notify me when it's my turn" switch needs this worker registered, so it exists only in a production build. iOS and iPadOS need the app added to the Home Screen first (iOS 16.4 or later); in a browser tab there the page shows a hint instead. See "Web Push" in `docs/api.md`.
 - **Fonts sit under a `.pnpm` folder.** Expo puts them in `assets/node_modules/.pnpm/…`. A `**` glob skips a folder whose name starts with a dot, so the precache pattern names `.pnpm` in full. The font check above fails the build if it stops matching.
-- **The icons are placeholders.** `public/` holds `icon.svg` (the source and the SVG favicon), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` and `favicon.ico`. The final art replaces these files under the same names, with no code change.
+- **The icons are placeholders, made from one source.** `assets/brand/icon-foreground.svg` is the glyph. `pnpm install` renders every web and store-app icon from it (`docs/assets.md` lists them), so the final art replaces that one file and `pnpm icons` redraws everything.
 - **Testing it.** `e2e/pwa.spec.ts` covers registration, offline loading, the API staying uncached and the update flow. The update test goes through `e2e/versionProxy.ts`, which swaps `/sw.js` to stand in for a deploy, because `wrangler dev` reads its asset list once at start.
 
 ## First-time Cloudflare setup
@@ -111,6 +111,48 @@ First-time Clerk setup:
 6. **Regenerate the types.** Run `pnpm cf-typegen` and commit `worker-configuration.d.ts` if it changed.
 
 Sign-ups from a clone land in the development instance, which the project owns.
+
+## Native builds
+
+The iOS and Android apps are built with [EAS Build](https://docs.expo.dev/build/introduction/). Run with `--local`, the build happens on your machine or a GitHub Actions runner, which is free for a public repository and does not use Expo's monthly allowance of cloud builds. It still needs a free Expo account, because EAS keeps the build numbers. `app.json` holds the app's identity and `eas.json` holds the build profiles. The app ID is `page.andthen.app` on both platforms. It is permanent once a build reaches a store, so do not change it after that.
+
+| Profile       | Builds                                                   | Needs                               |
+| ------------- | -------------------------------------------------------- | ----------------------------------- |
+| `development` | Development client for the iOS simulator and Android APK | Expo account                        |
+| `preview`     | iOS simulator build and Android APK, shared by link      | Expo account                        |
+| `production`  | Store builds; EAS raises the build number on each build  | Apple and Google developer accounts |
+
+- **Versions.** `version` in `app.json` is the user-facing version. The iOS build number and Android version code live on EAS (`appVersionSource: "remote"`), and the `production` profile raises them on every build. Never edit them in a file.
+- **Targets.** React Native 0.88 sets Android `targetSdkVersion` 36, which meets Google Play's target API level. iOS builds use the `auto` image, which for Expo SDK 58 is Xcode 27.1, so the iOS 26 SDK minimum is met. Check both when upgrading Expo. Do not pin an image in `eas.json`.
+- **Pinned tools.** `eas.json` pins the Node and pnpm versions to `engines` and `packageManager` in `package.json`. The EAS CLI is a dev dependency, so run it as `pnpm eas …`; never install it globally.
+- **Generated CSS.** The root layout imports `tamagui.generated.css`, which `pnpm build` writes and git ignores, so a cloud build has none. The `eas-build-post-install` script in `package.json` creates an empty file (`scripts/ensureGeneratedCss.ts`). Native ignores CSS.
+- **Placeholder art.** `assets/generated/icon.png`, `adaptive-icon.png` and `splash-icon.png` are rendered from `assets/brand/icon-foreground.svg` on `pnpm install`, so a build runner has them too. See `docs/assets.md` for the size rules.
+- **Sign in with Apple.** The `@clerk/expo` plugin adds the Sign in with Apple entitlement to the iOS app. A build for a real iPhone therefore needs an App ID with that capability. The simulator build does not.
+
+Environment variables are set on EAS (`pnpm eas env:set`), one value per environment, and chosen by the profile's `environment` field. Expo inlines `EXPO_PUBLIC_*` values into the JavaScript bundle at build time.
+
+| Variable                            | Value                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_ORIGIN`            | The Worker's origin, such as `https://app.andthen.page`, with no path. Nothing reads it yet. |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | The Clerk key for that environment. Development and preview use the key in `.env`.           |
+
+### Make a preview build from a clean clone
+
+1. Install as in the README, then log in to an Expo account: `pnpm eas login`.
+2. Link the project once: `pnpm eas init`. It writes `extra.eas.projectId` into `app.json`, and `owner` when the project belongs to a team. A fork links its own project and replaces the ID.
+3. Add the variables above to the `preview` environment: `pnpm eas env:set preview --name <NAME> --value <VALUE> --visibility plaintext`.
+4. Build: `pnpm eas build --local --profile preview --platform ios` (or `android`). A local build needs the platform's toolchain: Xcode and CocoaPods for iOS, the Android SDK and a JDK for Android. Leave out `--local` to build on Expo's servers instead, which counts against the free allowance.
+5. Install it.
+   - iOS: unpack the `.tar.gz` the build wrote (or downloaded from the build page) and run `xcrun simctl install booted <path to .app>` on a booted simulator.
+   - Android: copy the APK to the phone and open it, or run `adb install <file.apk>`.
+
+### Builds on GitHub Actions
+
+`.github/workflows/native-build.yml` builds the preview iOS simulator app and Android APK with `eas build --local` on GitHub's runners, for a pull request that changes `app.json`, `eas.json`, `assets/`, the icon scripts, the dependencies or the workflow itself. It uploads each build as an artifact of the run. A fork's pull request does not build, because forks get no secrets.
+
+To set it up, create the GitHub environment `native-preview` and give it one secret, `EXPO_TOKEN`: an Expo [access token](https://expo.dev/settings/access-tokens). The token reaches only the build step, as in `deploy.yml`. The `preview` EAS environment variables are fetched by that step, so they must exist on Expo first.
+
+Until [#100](https://github.com/ebh/andthen/issues/100) the app has browser-only code and relative API paths. A preview build installs, but it may not start or reach the Worker.
 
 ## The domain
 
@@ -239,4 +281,5 @@ Everything below passed against Miniflare, workerd or test doubles, never agains
 - **Custom domain and redirect.** The first `app.andthen.page` deploy, its certificate, and the apex 301.
 - **Notifications on real devices.** The switch, the key, `PUT` and `DELETE` were run against `wrangler dev` in headless Chromium with a stand-in for the browser's push service (`e2e/turnAlerts.spec.ts`), because headless Chromium reports notifications as denied and has no push service. Never checked on a real browser or phone: the permission prompt, a real `subscribe` (including Brave with its Google push setting off), a notification appearing from the service worker's `push` handler, a tap focusing or opening the story, and Safari's declarative push alongside the `push` handler (the notification's `tag` is meant to stop a second copy, untested). On iOS, check that the Home Screen app offers the switch and that the permission prompt appears from the tap.
 - **The service worker on real devices.** Registration, install prompts, offline loading and the update flow were tested in Chromium against `wrangler dev` only. Safari and Firefox behaviour, the install prompt, and Cloudflare's `max-age=0, must-revalidate` on `/sw.js` need the smoke tests above on the real preview.
+- **Native builds.** The `preview` profile built on GitHub Actions for both platforms, and the iOS simulator app installs on an iPhone 17 Pro simulator. It then exits at start-up with `TypeError: undefined cannot be used as a constructor` while the JavaScript bundle loads, from browser-only code that [#100](https://github.com/ebh/andthen/issues/100) replaces. Not run: the Android APK on any device or emulator, the `development` and `production` profiles, a build for a real iPhone (needs an Apple Developer account), and a Play-signed build.
 - **Sign-in on the deployed apps.** Sign-in, session token checks and the merge ran locally against the development instance and with test-signed tokens. Not checked: sign-in on the preview address, and anything against the production instance. Check that Clerk accepts `app.andthen.page` as an origin and that a real token's `azp` equals it.

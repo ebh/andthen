@@ -1,0 +1,87 @@
+name: Native build
+
+# Builds the preview iOS simulator app and Android APK on GitHub's runners with `eas build --local`,
+# so nothing is queued on Expo's servers. A pull request builds only when it changes something that
+# goes into the native apps. The Expo token reaches only the build step, never the install.
+on:
+  pull_request:
+    paths:
+      - app.json
+      - eas.json
+      - package.json
+      - pnpm-lock.yaml
+      - assets/**
+      - scripts/ensureGeneratedCss.ts
+      - scripts/icons.ts
+      - scripts/renderIcons.ts
+      - .github/workflows/native-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    # A fork's pull request gets no secrets, so it must not try to build.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-latest
+    timeout-minutes: 60
+    environment: native-preview
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the simulator app
+        run: pnpm eas build --local --non-interactive --profile preview --platform ios --output "$RUNNER_TEMP/andthen-preview-ios.tar.gz"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: andthen-preview-ios
+          path: ${{ runner.temp }}/andthen-preview-ios.tar.gz
+          if-no-files-found: error
+
+  android:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: native-preview
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the APK
+        run: pnpm eas build --local --non-interactive --profile preview --platform android --output "$RUNNER_TEMP/andthen-preview.apk"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: andthen-preview-android
+          path: ${{ runner.temp }}/andthen-preview.apk
+          if-no-files-found: error

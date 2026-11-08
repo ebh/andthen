@@ -3,8 +3,43 @@
     "name": "andthen",
     "slug": "andthen",
     "scheme": "andthen",
+    "version": "1.0.0",
+    "icon": "./assets/generated/icon.png",
     "userInterfaceStyle": "automatic",
-    "web": { "output": "single", "bundler": "metro" },
-    "plugins": ["expo-router", "expo-secure-store", "@clerk/expo"]
+    "ios": {
+      "bundleIdentifier": "page.andthen.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "page.andthen.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/generated/adaptive-icon.png",
+        "backgroundColor": "#f6f1e7"
+      }
+    },
+    "web": {
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@clerk/expo",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/generated/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#f6f1e7"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "818ee260-b80f-4b97-a431-157043fbd471"
+      }
+    }
   }
 }

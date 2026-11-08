@@ -3,6 +3,12 @@ dist/
 .expo/
 .tamagui/
 tamagui.generated.css
+# Made by scripts/renderIcons.ts from assets/brand/ on `pnpm install`
+assets/generated/
+public/icon.svg
+public/favicon.ico
+public/icon-*.png
+public/apple-touch-icon.png
 .wrangler/
 .dev.vars
 .dev.vars.*

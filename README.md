@@ -23,6 +23,7 @@ Needs Node 26.13.0 and pnpm 12.16.1. No Cloudflare account or login is needed.
    ```sh
    pnpm install
    ```
+   This also draws the app icons from `assets/brand/` (see `docs/assets.md`).
 3. Create the local database tables (answer `y` if Wrangler asks to apply the migration):
    ```sh
    pnpm db:migrate:local
@@ -65,6 +66,10 @@ Before you push: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test 
 ## Environments and deploying
 
 `wrangler.jsonc` has three setups: the top level is local development, `env.preview` and `env.production` are deployed. GitHub Actions deploys a pull request to preview and a green `main` to production. [docs/deployment.md](docs/deployment.md) covers first-time Cloudflare setup, the domain, a smoke-test checklist and the accepted risks.
+
+## Native builds
+
+The iOS and Android apps are built with EAS. With an Expo account (`pnpm eas login`), `pnpm eas build --local --profile preview --platform ios` (or `android`) makes an iOS simulator build or an Android APK on your machine, with no Apple or Google developer account. The app is still being ported, so a preview build may not start yet. [docs/deployment.md](docs/deployment.md#native-builds) lists the profiles, the environment variables and the install steps.
 
 ## Known limits
 

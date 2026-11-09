@@ -11,7 +11,8 @@ What the tools and platforms force on the code, each with the file that carries 
 - **Stryker mutates `src/shared`, `src/worker` and `src/client`**, minus tests, fixtures and the two files above.
 - **Stryker runs only tests that import a mutated file** (`vitest.related`). A test that imports none is never run there, so a wrong expectation in it passes silently under `pnpm stryker`. `pnpm test` still runs it.
 - **`stryker.config.json` must list `@stryker-mutator/vitest-runner` under `plugins`.** Under pnpm, Stryker finds no test runner otherwise.
-- **CI reuses mutation results** (`.github/workflows/ci.yml`, job `mutation`). Stryker keeps a result while the mutated code and the test that killed it are unchanged, and diffs only mutated and test files. A changed helper under an unchanged test keeps its old result until the next full run on `main`. Changing `stryker.config.json`, a Vitest config or the lockfile starts from no cache.
+- **CI runs Stryker in three parallel shards** (`.github/workflows/ci.yml`, job `mutation-area`): `shared`, `worker` and `client`. Each shard mutates one folder and runs the whole test suite, and the 80% break threshold applies to each. `stryker.area.config.ts` builds a shard's `mutate` list from `stryker.config.json`, so the excluded files are listed only there. The job `mutation` passes only if every shard did, and is the check the "Protect main" ruleset requires. `pnpm stryker` stays a full local run.
+- **CI reuses mutation results**, one incremental file per shard. Stryker keeps a result while the mutated code and the test that killed it are unchanged, and diffs only mutated and test files. A changed helper under an unchanged test keeps its old result until the next full run on `main`. Changing `stryker.config.json`, `stryker.area.config.ts`, a Vitest config or the lockfile starts from no cache.
 - **Tests stay on Vitest's Node pool.** `@cloudflare/vitest-pool-workers` would pin an older Vitest.
 
 ## Workers AI

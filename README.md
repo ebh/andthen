@@ -59,7 +59,7 @@ Local data lives in `.wrangler/state`; delete that folder to start clean. Copy `
 
 - **Unit and integration (`pnpm test`).** Test files sit beside the code (`*.test.ts`) and in `test/`. They need no browser and finish in seconds. A passing run ends with `Test Files  N passed`.
 - **End to end (`pnpm e2e`).** Run `pnpm e2e:install` once to download Chromium. Each run builds the app, creates a new local database in `.wrangler/e2e-state` and serves the build from the Worker on port 4173, so it never touches your `pnpm dev` data. A passing run ends with `N passed`; on failure, open `playwright-report/index.html` or `test-results/`.
-- **Mutation (`pnpm stryker`).** Breaks if fewer than 80% of injected bugs are caught. CI runs it in its own job.
+- **Mutation (`pnpm stryker`).** Breaks if fewer than 80% of injected bugs are caught. CI runs it in its own job, split into one parallel shard per source folder.
 
 Before you push: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm stryker`. CI also runs the e2e job, checks that `worker-configuration.d.ts` is current (`pnpm cf-typegen`) and dry-runs both deploys.
 

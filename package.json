@@ -17,6 +17,7 @@
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
     "stryker": "stryker run",
+    "legal:check": "node scripts/checkLegalVersions.ts",
     "icons": "node scripts/renderIcons.ts",
     "postinstall": "node scripts/renderIcons.ts",
     "eas-build-post-install": "node scripts/ensureGeneratedCss.ts"

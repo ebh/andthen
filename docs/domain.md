@@ -9,7 +9,7 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Opening:** the first passage of a story, written by its creator when they start it. `opening` in `StorySummary`.
 - **Paragraph start:** whether a passage opens a new paragraph or continues the last one. `startsParagraph` in `ContributionView`; the opening always starts one.
 - **Contribution:** what a participant adds to a story. Today every contribution is a passage, because nothing else can be added yet. Edits, comments and votes are planned and will be contributions too (see "Reserved"). Lives in the append-only `contributions` table; `ContributionView` in `src/shared/api.ts`; `POST /api/stories/:storyId/contributions`.
-- **Author:** the participant who wrote a contribution. `authorId` and `authorName` in `ContributionView`.
+- **Author:** the participant who wrote a contribution. `authorId` and `authorName` in `ContributionView`. For who shares in a story's copyright, see Passage author.
 - **Contributor:** a participant who has made at least one contribution of any kind: a passage today, later an edit, comment or vote. It is the author link seen from the participant's side. The last contributor is the participant who made the most recent contribution; the turn passes over them (`lastContributorPosition`).
 - **Suggestion:** an AI-written passage offered to the turn holder. A request returns three; they only fill the text box, and the participant decides what to send. Limited to `SUGGESTION_LIMIT` per participant per hour. `POST /api/stories/:storyId/suggestions`.
 
@@ -53,6 +53,16 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 - **Push subscription:** a browser's Web Push endpoint, used to say "it's your turn". Belongs to a user, not a story. Its ID is the hash of its endpoint. `/api/push-subscriptions/:pushSubscriptionId`.
 - **VAPID public key:** the public half of the key pair the Worker signs pushes with (VAPID, Voluntary Application server Identification). A browser passes it to `pushManager.subscribe` so the push service knows who may send. It is the same for every user and is not a subscription. `GET /api/vapid-public-key`; `VapidPublicKeyResponse`.
 - **API level:** the whole number in `src/shared/apiLevel.ts` that a client sends as `X-Api-Level`. Raised only for a change that breaks shipped clients. A client below `MIN_API_LEVEL` gets 426 `client_outdated`.
+
+## Legal documents
+
+- **Legal document:** a text people agree to or are told about, kept as Markdown in `legal/<id>/v<n>.md` and registered in `LEGAL_DOCUMENTS` in `src/shared/legalDocuments.ts`. Its ID is its folder: `terms-of-service`, `privacy-policy` or `copyright-terms/<copyright model>`.
+  - **Version:** one numbered text of a legal document, `{ version, effectiveOn }`. Versions run 1..n. A merged version is never edited; a change is a new version. `currentVersion`, `legalDocumentPath`.
+- **Terms of service:** the rules for using andthen.page, including the licence that lets the app store, show and send the text of stories on. It applies to every story, whatever copyright model it uses. `legal/terms-of-service/`.
+- **Privacy policy:** what personal information the app stores and sends, where, and for how long. `legal/privacy-policy/`.
+- **Copyright terms:** the deal between the writers of a story about who may use the story's text. One copyright model per folder, `legal/copyright-terms/<model>/`.
+- **Copyright model:** one set of copyright terms a story can follow. Today there is one, `equal-shares`: every passage author may use the whole story, and money from commercial use is split equally. A story will later pick a model. A change to what a model means is a new model, not a new version.
+- **Passage author:** a person who wrote at least one passage in a story, including one who has left. Only passage authors hold authorship of the story for copyright; once edits, comments and votes exist, taking part in those ways will not make someone a passage author.
 
 ## Reserved
 

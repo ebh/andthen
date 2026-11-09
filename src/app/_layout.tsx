@@ -14,6 +14,7 @@ import { ScrollView, TamaguiProvider, YStack } from "tamagui";
 import { z } from "zod";
 
 import { tamaguiConfig } from "../../tamagui.config";
+import { startAppInstall } from "../client/appInstall";
 import { startAppUpdates } from "../client/appUpdate";
 import { startTurnAlerts } from "../client/turnAlerts";
 import { AddDeviceUserOnLoad } from "../ui/AddDeviceUserOnLoad";
@@ -22,6 +23,9 @@ import { UpdateGate } from "../ui/UpdateGate";
 import { UpdateReady } from "../ui/UpdateReady";
 
 const publishableKey = readPublishableKey();
+
+// Not in an effect: the browser can fire `beforeinstallprompt` before React mounts the layout.
+startAppInstall();
 
 export default function Layout() {
   const scheme = useColorScheme();

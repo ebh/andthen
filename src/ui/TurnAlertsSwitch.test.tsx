@@ -83,7 +83,11 @@ describe("TurnAlertsSwitch", () => {
   it("asks an iPhone or iPad in a browser tab to add the app to the Home Screen, with no switch", () => {
     show({ type: "needs_install" });
 
-    expect(screen.getByText("Add to Home Screen to get notified")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "To get notified, add this app to your Home Screen: tap Share (under ⋯ on newer iPhones), then Add to Home Screen.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 

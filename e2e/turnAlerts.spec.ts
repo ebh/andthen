@@ -142,7 +142,11 @@ test("on an iPhone in a browser tab there is a hint and no switch", async ({ bro
     isMobile: true,
   });
 
-  await expect(page.getByText("Add to Home Screen to get notified")).toBeVisible();
+  await expect(
+    page.getByText(
+      "To get notified, add this app to your Home Screen: tap Share (under ⋯ on newer iPhones), then Add to Home Screen.",
+    ),
+  ).toBeVisible();
   await expect(page.getByRole("switch", { name: SWITCH_LABEL })).toHaveCount(0);
 });
 

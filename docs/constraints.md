@@ -76,4 +76,5 @@ What the tools and platforms force on the code, each with the file that carries 
 
 - Android beyond a successful export.
 - A real device, a screen reader, and Firefox and WebKit for the app. Tamagui's `AlertDialog` has the same gap.
+- A real `beforeinstallprompt`. Headless Playwright never fires it, so tests send a synthetic event, and the "Install the app" button is to be checked by hand on a real Android device.
 - The compiler's restore after a hard kill of `tamagui build`.

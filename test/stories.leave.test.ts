@@ -15,6 +15,7 @@ import {
   nameInTest,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { userIdOf } from "./support/users";
 
 describe("leaving and rejoining a story", () => {
   let testEnv: TestEnv;
@@ -154,6 +155,7 @@ describe("leaving and rejoining a story", () => {
         error: "left_story",
         displayName: nameInTest("Ben"),
         opening: "Once upon a time.",
+        openingAuthorId: await userIdOf(testEnv.env.DB, ana),
       });
       expect((await readStory(ana, storyId)).participants).toHaveLength(1);
     });

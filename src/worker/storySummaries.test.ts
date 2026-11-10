@@ -36,8 +36,13 @@ function writers(storyId: string, ...names: string[]): StoryWriterRow[] {
   return names.map((displayName, position) => ({ storyId, displayName, position }));
 }
 
-function passage(storyId: string, opening: string, latestAt = T0): StoryPassageRow {
-  return { storyId, opening, latestAt };
+function passage(
+  storyId: string,
+  opening: string,
+  latestAt = T0,
+  openingAuthorId = "u-author",
+): StoryPassageRow {
+  return { storyId, opening, openingAuthorId, latestAt };
 }
 
 // Every story on one page, in list order.
@@ -92,6 +97,7 @@ describe("summariseMyStories", () => {
       {
         id: "abc12",
         opening: "Once upon a time.",
+        openingAuthorId: "u-author",
         holderName: "Ben",
         isMyTurn: false,
         endsAt: T0 + TURN_WINDOW_MS,
@@ -121,6 +127,7 @@ describe("summariseMyStories", () => {
       {
         id: "abc12",
         opening: "Once.",
+        openingAuthorId: "u-author",
         holderName: null,
         isMyTurn: false,
         endsAt: null,

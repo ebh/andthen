@@ -18,6 +18,7 @@ import {
   nameInTest,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { userIdOf } from "./support/users";
 
 describe("GET /api/stories", () => {
   let testEnv: TestEnv;
@@ -62,6 +63,7 @@ describe("GET /api/stories", () => {
       {
         id: storyId,
         opening: "The bell rang once.",
+        openingAuthorId: await userIdOf(testEnv.env.DB, ana),
         holderName: null,
         isMyTurn: false,
         endsAt: null,

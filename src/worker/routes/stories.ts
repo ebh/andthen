@@ -37,7 +37,7 @@ import {
   createStory,
   isHeldByAnotherUser,
   loadMyStories,
-  loadOpeningText,
+  loadOpening,
   loadStory,
   loadStoryWithPassages,
   rejoinStory,
@@ -495,7 +495,8 @@ async function requireParticipant(
     throw new ApiError("not_participant");
   }
   if (me.leftAt !== null) {
-    throw new LeftStoryError(me.displayName, await loadOpeningText(c.env.DB, loaded.story.id));
+    const opening = await loadOpening(c.env.DB, loaded.story.id);
+    throw new LeftStoryError(me.displayName, opening.text, opening.authorId);
   }
 
   return me;

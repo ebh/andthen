@@ -60,5 +60,14 @@
   },
   {
     "error": "invalid_session_token"
+  },
+  {
+    "error": "cannot_block_self"
+  },
+  {
+    "error": "left_story",
+    "displayName": "Ana",
+    "opening": "Once upon a time.",
+    "openingAuthorId": "u1"
   }
 ]

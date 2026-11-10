@@ -38,11 +38,13 @@ export class ApiError extends Error {
 export class LeftStoryError extends Error {
   readonly displayName: string;
   readonly opening: string;
+  readonly openingAuthorId: string;
 
-  constructor(displayName: string, opening: string) {
+  constructor(displayName: string, opening: string, openingAuthorId: string) {
     super("left_story");
     this.displayName = displayName;
     this.opening = opening;
+    this.openingAuthorId = openingAuthorId;
   }
 }
 
@@ -62,6 +64,7 @@ const ERROR_STATUS: Record<ErrorCode, ContentfulStatusCode> = {
   story_full: 409,
   already_joined: 409,
   left_story: 403,
+  cannot_block_self: 400,
   client_outdated: 426,
   invalid_session_token: 401,
   no_one_to_skip_to: 409,
@@ -200,6 +203,7 @@ export function handleError(error: Error, c: AppContext): Response {
       error: "left_story",
       displayName: error.displayName,
       opening: error.opening,
+      openingAuthorId: error.openingAuthorId,
     };
     return c.json(body, ERROR_STATUS.left_story);
   }

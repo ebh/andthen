@@ -13,6 +13,7 @@ import {
 import { newStoryId } from "./ids";
 import { selectPushSender } from "./push";
 import { selectSessionVerifier } from "./sessionToken";
+import { blockRoutes } from "./routes/blocks";
 import { pushSubscriptionRoutes } from "./routes/pushSubscriptions";
 import { storyRoutes, type StoryDeps } from "./routes/stories";
 import { userRoutes } from "./routes/users";
@@ -45,6 +46,7 @@ export function createApp(
     return c.json(body);
   });
 
+  app.route("/", blockRoutes(deps));
   app.route("/", pushSubscriptionRoutes(deps));
   app.route("/", storyRoutes(deps));
   app.route("/", userRoutes(deps));

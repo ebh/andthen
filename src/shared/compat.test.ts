@@ -8,6 +8,9 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
+  blocksResponseSchema,
+  blockUserRequestSchema,
+  blockUserResponseSchema,
   createPassageRequestSchema,
   createPassageResponseSchema,
   createStoryRequestSchema,
@@ -35,8 +38,11 @@ const responseSchemas = {
   me: meResponseSchema,
   storyView: storyViewSchema,
   myStories: myStoriesResponseSchema,
+  myStoriesWithOpeningAuthor: myStoriesResponseSchema,
   suggestions: suggestionsResponseSchema,
   liveMessage: liveMessageSchema,
+  blockUser: blockUserResponseSchema,
+  blocks: blocksResponseSchema,
 };
 
 // emptyRequestSchema is the only strict schema, so a new field in a request would reject an old
@@ -48,6 +54,7 @@ const requestSchemas = {
   skip: skipRequestSchema,
   pushSubscription: pushSubscriptionSchema,
   empty: emptyRequestSchema,
+  blockUser: blockUserRequestSchema,
 };
 
 const responseFixtures = readFixture(3, "responses", z.record(z.string(), z.unknown()));
@@ -81,10 +88,11 @@ describe("level 3 responses", () => {
 });
 
 describe("level 3 errors", () => {
-  it("has one fixture per code", () => {
+  it("has one fixture per code, except left_story, recorded with and without openingAuthorId", () => {
     const codes = errorFixtures.map((body) => errorBodySchema.parse(body).error);
 
-    expect(new Set(codes).size).toBe(codes.length);
+    expect(codes.filter((code) => code === "left_story")).toHaveLength(2);
+    expect(new Set(codes).size).toBe(codes.length - 1);
   });
 
   it("includes client_outdated and left_story with its extra fields", () => {
@@ -95,6 +103,12 @@ describe("level 3 errors", () => {
       error: "left_story",
       displayName: "Ana",
       opening: "Once upon a time.",
+    });
+    expect(bodies).toContainEqual({
+      error: "left_story",
+      displayName: "Ana",
+      opening: "Once upon a time.",
+      openingAuthorId: "u1",
     });
   });
 
@@ -107,9 +121,9 @@ describe("level 3 errors", () => {
   );
 
   it("knows every code the API sends", () => {
-    const codes = errorFixtures.map((body) => errorBodySchema.parse(body).error);
+    const codes = new Set(errorFixtures.map((body) => errorBodySchema.parse(body).error));
 
-    expect(codes.toSorted()).toEqual(errorCodeSchema.options.toSorted());
+    expect([...codes].toSorted()).toEqual(errorCodeSchema.options.toSorted());
   });
 });
 

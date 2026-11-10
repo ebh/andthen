@@ -13,6 +13,9 @@
     "turnVersion": 1
   },
   "empty": {},
+  "blockUser": {
+    "blockedUserId": "u2"
+  },
   "pushSubscription": {
     "endpoint": "https://fcm.googleapis.com/fcm/send/abc",
     "keys": {

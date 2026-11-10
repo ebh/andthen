@@ -237,6 +237,7 @@ describe("myStoriesResponseSchema", () => {
   const waiting = {
     id: "abc12",
     opening: "Once.",
+    openingAuthorId: "u1",
     holderName: null,
     isMyTurn: false,
     endsAt: null,
@@ -249,6 +250,14 @@ describe("myStoriesResponseSchema", () => {
     expect(
       myStoriesResponseSchema.parse({ stories: [waiting, running], nextCursor: null }).stories,
     ).toHaveLength(2);
+  });
+
+  it("accepts a story from an older Worker that sends no opening author", () => {
+    const { openingAuthorId: _omitted, ...older } = waiting;
+
+    expect(
+      myStoriesResponseSchema.parse({ stories: [older], nextCursor: null }).stories[0],
+    ).toEqual(older);
   });
 
   it("refuses a story with no writers or a malformed ID", () => {
@@ -305,11 +314,22 @@ describe("errorBodySchema", () => {
     expect(errorBodySchema.parse({ error: code })).toEqual({ error: code });
   });
 
-  it("carries the name and the opening with left_story", () => {
-    const body = { error: "left_story", displayName: "Ana", opening: "Once." };
+  it("carries the name, the opening and its author with left_story", () => {
+    const body = {
+      error: "left_story",
+      displayName: "Ana",
+      opening: "Once.",
+      openingAuthorId: "u1",
+    };
 
     expect(errorBodySchema.parse(body)).toEqual(body);
     expect(errorCodeSchema.options).toContain("left_story");
+  });
+
+  it("accepts left_story from an older Worker that sends no opening author", () => {
+    const body = { error: "left_story", displayName: "Ana", opening: "Once." };
+
+    expect(errorBodySchema.parse(body)).toEqual(body);
   });
 
   it("carries client_outdated as a plain code", () => {

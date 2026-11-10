@@ -1,26 +1,29 @@
 # Story API
 
-Routes live in `src/worker/routes/stories.ts`, `src/worker/routes/pushSubscriptions.ts` and `src/worker/routes/users.ts`, SQL in `src/worker/db/storyRepo.ts`, `src/worker/db/pushRepo.ts` and `src/worker/db/userRepo.ts`. Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved. `.claude/rules/api.md` has the rules for adding a route, and `docs/domain.md` the words its path uses.
+Routes live in `src/worker/routes/stories.ts`, `src/worker/routes/pushSubscriptions.ts`, `src/worker/routes/users.ts` and `src/worker/routes/blocks.ts`, SQL in `src/worker/db/storyRepo.ts`, `src/worker/db/pushRepo.ts`, `src/worker/db/userRepo.ts` and `src/worker/db/blockRepo.ts`. Request and response shapes are in `src/shared/api.ts`. `docs/turn-persistence.md` says how turn state is saved. `.claude/rules/api.md` has the rules for adding a route, and `docs/domain.md` the words its path uses.
 
 ## Routes
 
-| Route                                                | Success                            | Notes                                                                                                                                 |
-| ---------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/stories`                                   | 200 `{stories: [...], nextCursor}` | One page of the stories this user is in and has not left. Query `limit`, `cursor`. See "Your stories".                                |
-| `POST /api/stories`                                  | 201 `{storyId}`                    | `Location` is the story. Creates the user if there is none. An anonymous browser gets the cookie. See "Display names" and "Identity". |
-| `GET /api/stories/:storyId`                          | 200 `StoryView`                    | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.                                                  |
-| `POST /api/stories/:storyId/participants`            | 201 `{participantId}`              | `Location` is the participant. Creates the user if there is none. An anonymous browser gets the cookie. See "Display names".          |
-| `POST /api/stories/:storyId/passages`                | 201 `{passageId}`                  | `Location` is the passage. Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.                |
-| `POST /api/stories/:storyId/skip`                    | 204                                | Body `{turnVersion}`.                                                                                                                 |
-| `POST /api/stories/:storyId/leave`                   | 204                                | Body `{}`. See "Leaving and rejoining".                                                                                               |
-| `POST /api/stories/:storyId/rejoin`                  | 204                                | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                                                     |
-| `POST /api/stories/:storyId/suggestions`             | 200 `{suggestions: [s, s, s]}`     | Turn holder only. No body needed. See "Suggestions".                                                                                  |
-| `GET /api/stories/:storyId/live`                     | 101 (WebSocket)                    | Participants only. See "Live updates".                                                                                                |
-| `PUT /api/push-subscriptions/:pushSubscriptionId`    | 204                                | Body is a `PushSubscription.toJSON()`; the ID is the hash of its endpoint. See "Web Push".                                            |
-| `GET /api/users/me`                                  | 200 `{displayName}`                | The requesting user's display name, null until they have one. Only reads. See "Display names".                                        |
-| `PUT /api/users/me/account`                          | 204                                | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts".                                      |
-| `DELETE /api/push-subscriptions/:pushSubscriptionId` | 204                                | No body. See "Web Push".                                                                                                              |
-| `GET /api/vapid-public-key`                          | 200 `{publicKey}`                  | The VAPID public key. See "Web Push".                                                                                                 |
+| Route                                                | Success                               | Notes                                                                                                                                 |
+| ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/stories`                                   | 200 `{stories: [...], nextCursor}`    | One page of the stories this user is in and has not left. Query `limit`, `cursor`. See "Your stories".                                |
+| `POST /api/stories`                                  | 201 `{storyId}`                       | `Location` is the story. Creates the user if there is none. An anonymous browser gets the cookie. See "Display names" and "Identity". |
+| `GET /api/stories/:storyId`                          | 200 `StoryView`                       | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.                                                  |
+| `POST /api/stories/:storyId/participants`            | 201 `{participantId}`                 | `Location` is the participant. Creates the user if there is none. An anonymous browser gets the cookie. See "Display names".          |
+| `POST /api/stories/:storyId/passages`                | 201 `{passageId}`                     | `Location` is the passage. Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.                |
+| `POST /api/stories/:storyId/skip`                    | 204                                   | Body `{turnVersion}`.                                                                                                                 |
+| `POST /api/stories/:storyId/leave`                   | 204                                   | Body `{}`. See "Leaving and rejoining".                                                                                               |
+| `POST /api/stories/:storyId/rejoin`                  | 204                                   | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                                                     |
+| `POST /api/stories/:storyId/suggestions`             | 200 `{suggestions: [s, s, s]}`        | Turn holder only. No body needed. See "Suggestions".                                                                                  |
+| `GET /api/stories/:storyId/live`                     | 101 (WebSocket)                       | Participants only. See "Live updates".                                                                                                |
+| `PUT /api/push-subscriptions/:pushSubscriptionId`    | 204                                   | Body is a `PushSubscription.toJSON()`; the ID is the hash of its endpoint. See "Web Push".                                            |
+| `GET /api/users/me`                                  | 200 `{displayName}`                   | The requesting user's display name, null until they have one. Only reads. See "Display names".                                        |
+| `PUT /api/users/me/account`                          | 204                                   | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts".                                      |
+| `GET /api/users/me/blocks`                           | 200 `{blocks: [{id, blockedUserId}]}` | The requesting user's blocks, oldest first. Only reads. See "Blocking".                                                               |
+| `POST /api/users/me/blocks`                          | 201 `{blockId}`, or 200 for a repeat  | `Location` is the block. Body `{blockedUserId}`. 400 `cannot_block_self`, 404 `not_found`. See "Blocking".                            |
+| `DELETE /api/users/me/blocks/:blockId`               | 204                                   | No body. 404 `not_found` unless the requesting user holds the block. See "Blocking".                                                  |
+| `DELETE /api/push-subscriptions/:pushSubscriptionId` | 204                                   | No body. See "Web Push".                                                                                                              |
+| `GET /api/vapid-public-key`                          | 200 `{publicKey}`                     | The VAPID public key. See "Web Push".                                                                                                 |
 
 Every route resolves who is asking as described under "Identity". Routes that create a story, participant or passage answer 201 with the new ID. The other mutating routes send no body back, except suggestions, which is a read. The `Location` of a participant or a passage names a path with no `GET` route yet. Clients refetch `GET /api/stories/:storyId`; the live socket tells them when.
 
@@ -28,7 +31,7 @@ Every route resolves who is asking as described under "Identity". Routes that cr
 
 One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorCode, …>`, so a new code can't be forgotten).
 
-- **400:** `bad_request`, `invalid_passage`, `invalid_display_name`.
+- **400:** `bad_request`, `invalid_passage`, `invalid_display_name`, `cannot_block_self`.
 - **401:** `invalid_session_token`: a session token that is missing where one is required, malformed or rejected. It carries a `WWW-Authenticate` header. See "Identity".
 - **403:** `forbidden_origin`, `not_participant`, `left_story`, `not_your_turn`, `cannot_skip_self`.
 - **404:** `not_found`. An ID that can't be a story ID is also 404, with no database call. An unknown `/api/*` path is a JSON 404 too.
@@ -37,7 +40,7 @@ One status per code, in `ERROR_STATUS` in `src/worker/http.ts` (a `Record<ErrorC
 - **413:** `payload_too_large`, a body over `MAX_BODY_BYTES` (8 KB), refused before it is parsed.
 - **500:** `internal_error`, anything unexpected, logged with `console.error`.
 
-Every error body is JSON `{error: <code>}`, so a client can parse it with `errorBodySchema`. The one exception is `left_story`, whose body also carries `displayName` and `opening` (see "Leaving and rejoining"). Every `/api/*` response carries `Cache-Control: no-store` (except a WebSocket upgrade).
+Every error body is JSON `{error: <code>}`, so a client can parse it with `errorBodySchema`. The one exception is `left_story`, whose body also carries `displayName`, `opening` and `openingAuthorId` (see "Leaving and rejoining"). Every `/api/*` response carries `Cache-Control: no-store` (except a WebSocket upgrade).
 
 - **426:** `client_outdated`, an `X-Api-Level` below the Worker's minimum. See "Versioning". A live upgrade without `Upgrade: websocket` is also 426, with a different body.
 
@@ -58,13 +61,30 @@ Order of checks on a mutating route: API level (400 malformed, 426 too low), Ori
 
 `GET /api/stories` lists the stories whose participant rows belong to the requesting user and have no `left_at`, using the `participants_by_user` index. It only reads: no cookie or user is created, and a request that names no user gets `{stories: [], nextCursor: null}`. A signed-in user gets the same list on every device.
 
-- **Entry:** `id`, `opening` (the first passage in full), `holderName` (null while the story waits), `isMyTurn`, `endsAt` (null while it waits) and `writerCount` (writers still in the story).
+- **Entry:** `id`, `opening` (the first passage in full), `openingAuthorId` (the user ID of the opening's author, which a client matches against the user's blocks; optional, because an older Worker omits it and the client then hides the opening), `holderName` (null while the story waits), `isMyTurn`, `endsAt` (null while it waits) and `writerCount` (writers still in the story).
 - **Turn:** `resolveTurn(state, now)`, as in the story view, so an expired turn shows its new holder. Nothing is written.
 - **Order:** stories where the caller holds the turn first, then the newest passage first, then ID, so the order is stable between requests.
 - **One snapshot:** the story rows, their writers and their first passages come from one `db.batch()`.
 - **Paging:** the query takes `limit` (a whole number from 1 to `MY_STORIES_MAX_LIMIT`, 50; `MY_STORIES_DEFAULT_LIMIT`, 20, when absent) and `cursor`. A page is the next `limit` stories after the cursor, and `nextCursor` is the cursor for the page after it, or null on the last page. A `limit` that is not a plain positive whole number up to the maximum, an empty `cursor` and a `cursor` this API did not make are 400 `bad_request` (`myStoriesQuerySchema`).
 - **The cursor** is the sort key of the page's last story (caller's turn, newest passage time, ID), encoded as base64url (`src/worker/storyCursor.ts`). Clients treat it as opaque. The next page is every story that sorts after that key, so it stays right when the story at the key has left the list.
 - **Not bounded in the query:** the Worker still reads every story of the user and cuts the page afterwards, because the order depends on the clock (whose turn it is after `resolveTurn`). A response is bounded; the work is not. A story can be skipped or shown twice when a turn changes or a passage is written between two page loads. See "Accepted risks" in `deployment.md`.
+
+## Blocking
+
+A block is one user blocking another (`blocks`, one row per pair), so it holds in every story the two share. The server hides nothing: a story view carries no block data. A client fetches `GET /api/users/me/blocks` and matches each `blockedUserId` against a passage's `authorId`, and against `openingAuthorId` on a story summary and on the `left_story` body.
+
+- **Identity:** the routes use `resolveMe` and take no story guard. They never create a user or a cookie. `GET` for a request with no user answers `{blocks: []}`; `POST` and `DELETE` for one answer 404 `not_found`, because such a request holds no blocks and has seen no author to block.
+- **`POST` body:** `{blockedUserId}`, the author's user ID (a passage's `authorId`). A missing or non-string ID is 400 `bad_request`, a `blockedUserId` that is the requesting user is 400 `cannot_block_self`, and an ID that names no user is 404 `not_found`.
+- **Created or repeated:** a new block is 201. Blocking a user already blocked changes nothing and answers 200 with the existing `blockId`. Both carry `Location`. The insert and the read of the pair's row run in one `db.batch()`, so two requests at once agree on one block ID, and exactly one is the 201.
+- **`GET`:** `{blocks: [{id, blockedUserId}]}`, oldest first, ties broken by ID. The list is not paged, because the client needs every block to match against each author. It is bounded in practice only by how many users someone chooses to block; paging it is a later change if that grows.
+- **`DELETE`:** removes the block named in the path if the requesting user holds it, else 404 `not_found`, so a block of another user's is not revealed. A second delete is 404. Blocking again after an unblock makes a new block with a new ID.
+- **Push:** a "your turn" push quotes the start of the story's opening. When the user it goes to blocks the opening's author, the body is empty and the title stays "Your turn" (`turnPush.ts`), because a notification shows on a lock screen where the user cannot choose to reveal anything.
+- **Merge:** `mergeUserInto` moves the blocks the device user made and those against it to the account user. A block that would repeat one the account user holds, and a block between the two users, are deleted.
+- **Known limits:**
+  - Another device shows a new block only after it reloads.
+  - A list that went stale when a blocked author's user ID changed (a sign-in or merge) is [#171](https://github.com/ebh/andthen/issues/171).
+  - Suggestions still see blocked passages ([#149](https://github.com/ebh/andthen/issues/149)).
+  - The look of a failed or loading list is [#172](https://github.com/ebh/andthen/issues/172).
 
 ## Display names
 
@@ -82,7 +102,7 @@ A user has one display name for every story, set when they start or join their f
 Leaving is soft. `POST /api/stories/:storyId/leave` sets `participants.left_at` and keeps the row, so the turn order keeps its places and a rejoin finds the participant.
 
 - **Turn:** `onLeave` takes the position out of the turn order and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
-- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the writer's display name and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the user stays on the row, so a leaver gets back only through rejoin.
+- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening, openingAuthorId}`: the writer's display name, the story's opening and its author's user ID, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the user stays on the row, so a leaver gets back only through rejoin.
 - **Names:** a display name belongs to the user, so leaving frees nothing: the name stays on the user and on their passages.
 - **Rejoin:** `POST /api/stories/:storyId/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a user who was never in the story, 409 `already_joined` for one who is in it, 409 `story_full` when the story filled while they were away.
 - **Races:** both routes are guarded by the loaded `turn_version` like every write, so one that loses a race answers 409 `stale_turn`.
@@ -249,7 +269,7 @@ All three calls go through `src/client/api.ts` (`fetchVapidPublicKey`, `savePush
 - **Turning on** (the "Notify me when it's my turn" switch in the story rail): the page asks for notification permission first, because browsers allow the prompt only inside the user's tap. It then calls `pushManager.subscribe({userVisibleOnly: true, applicationServerKey})` with the key from `GET /api/vapid-public-key`, parses `toJSON()` with `pushSubscriptionSchema` and `PUT`s it. The key is fetched when the app loads, while permission is still undecided, so the tap goes from the prompt to subscribing with no network wait. If the `PUT` fails, or the browser's subscription is not one the schema accepts, the page unsubscribes in the browser again, so the browser never holds a subscription the Worker doesn't know. A browser that cannot subscribe (Brave with "Use Google services for push messaging" off throws here) shows an error and stays off.
 - **Turning off:** the page unsubscribes in the browser, then `DELETE`s the endpoint. If only the `DELETE` fails, the switch still shows off: the browser no longer receives pushes, and the Worker deletes its copy the next time a push to that endpoint answers 404 or 410.
 - **On every app load** (`startTurnAlerts` in `src/app/_layout.tsx`), if notifications are allowed and the browser holds a subscription, the page `PUT`s it again, so a Worker that lost the row is brought back in step. A failure is ignored; the next load tries again. A page that names no user gets 204 and the Worker drops the endpoint's row (see "No user" above).
-- **No Push API.** iOS and iPadOS Safari has the Push API only for an app added to the Home Screen (16.4 and later). In a browser tab the page shows a line telling the reader to add the app to the Home Screen (tap Share, under ⋯ on newer iPhones, then Add to Home Screen) instead of the switch. Where the browser has no service worker or Push API at all, and in a development build (which registers no service worker), the switch is absent.
+- **No Push API.** iOS and iPadOS Safari has the Push API only for an app added to the Home Screen (16.4 and later). In a browser tab the page shows a line telling the user to add the app to the Home Screen (tap Share, under ⋯ on newer iPhones, then Add to Home Screen) instead of the switch. Where the browser has no service worker or Push API at all, and in a development build (which registers no service worker), the switch is absent.
 - **The service worker** shows the payload with `showNotification`, using the payload's `tag` so a newer notification for the story replaces an older one, and on a tap focuses a tab already on `navigate` or opens it. It ignores a message that does not parse as `turnPushPayloadSchema`, and never opens an address outside its own origin.
 
 ## Cookie

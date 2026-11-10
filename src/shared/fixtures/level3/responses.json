@@ -70,5 +70,37 @@
   },
   "liveMessage": {
     "version": 7
+  },
+  "blockUser": {
+    "blockId": "b1"
+  },
+  "blocks": {
+    "blocks": [
+      { "id": "b1", "blockedUserId": "u2" },
+      { "id": "b2", "blockedUserId": "u3" }
+    ]
+  },
+  "myStoriesWithOpeningAuthor": {
+    "stories": [
+      {
+        "id": "abc12",
+        "opening": "Once upon a time.",
+        "openingAuthorId": "u1",
+        "holderName": "Ben",
+        "isMyTurn": false,
+        "endsAt": 1700086400000,
+        "writerCount": 2
+      },
+      {
+        "id": "def34",
+        "opening": "It was a quiet night.",
+        "openingAuthorId": "u2",
+        "holderName": null,
+        "isMyTurn": false,
+        "endsAt": null,
+        "writerCount": 1
+      }
+    ],
+    "nextCursor": null
   }
 }

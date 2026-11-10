@@ -96,13 +96,29 @@ export type StoryView = z.infer<typeof storyViewSchema>;
 export const meResponseSchema = z.object({ displayName: z.string().nullable() });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 
+/** `blockedUserId` is the ID a passage's `authorId` holds, so a client can match authors to blocks. */
+export const blockUserRequestSchema = z.object({ blockedUserId: idSchema });
+export type BlockUserRequest = z.infer<typeof blockUserRequestSchema>;
+
+export const blockUserResponseSchema = z.object({ blockId: idSchema });
+export type BlockUserResponse = z.infer<typeof blockUserResponseSchema>;
+
+/** The caller's blocks, oldest first. */
+export const blocksResponseSchema = z.object({
+  blocks: z.array(z.object({ id: idSchema, blockedUserId: idSchema })),
+});
+export type BlocksResponse = z.infer<typeof blocksResponseSchema>;
+
 /**
  * A story the caller is in, as the list of their stories shows it. `opening` is the first passage
- * in full; the page decides how much of it to show. A waiting story has no holder and no end time.
+ * in full, and `openingAuthorId` its author's user ID; the page decides how much of it to show. An
+ * older Worker omits `openingAuthorId`, and the page then hides the opening. A waiting story has no
+ * holder and no end time.
  */
 export const storySummarySchema = z.object({
   id: storyIdSchema,
   opening: z.string(),
+  openingAuthorId: idSchema.optional(),
   holderName: z.string().nullable(),
   isMyTurn: z.boolean(),
   endsAt: timestampSchema.nullable(),
@@ -234,6 +250,7 @@ export const errorCodeSchema = z.enum([
   "left_story", // this browser was in the story and left; the body says what to rejoin
   "client_outdated", // the client's API level is below the Worker's minimum; it must update
   "invalid_session_token", // a session token was sent and is expired, forged, for another origin or malformed
+  "cannot_block_self", // a user asked to block themselves
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
@@ -243,12 +260,14 @@ export type PlainErrorCode = z.infer<typeof plainErrorCodeSchema>;
 
 /**
  * Sent with 403 `left_story` to a browser that left the story: the name it had there and the
- * story's opening passage, so the page can offer to rejoin without a second request.
+ * story's opening passage and its author's user ID (omitted by an older Worker), so the page can
+ * offer to rejoin without a second request.
  */
 export const leftStoryErrorBodySchema = z.object({
   error: z.literal("left_story"),
   displayName: z.string(),
   opening: z.string(),
+  openingAuthorId: idSchema.optional(),
 });
 export type LeftStoryErrorBody = z.infer<typeof leftStoryErrorBodySchema>;
 

@@ -10,6 +10,7 @@
     "src/serviceWorker",
     "src/client/pushHandlers.ts",
     "src/shared/api.ts",
+    "src/shared/legalDocuments.ts",
     "src/shared/validation.ts"
   ]
 }

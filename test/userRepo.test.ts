@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import { newStoryState } from "../src/shared/turnOrder";
 import type { UserRow } from "../src/worker/db/rows";
+import {
+  loadPerUserLegalDocumentAcceptances,
+  saveLegalDocumentAcceptance,
+} from "../src/worker/db/legalDocumentAcceptanceRepo";
 import { createStory } from "../src/worker/db/storyRepo";
 import {
   createAnonymousUser,
@@ -90,6 +94,14 @@ describe("userRepo", () => {
     it("refuses a device user named after it was read, and merges once it is read again", async () => {
       await insertUser(db, "m4-account");
       const stale = await userWhoStarted(db, "m4-device", "m4d01", null);
+      await saveLegalDocumentAcceptance(db, {
+        id: "m4-acceptance",
+        userId: "m4-device",
+        legalDocumentId: "terms-of-service",
+        version: 1,
+        storyId: null,
+        acceptedAt: 1,
+      });
       await db
         .prepare("UPDATE users SET display_name = 'Quin', display_name_key = 'quin' WHERE id = ?")
         .bind("m4-device")
@@ -97,6 +109,7 @@ describe("userRepo", () => {
 
       expect(await mergeUserInto(db, stale, "m4-account")).toBe(false);
       expect(await authorsOf(db, "m4d01")).toEqual(["m4-device"]);
+      expect(await loadPerUserLegalDocumentAcceptances(db, "m4-device")).toHaveLength(1);
       expect((await findUserByDisplayNameKey(db, "quin"))?.id).toBe("m4-device");
 
       const fresh = await findUserByBrowserTokenHash(db, "hash-of-m4-device");
@@ -105,6 +118,10 @@ describe("userRepo", () => {
       }
       expect(await mergeUserInto(db, fresh, "m4-account")).toBe(true);
       expect(await authorsOf(db, "m4d01")).toEqual(["m4-account"]);
+      expect(await loadPerUserLegalDocumentAcceptances(db, "m4-device")).toEqual([]);
+      expect(await loadPerUserLegalDocumentAcceptances(db, "m4-account")).toEqual([
+        { legalDocumentId: "terms-of-service", version: 1 },
+      ]);
       expect((await findUserByDisplayNameKey(db, "quin"))?.id).toBe("m4-account");
     });
   });

@@ -52,6 +52,17 @@ export async function findUserByClerkUserId(db: Db, clerkUserId: string): Promis
   return row ?? null;
 }
 
+/** The user with this ID, or null when there is none. */
+export async function findUserById(db: Db, userId: string): Promise<UserRow | null> {
+  const result = await db
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`)
+    .bind(userId)
+    .all();
+  const [row] = z.array(userRowSchema).parse(result.results);
+
+  return row ?? null;
+}
+
 /**
  * Creates the account user for a Clerk user id. When a concurrent request already created one,
  * that user is returned and `input.id` is not stored.
@@ -174,6 +185,19 @@ export async function mergeUserInto(db: Db, from: UserRow, intoUserId: string): 
     db
       .prepare(`UPDATE push_subscriptions SET user_id = ? WHERE user_id = ? AND ${nameAsRead}`)
       .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    // OR IGNORE skips a move that would duplicate a pair or make a user block itself. Those rows
+    // still point at `from`, and the delete below removes them before the user row goes.
+    db
+      .prepare(`UPDATE OR IGNORE blocks SET user_id = ? WHERE user_id = ? AND ${nameAsRead}`)
+      .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    db
+      .prepare(
+        `UPDATE OR IGNORE blocks SET blocked_user_id = ? WHERE blocked_user_id = ? AND ${nameAsRead}`,
+      )
+      .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    db
+      .prepare(`DELETE FROM blocks WHERE (user_id = ? OR blocked_user_id = ?) AND ${nameAsRead}`)
+      .bind(from.id, from.id, from.id, from.displayNameKey),
     db
       .prepare(
         `UPDATE users SET display_name = NULL, display_name_key = NULL

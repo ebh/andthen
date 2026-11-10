@@ -27,7 +27,7 @@ The D1 schema is described once, in Zod, and every database type in the code is 
   - `z.object` is allowed in `rows.ts` only for union branches and intersection members whose fields follow the narrowing rule above.
   - Row types are `z.infer` exports of `rows.ts`.
   - Why: a column's shape is written once, and a query only says which parts it reads.
-- **`src/worker/db/` has no `interface` and no object type literal.** A type alias over a library type, such as `Db`, is allowed. Write inputs and composite results are Zod schemas in `src/worker/db/typeSchemas.ts`.
+- **`src/worker/db/` has no `interface` and no object type literal (test files excepted).** A type alias over a library type, such as `Db`, is allowed. Write inputs and composite results are Zod schemas in `src/worker/db/typeSchemas.ts`.
   - Export each as `export type X = z.infer<typeof xSchema>`.
   - A field whose key is a column key and holds that column's stored value comes from `.pick()` or `.shape.<key>`.
   - Any other field is written directly, such as a boolean `startsParagraph` input, `now` or `loadedVersion`.
@@ -51,6 +51,6 @@ The D1 schema is described once, in Zod, and every database type in the code is 
 These checks run in CI and fail the build.
 
 - **An ESLint `no-restricted-syntax` rule**, scoped to `src/worker/db/**`, bans `interface`, object type literals, and `z.object`, `z.strictObject` and `z.looseObject` outside the three schema files.
-- **A drift test** checks that the tables and columns in Zod equal those in the migrated database. It also compares `notnull` with `.nullable()`, and the SQLite column type with the Zod base type (INTEGER with number or number literals, TEXT with string).
+- **A drift test** checks that the tables and columns in Zod equal those in the migrated database. It also compares `NOT NULL` (SQLite allows NULL in a non-INTEGER primary key; the check treats every primary key as required) with `.nullable()`, and the SQLite column type with the Zod base type (INTEGER with number or number literals, TEXT with string).
 - **A description test** checks that every table schema and column has a description.
 - **A stale-doc check** fails when `docs/database.md` differs from what `pnpm db:docs` generates.

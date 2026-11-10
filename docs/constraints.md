@@ -15,6 +15,7 @@ What the tools and platforms force on the code, each with the file that carries 
 - **`stryker.config.json` must list `@stryker-mutator/vitest-runner` under `plugins`.** Under pnpm, Stryker finds no test runner otherwise.
 - **CI runs Stryker in three parallel shards** (`.github/workflows/ci.yml`, job `mutation-area`): `shared`, `worker` and `client`. Each shard mutates one folder and runs the whole test suite, and the 80% break threshold applies to each. `stryker.area.config.ts` builds a shard's `mutate` list from `stryker.config.json`, so the excluded files are listed only there. The job `mutation` passes only if every shard did, and is the check the "Protect main" ruleset requires. `pnpm stryker` stays a full local run.
 - **CI reuses mutation results**, one incremental file per shard. Stryker keeps a result while the mutated code and the test that killed it are unchanged, and diffs only mutated and test files. A changed helper under an unchanged test keeps its old result until the next full run on `main`. Changing `stryker.config.json`, `stryker.area.config.ts`, a Vitest config or the lockfile starts from no cache.
+- **The `no-restricted-syntax` override in `eslint.config.ts` exists because oxlint has no such rule.** It enforces the database shape rules in `.claude/rules/database.md`.
 - **Tests stay on Vitest's Node pool.** `@cloudflare/vitest-pool-workers` would pin an older Vitest.
 
 ## Workers AI

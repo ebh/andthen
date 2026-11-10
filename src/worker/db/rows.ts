@@ -84,3 +84,17 @@ export const pushSubscriptionRowSchema = pushSubscriptionsTableSchema.pick({
   auth: true,
 });
 export type PushSubscriptionRow = z.infer<typeof pushSubscriptionRowSchema>;
+
+/** One column of a table in the migrated database, as `pragma_table_info` reports it. */
+export const databaseColumnRowSchema = z.object({
+  tableName: z.string(),
+  cid: z.number().int().nonnegative(),
+  name: z.string(),
+  /** The declared SQLite type, such as `INTEGER` or `TEXT`. */
+  type: z.string(),
+  notNull: z.union([z.literal(0), z.literal(1)]),
+  defaultValue: z.string().nullable(),
+  /** 0 when the column is not in the primary key, else its 1-based position in it. */
+  primaryKey: z.number().int().nonnegative(),
+});
+export type DatabaseColumnRow = z.infer<typeof databaseColumnRowSchema>;

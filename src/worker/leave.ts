@@ -1,6 +1,7 @@
 import { onLeave } from "../shared/turnOrder";
 import type { ParticipantRow } from "./db/rows";
-import { leaveStory, type LoadedStory } from "./db/storyRepo";
+import { leaveStory } from "./db/storyRepo";
+import type { LoadedStory } from "./db/typeSchemas";
 import type { AppContext } from "./http";
 import { notifyRoom } from "./live";
 import type { PushSender } from "./push";

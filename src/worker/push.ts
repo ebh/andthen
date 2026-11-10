@@ -2,7 +2,7 @@ import { buildPushPayload } from "@block65/webcrypto-web-push";
 
 import type { TurnPushPayload } from "../shared/api";
 import { parseVapidConfig, type VapidConfig } from "./config";
-import type { PushSubscriptionRow } from "./db/pushRepo";
+import type { PushSubscriptionRow } from "./db/rows";
 
 /**
  * What a push service did with a message. `gone` means the subscription no longer exists (404 or

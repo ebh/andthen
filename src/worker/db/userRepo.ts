@@ -1,24 +1,8 @@
 import { z } from "zod";
 
+import { participantStoryIdRowSchema, userRowSchema, type UserRow } from "./rows";
 import type { Db } from "./storyRepo";
-
-export interface UserRow {
-  id: string;
-}
-
-export interface NewAccountUser {
-  id: string;
-  clerkUserId: string;
-  createdAt: number;
-}
-
-export interface NewAnonymousUser {
-  id: string;
-  browserTokenHash: string;
-  createdAt: number;
-}
-
-const userRowSchema = z.object({ id: z.string().min(1) });
+import type { NewAccountUser, NewAnonymousUser } from "./typeSchemas";
 
 /** The user whose browser has this token hash, or null when it names none. */
 export async function findUserByBrowserTokenHash(
@@ -123,7 +107,7 @@ export async function storiesWithBothActive(
     .all();
 
   return z
-    .array(z.object({ storyId: z.string() }))
+    .array(participantStoryIdRowSchema)
     .parse(result.results)
     .map(({ storyId }) => storyId);
 }

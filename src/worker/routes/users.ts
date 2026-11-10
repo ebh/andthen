@@ -4,7 +4,7 @@ import { emptyRequestSchema } from "../../shared/api";
 import { MERGE_LEAVE_ATTEMPTS } from "../config";
 import { loadStory } from "../db/storyRepo";
 import * as userRepo from "../db/userRepo";
-import type { UserRow } from "../db/userRepo";
+import type { UserRow } from "../db/rows";
 import { ApiError, parseJsonBody, type AppContext } from "../http";
 import { leaveAsParticipant, type LeaveDeps } from "../leave";
 import { findDeviceUser, requireSession, type MeDeps } from "../me";

@@ -42,10 +42,9 @@ import {
   loadStoryWithContributions,
   rejoinStory,
   saveTurn,
-  type CreateStoryInput,
   type Db,
-  type LoadedStory,
 } from "../db/storyRepo";
+import type { CreateStoryInput, LoadedStory } from "../db/typeSchemas";
 import {
   ApiError,
   LeftStoryError,

@@ -1,13 +1,5 @@
 import type { Db } from "./storyRepo";
-
-export interface SuggestionReservation {
-  id: string;
-  participantId: string;
-  now: number;
-  /** A request counts against the limit while it is newer than `now - windowMs`. */
-  windowMs: number;
-  limit: number;
-}
+import type { SuggestionReservation } from "./typeSchemas";
 
 /**
  * Counts the participant's requests in the window and records this one, as a single statement,

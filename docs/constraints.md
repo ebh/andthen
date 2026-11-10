@@ -8,7 +8,9 @@ What the tools and platforms force on the code, each with the file that carries 
 - **`getPlatformProxy` cannot run a Durable Object class defined in the Worker.** A request that reaches `STORY_ROOM` fails with 500, and `StoryRoom` imports `cloudflare:workers`, which Node cannot load.
   - So `src/worker/storyRoom.ts` and `src/worker/index.ts` are outside Stryker's `mutate` list (`stryker.config.json`). Code there is never mutated.
   - `test/storyRoom.workerd.test.ts` runs it in workerd. Keep route and repo code in modules that never import `cloudflare:*` (see `CLAUDE.md`).
-- **Stryker mutates `src/shared`, `src/worker` and `src/client`**, minus tests, fixtures and the two files above.
+- **Stryker mutates `src/shared`, `src/worker` and `src/client`**, minus tests, fixtures, the two files above and the two schema files below.
+  - `src/worker/db/tableSchemas.ts` is left out because its code runs when the module loads, so each mutant reruns the whole suite.
+  - `src/worker/db/typeSchemas.ts` is left out because no test loads it (only `import type` reaches it), so its mutants could not be killed.
 - **Stryker runs only tests that import a mutated file** (`vitest.related`). A test that imports none is never run there, so a wrong expectation in it passes silently under `pnpm stryker`. `pnpm test` still runs it.
 - **`stryker.config.json` must list `@stryker-mutator/vitest-runner` under `plugins`.** Under pnpm, Stryker finds no test runner otherwise.
 - **CI runs Stryker in three parallel shards** (`.github/workflows/ci.yml`, job `mutation-area`): `shared`, `worker` and `client`. Each shard mutates one folder and runs the whole test suite, and the 80% break threshold applies to each. `stryker.area.config.ts` builds a shard's `mutate` list from `stryker.config.json`, so the excluded files are listed only there. The job `mutation` passes only if every shard did, and is the check the "Protect main" ruleset requires. `pnpm stryker` stays a full local run.

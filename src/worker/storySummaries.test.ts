@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TURN_WINDOW_MS } from "../shared/validation";
 import type { MyStoryRow, StoryPassageRow, StoryWriterRow } from "./db/rows";
-import type { MyStoryRows } from "./db/storyRepo";
+import type { MyStoryRows } from "./db/typeSchemas";
 import { decodeStoryCursor } from "./storyCursor";
 import { summariseMyStories, type StoriesPage } from "./storySummaries";
 

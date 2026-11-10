@@ -28,8 +28,8 @@ describe("GET /api/health", () => {
     ).all();
 
     expect(tables.results).toEqual([
-      { name: "contributions" },
       { name: "participants" },
+      { name: "passages" },
       { name: "push_subscriptions" },
       { name: "stories" },
       { name: "suggestion_requests" },

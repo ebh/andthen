@@ -12,6 +12,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -36,8 +37,8 @@ describe("leaving and rejoining a story", () => {
   ): Promise<{ storyId: string; as: (name: string) => Browser }> {
     clock.now = T0;
     const ana = newBrowser();
-    const storyId = await createStory(ana);
-    const browsers = new Map<string, Browser>([["Ana", ana]]);
+    const storyId = await createStory(ana, nameInTest("Ana"));
+    const browsers = new Map<string, Browser>([[nameInTest("Ana"), ana]]);
     for (const name of joinerNames) {
       const browser = newBrowser();
       await joinStory(browser, storyId, name);
@@ -59,54 +60,54 @@ describe("leaving and rejoining a story", () => {
 
   describe("POST /api/stories/:storyId/leave", () => {
     it("takes a writer who does not hold the turn out of the story and bumps the version", async () => {
-      const { storyId, as } = await storyWith(["Ben", "Cal"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
-      const cal = as("Cal");
+      const { storyId, as } = await storyWith([nameInTest("Ben"), nameInTest("Cal")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
+      const cal = as(nameInTest("Cal"));
       const before = await readStory(ana, storyId);
 
       const response = await leave(cal, storyId);
       const after = await readStory(ana, storyId);
 
       expect(response.status).toBe(204);
-      expect(names(after)).toEqual(["Ana", "Ben"]);
+      expect(names(after)).toEqual([nameInTest("Ana"), nameInTest("Ben")]);
       expect(after.turn).toEqual({ ...before.turn, version: before.turn.version + 1 });
       expect((await readStory(ben, storyId)).turn.holderId).toBe(before.turn.holderId);
     });
 
     it("passes the turn on with a fresh window when the holder leaves", async () => {
-      const { storyId, as } = await storyWith(["Ben", "Cal"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben"), nameInTest("Cal")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       clock.now = T0 + 1000;
 
       const response = await leave(ben, storyId);
       const view = await readStory(ana, storyId);
 
       expect(response.status).toBe(204);
-      expect(names(view)).toEqual(["Ana", "Cal"]);
+      expect(names(view)).toEqual([nameInTest("Ana"), nameInTest("Cal")]);
       expect(view.turn.holderId).toBe(view.participants[1]?.id);
       expect(view.turn.endsAt).toBe(T0 + 1000 + TURN_WINDOW_MS);
     });
 
     it("makes the story wait when the holder leaves and the writer left wrote last", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
 
       await leave(ben, storyId);
       const view = await readStory(ana, storyId);
 
-      expect(names(view)).toEqual(["Ana"]);
+      expect(names(view)).toEqual([nameInTest("Ana")]);
       expect(view.turn.holderId).toBeNull();
       expect(view.turn.endsAt).toBeNull();
     });
 
     it("keeps a leaver's passages in the story under their name", async () => {
-      const { storyId, as } = await storyWith(["Ben", "Cal"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
-      const written = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const { storyId, as } = await storyWith([nameInTest("Ben"), nameInTest("Cal")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
+      const written = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Ben's line.",
         turnVersion: 2,
         startsParagraph: false,
@@ -116,31 +117,34 @@ describe("leaving and rejoining a story", () => {
       const view = await readStory(ana, storyId);
 
       expect(written.status).toBe(201);
-      expect(view.contributions.map((turn) => turn.authorName)).toEqual(["Ana", "Ben"]);
-      expect(names(view)).toEqual(["Ana", "Cal"]);
+      expect(view.passages.map((turn) => turn.authorName)).toEqual([
+        nameInTest("Ana"),
+        nameInTest("Ben"),
+      ]);
+      expect(names(view)).toEqual([nameInTest("Ana"), nameInTest("Cal")]);
     });
 
     it("leaves the story open when its only writer leaves", async () => {
       const { storyId, as } = await storyWith([]);
-      const ana = as("Ana");
+      const ana = as(nameInTest("Ana"));
 
       const response = await leave(ana, storyId);
       const newcomer = newBrowser();
       const joined = await newcomer.post(`/api/stories/${storyId}/participants`, {
-        displayName: "Dee",
+        displayName: nameInTest("Dee"),
       });
       const view = await readStory(newcomer, storyId);
 
       expect(response.status).toBe(204);
       expect(joined.status).toBe(201);
-      expect(names(view)).toEqual(["Dee"]);
+      expect(names(view)).toEqual([nameInTest("Dee")]);
       expect(view.turn.holderId).toBe(view.me);
     });
 
     it("tells a leaver their name and the opening passage, with 403 left_story", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
 
       const response = await ben.get(`/api/stories/${storyId}`);
@@ -148,7 +152,7 @@ describe("leaving and rejoining a story", () => {
       expect(response.status).toBe(403);
       expect(leftStoryErrorBodySchema.parse(await response.json())).toEqual({
         error: "left_story",
-        displayName: "Ben",
+        displayName: nameInTest("Ben"),
         opening: "Once upon a time.",
       });
       expect((await readStory(ana, storyId)).participants).toHaveLength(1);
@@ -159,7 +163,7 @@ describe("leaving and rejoining a story", () => {
       [
         "writing",
         (b: Browser, id: string) =>
-          b.post(`/api/stories/${id}/contributions`, {
+          b.post(`/api/stories/${id}/passages`, {
             text: "Hi.",
             turnVersion: 1,
             startsParagraph: false,
@@ -181,8 +185,8 @@ describe("leaving and rejoining a story", () => {
           }),
       ],
     ])("refuses a leaver %s with 403 left_story", async (_action, act) => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
 
       const response = await act(ben, storyId);
@@ -192,25 +196,23 @@ describe("leaving and rejoining a story", () => {
     });
 
     it("lets a leaver join again only through rejoin, not the join route", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
 
-      const response = await ben.post(`/api/stories/${storyId}/participants`, {
-        displayName: "Ben",
-      });
+      const response = await ben.post(`/api/stories/${storyId}/participants`, {});
 
       expect(response.status).toBe(409);
       expect(await readError(response)).toBe("already_joined");
     });
 
     it("keeps a leaver's name taken", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
 
       const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
-        displayName: "ben",
+        displayName: nameInTest("Ben").toLowerCase(),
       });
 
       expect(response.status).toBe(409);
@@ -230,19 +232,19 @@ describe("leaving and rejoining a story", () => {
 
     it("refuses a body with anything in it", async () => {
       const { storyId, as } = await storyWith([]);
-      const ana = as("Ana");
+      const ana = as(nameInTest("Ana"));
 
       const response = await ana.post(`/api/stories/${storyId}/leave`, { turnVersion: 1 });
 
       expect(response.status).toBe(400);
       expect(await readError(response)).toBe("bad_request");
-      expect(names(await readStory(ana, storyId))).toEqual(["Ana"]);
+      expect(names(await readStory(ana, storyId))).toEqual([nameInTest("Ana")]);
     });
 
     it("tells the room about the new version", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       const notified: number[] = [];
       const env = {
         DB: testEnv.env.DB,
@@ -267,9 +269,9 @@ describe("leaving and rejoining a story", () => {
 
   describe("POST /api/stories/:storyId/rejoin", () => {
     it("puts a writer back at the end of the turn order under their old name", async () => {
-      const { storyId, as } = await storyWith(["Ben", "Cal"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben"), nameInTest("Cal")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
       const before = await readStory(ana, storyId);
 
@@ -277,15 +279,15 @@ describe("leaving and rejoining a story", () => {
       const after = await readStory(ben, storyId);
 
       expect(response.status).toBe(204);
-      expect(names(after)).toEqual(["Ana", "Cal", "Ben"]);
+      expect(names(after)).toEqual([nameInTest("Ana"), nameInTest("Cal"), nameInTest("Ben")]);
       expect(after.me).toBe(after.participants[2]?.id);
       expect(after.turn).toEqual({ ...before.turn, version: before.turn.version + 1 });
     });
 
     it("gives the turn to a writer who comes back to a waiting story", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       await leave(ana, storyId);
       await leave(ben, storyId);
 
@@ -297,9 +299,9 @@ describe("leaving and rejoining a story", () => {
     });
 
     it("keeps a story waiting when the one who wrote last comes back", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
       await leave(ana, storyId);
 
@@ -307,16 +309,16 @@ describe("leaving and rejoining a story", () => {
       const view = await readStory(ana, storyId);
 
       expect(response.status).toBe(204);
-      expect(names(view)).toEqual(["Ana"]);
+      expect(names(view)).toEqual([nameInTest("Ana")]);
       expect(view.turn.holderId).toBeNull();
     });
 
     it("does not let a writer who wrote last take the next turn by leaving and coming back", async () => {
-      const { storyId, as } = await storyWith(["Ben", "Cal"]);
-      const ana = as("Ana");
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben"), nameInTest("Cal")]);
+      const ana = as(nameInTest("Ana"));
+      const ben = as(nameInTest("Ben"));
       // Ben writes (turn passes to Cal), then leaves and rejoins; Cal still holds.
-      await ben.post(`/api/stories/${storyId}/contributions`, {
+      await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Ben's line.",
         turnVersion: 2,
         startsParagraph: false,
@@ -326,13 +328,13 @@ describe("leaving and rejoining a story", () => {
 
       const view = await readStory(ana, storyId);
 
-      expect(names(view)).toEqual(["Ana", "Cal", "Ben"]);
+      expect(names(view)).toEqual([nameInTest("Ana"), nameInTest("Cal"), nameInTest("Ben")]);
       expect(view.turn.holderId).toBe(view.participants[1]?.id);
     });
 
     it("refuses someone who is already in the story with 409 already_joined", async () => {
       const { storyId, as } = await storyWith([]);
-      const ana = as("Ana");
+      const ana = as(nameInTest("Ana"));
 
       const response = await rejoin(ana, storyId);
 
@@ -350,12 +352,12 @@ describe("leaving and rejoining a story", () => {
     });
 
     it("answers 404 for an unknown story and 400 for a body with anything in it", async () => {
-      const { storyId, as } = await storyWith(["Ben"]);
-      const ben = as("Ben");
+      const { storyId, as } = await storyWith([nameInTest("Ben")]);
+      const ben = as(nameInTest("Ben"));
       await leave(ben, storyId);
 
       const unknown = await rejoin(ben, "zzzzz");
-      const junk = await ben.post(`/api/stories/${storyId}/rejoin`, { name: "Ben" });
+      const junk = await ben.post(`/api/stories/${storyId}/rejoin`, { name: nameInTest("Ben") });
 
       expect(unknown.status).toBe(404);
       expect(junk.status).toBe(400);

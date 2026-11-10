@@ -1,5 +1,5 @@
 import type { Browser, Locator, Page } from "@playwright/test";
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 interface Viewport {
   width: number;
@@ -19,10 +19,39 @@ export async function newWriter(browser: Browser, viewport?: Viewport): Promise<
   return context.newPage();
 }
 
+interface WriterNames {
+  ana: string;
+  ben: string;
+  cy: string;
+}
+
+/**
+ * The writers' display names for the running test. A name is unique across all users, and every
+ * test shares one database, so each test gets names no other test uses. Read them as `names.ana`.
+ */
+export const names: WriterNames = {
+  get ana() {
+    return namesForTest().ana;
+  },
+  get ben() {
+    return namesForTest().ben;
+  },
+  get cy() {
+    return namesForTest().cy;
+  },
+};
+
+function namesForTest(): WriterNames {
+  const { testId, retry } = test.info();
+  const tag = `${testId.slice(-8)}${String(retry)}`;
+
+  return { ana: `Ana ${tag}`, ben: `Ben ${tag}`, cy: `Cy ${tag}` };
+}
+
 /** Starts a story and returns its invite link. */
 export async function startStory(page: Page, name: string, opening: string): Promise<string> {
   await page.goto("/");
-  await page.getByLabel("Your name").fill(name);
+  await fillNameIfAsked(page, name, page.getByLabel("Opening passage"));
   await page.getByLabel("Opening passage").fill(opening);
   await page.getByRole("button", { name: "Start the story" }).click();
 
@@ -34,11 +63,25 @@ export async function startStory(page: Page, name: string, opening: string): Pro
 
 export async function joinStory(page: Page, inviteLink: string, name: string): Promise<void> {
   await page.goto(inviteLink);
-  await page.getByLabel("Your name").fill(name);
+  await fillNameIfAsked(page, name, page.getByRole("heading", { name: "Join this story" }));
   await page.getByRole("button", { name: "Join" }).click();
 
   // The turn order lists the joiner as "<name> (you)" only once the join has gone through.
   await expect(turnBanner(page)).toContainText(`${name} (you)`);
+}
+
+/**
+ * A user names themselves once, so only a writer's first story or join asks for a name. The form
+ * waits for the Worker's answer before it shows the field, so the field is checked once the form
+ * is on screen and that answer is in.
+ */
+async function fillNameIfAsked(page: Page, name: string, form: Locator): Promise<void> {
+  await expect(form).toBeVisible();
+  await expect(page.getByText("Loading…")).toHaveCount(0);
+  const field = page.getByLabel("Your name");
+  if ((await field.count()) > 0) {
+    await field.fill(name);
+  }
 }
 
 export async function addPassage(

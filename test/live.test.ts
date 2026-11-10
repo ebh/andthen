@@ -14,6 +14,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { gateLoads } from "./support/gatedDb";
 import { signSessionToken } from "./support/sessionToken";
@@ -75,7 +76,7 @@ describe("GET /api/stories/:storyId/live", () => {
     clock.now = T0;
     const [ana, ben] = [newBrowser(), newBrowser()];
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId, nameInTest("Ben"));
 
     return { ana, ben, storyId };
   }
@@ -293,14 +294,14 @@ describe("GET /api/stories/:storyId/live", () => {
 
       await carol.post(
         `/api/stories/${storyId}/participants`,
-        { displayName: "Carol" },
+        { displayName: nameInTest("Carol") },
         {
           env: rooms.env,
         },
       );
       const version = (await readStory(ben, storyId)).turn.version;
       await ben.post(
-        `/api/stories/${storyId}/contributions`,
+        `/api/stories/${storyId}/passages`,
         { text: "Then.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
@@ -331,10 +332,10 @@ describe("GET /api/stories/:storyId/live", () => {
 
       // A join keeps the running turn, so its deadline stays Ben's.
       clock.now = T0 + 1000;
-      await post(carol, "participants", { displayName: "Carol" });
+      await post(carol, "participants", { displayName: nameInTest("Carol") });
       // A contribution starts the next writer's window now.
       clock.now = T0 + 2000;
-      await post(ben, "contributions", {
+      await post(ben, "passages", {
         text: "Then.",
         turnVersion: (await readStory(ben, storyId)).turn.version,
         startsParagraph: false,
@@ -373,7 +374,7 @@ describe("GET /api/stories/:storyId/live", () => {
       const rooms = fakeRooms();
 
       const response = await ben.post(
-        `/api/stories/${storyId}/contributions`,
+        `/api/stories/${storyId}/passages`,
         { text: "Too late.", turnVersion: 99, startsParagraph: false },
         { env: rooms.env },
       );
@@ -386,7 +387,7 @@ describe("GET /api/stories/:storyId/live", () => {
       const { storyId } = await twoPersonStory();
       const rooms = fakeRooms();
       const env = { ...rooms.env, DB: gateLoads(testEnv.env.DB, 2) };
-      const joiners = ["Carol", "Dee"].map((displayName) => ({
+      const joiners = [nameInTest("Carol"), nameInTest("Dee")].map((displayName) => ({
         displayName,
         browser: newBrowser(),
       }));
@@ -404,7 +405,7 @@ describe("GET /api/stories/:storyId/live", () => {
     it("sends nothing for a skip that lost a race", async () => {
       const { ana, storyId } = await twoPersonStory();
       const carol = newBrowser();
-      await joinStory(carol, storyId, "Carol");
+      await joinStory(carol, storyId, nameInTest("Carol"));
       const version = (await readStory(ana, storyId)).turn.version;
       const rooms = fakeRooms();
       const env = { ...rooms.env, DB: gateLoads(testEnv.env.DB, 2) };
@@ -428,7 +429,7 @@ describe("GET /api/stories/:storyId/live", () => {
       const version = (await readStory(ben, storyId)).turn.version;
 
       const response = await ben.post(
-        `/api/stories/${storyId}/contributions`,
+        `/api/stories/${storyId}/passages`,
         { text: "Still saved.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
@@ -436,9 +437,7 @@ describe("GET /api/stories/:storyId/live", () => {
 
       expect(response.status).toBe(201);
       expect(log).toHaveBeenCalledWith("StoryRoom notify failed", expect.any(Error));
-      expect((await readStory(ben, storyId)).contributions.map((c) => c.text)).toContain(
-        "Still saved.",
-      );
+      expect((await readStory(ben, storyId)).passages.map((c) => c.text)).toContain("Still saved.");
       log.mockRestore();
     });
 
@@ -449,7 +448,7 @@ describe("GET /api/stories/:storyId/live", () => {
       const version = (await readStory(ben, storyId)).turn.version;
 
       const response = await ben.post(
-        `/api/stories/${storyId}/contributions`,
+        `/api/stories/${storyId}/passages`,
         { text: "Still saved.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
@@ -466,7 +465,7 @@ describe("GET /api/stories/:storyId/live", () => {
       const version = (await readStory(ben, storyId)).turn.version;
 
       const response = await ben.post(
-        `/api/stories/${storyId}/contributions`,
+        `/api/stories/${storyId}/passages`,
         { text: "Saved anyway.", turnVersion: version, startsParagraph: false },
         { env: rooms.env },
       );
@@ -478,7 +477,7 @@ describe("GET /api/stories/:storyId/live", () => {
       expect(await Promise.race([notification, Promise.resolve("still pending")])).toBe(
         "still pending",
       );
-      expect((await readStory(ben, storyId)).contributions.map((c) => c.text)).toContain(
+      expect((await readStory(ben, storyId)).passages.map((c) => c.text)).toContain(
         "Saved anyway.",
       );
     });

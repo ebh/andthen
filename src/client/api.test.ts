@@ -5,7 +5,8 @@ import { API_LEVEL } from "../shared/apiLevel";
 import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
-  contribute,
+  createPassage,
+  fetchMe,
   fetchVapidPublicKey,
   createStory,
   fetchStory,
@@ -68,12 +69,12 @@ describe("error mapping", () => {
   it("maps a documented error body to its code and status", async () => {
     stubFetch(jsonResponse(409, { error: "stale_turn" }));
 
-    expect(await contribute("abc12", { text: "x", turnVersion: 1, startsParagraph: true })).toEqual(
-      {
-        ok: false,
-        failure: { type: "rejected", status: 409, code: "stale_turn" },
-      },
-    );
+    expect(
+      await createPassage("abc12", { text: "x", turnVersion: 1, startsParagraph: true }),
+    ).toEqual({
+      ok: false,
+      failure: { type: "rejected", status: 409, code: "stale_turn" },
+    });
   });
 
   it("maps a 409 story_full to its code", async () => {
@@ -174,10 +175,10 @@ describe("API level header", () => {
       "/api/stories/abc12/participants",
     ],
     [
-      "contribute",
-      () => contribute("abc12", { text: "x", turnVersion: 1, startsParagraph: true }),
+      "createPassage",
+      () => createPassage("abc12", { text: "x", turnVersion: 1, startsParagraph: true }),
       "POST",
-      "/api/stories/abc12/contributions",
+      "/api/stories/abc12/passages",
     ],
     ["skipTurn", () => skipTurn("abc12", 1), "POST", "/api/stories/abc12/skip"],
     ["leaveStory", () => leaveStory("abc12"), "POST", "/api/stories/abc12/leave"],
@@ -220,24 +221,24 @@ describe("success", () => {
   });
 
   it("rejects a success body that breaks the contract", async () => {
-    stubFetch(jsonResponse(200, { contributions: [] }));
+    stubFetch(jsonResponse(200, { passages: [] }));
 
     const result = await fetchStory("abc12");
 
     expect(!result.ok && result.failure).toEqual({ type: "unreadable", status: 200 });
   });
 
-  it("reads the new contribution's ID from a 201", async () => {
-    const fetchMock = stubFetch(jsonResponse(201, { contributionId: "c7" }));
+  it("reads the new passage's ID from a 201", async () => {
+    const fetchMock = stubFetch(jsonResponse(201, { passageId: "c7" }));
 
-    expect(await contribute("abc12", { text: "x", turnVersion: 2, startsParagraph: true })).toEqual(
-      {
-        ok: true,
-        value: { contributionId: "c7" },
-      },
-    );
+    expect(
+      await createPassage("abc12", { text: "x", turnVersion: 2, startsParagraph: true }),
+    ).toEqual({
+      ok: true,
+      value: { passageId: "c7" },
+    });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/contributions",
+      "/api/stories/abc12/passages",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ text: "x", turnVersion: 2, startsParagraph: true }),
@@ -306,6 +307,16 @@ describe("push subscription", () => {
 
     expect(await fetchVapidPublicKey()).toEqual({ ok: true, value: { publicKey: "key" } });
     expect(fetchMock).toHaveBeenCalledWith("/api/vapid-public-key", {
+      method: "GET",
+      headers: { "X-Api-Level": String(API_LEVEL) },
+    });
+  });
+
+  it("reads the user's display name, which is null until they have one", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { displayName: null }));
+
+    expect(await fetchMe()).toEqual({ ok: true, value: { displayName: null } });
+    expect(fetchMock).toHaveBeenCalledWith("/api/users/me", {
       method: "GET",
       headers: { "X-Api-Level": String(API_LEVEL) },
     });

@@ -15,6 +15,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -55,7 +56,7 @@ describe("GET /api/stories", () => {
   it("shows a story the caller started as waiting, with its opening and one writer", async () => {
     clock.now = T0;
     const ana = newBrowser();
-    const storyId = await createStory(ana, "Ana", "The bell rang once.");
+    const storyId = await createStory(ana, nameInTest("Ana"), "The bell rang once.");
 
     expect(await listStories(ana)).toEqual([
       {
@@ -74,13 +75,17 @@ describe("GET /api/stories", () => {
     const ana = newBrowser();
     const ben = newBrowser();
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId, nameInTest("Ben"));
 
     const [forAna] = await listStories(ana);
     const [forBen] = await listStories(ben);
 
-    expect(forAna).toMatchObject({ holderName: "Ben", isMyTurn: false, writerCount: 2 });
-    expect(forBen).toMatchObject({ holderName: "Ben", isMyTurn: true, writerCount: 2 });
+    expect(forAna).toMatchObject({
+      holderName: nameInTest("Ben"),
+      isMyTurn: false,
+      writerCount: 2,
+    });
+    expect(forBen).toMatchObject({ holderName: nameInTest("Ben"), isMyTurn: true, writerCount: 2 });
     expect(forBen?.endsAt).toBe(T0 + TURN_WINDOW_MS);
   });
 
@@ -90,7 +95,7 @@ describe("GET /api/stories", () => {
     const ben = newBrowser();
     const first = await createStory(ana);
     const second = await createStory(ana);
-    const third = await createStory(ben);
+    const third = await createStory(ben, nameInTest("Ben"));
 
     expect((await listStories(ana)).map(({ id }) => id).toSorted()).toEqual(
       [first, second].toSorted(),
@@ -103,7 +108,7 @@ describe("GET /api/stories", () => {
     const ana = newBrowser();
     const ben = newBrowser();
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId, nameInTest("Ben"));
 
     await ben.post(`/api/stories/${storyId}/leave`, {});
     expect(await listStories(ben)).toEqual([]);
@@ -118,7 +123,7 @@ describe("GET /api/stories", () => {
     const ana = newBrowser();
     const ben = newBrowser();
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId, nameInTest("Ben"));
 
     await ben.post(`/api/stories/${storyId}/leave`, {});
 
@@ -131,14 +136,14 @@ describe("GET /api/stories", () => {
     const ben = newBrowser();
     // Ben starts `quiet` and `recent`, and Ana joins and takes the turn in each. Ana starts `mine`
     // last, so it has the newest passage, but Ben holds the turn in it.
-    const quiet = await createStory(ben, "Ben", "Quiet.");
-    await joinStory(ana, quiet, "Ana");
+    const quiet = await createStory(ben, nameInTest("Ben"), "Quiet.");
+    await joinStory(ana, quiet, nameInTest("Ana"));
     clock.now = T0 + 1000;
-    const recent = await createStory(ben, "Ben", "Recent.");
-    await joinStory(ana, recent, "Ana");
+    const recent = await createStory(ben, nameInTest("Ben"), "Recent.");
+    await joinStory(ana, recent, nameInTest("Ana"));
     clock.now = T0 + 2000;
-    const mine = await createStory(ana, "Ana", "Mine.");
-    await joinStory(ben, mine, "Ben");
+    const mine = await createStory(ana, nameInTest("Ana"), "Mine.");
+    await joinStory(ben, mine, nameInTest("Ben"));
 
     const order = (await listStories(ana)).map(({ id }) => id);
 
@@ -151,12 +156,12 @@ describe("GET /api/stories", () => {
     const ben = newBrowser();
     const cal = newBrowser();
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
-    await joinStory(cal, storyId, "Cal");
+    await joinStory(ben, storyId, nameInTest("Ben"));
+    await joinStory(cal, storyId, nameInTest("Cal"));
     clock.now = T0 + TURN_WINDOW_MS;
 
     expect(await listStories(ana)).toMatchObject([
-      { holderName: "Cal", isMyTurn: false, endsAt: T0 + 2 * TURN_WINDOW_MS },
+      { holderName: nameInTest("Cal"), isMyTurn: false, endsAt: T0 + 2 * TURN_WINDOW_MS },
     ]);
     expect(await listStories(cal)).toMatchObject([{ isMyTurn: true }]);
   });
@@ -164,11 +169,11 @@ describe("GET /api/stories", () => {
   it("pages the list with limit and cursor, and ends with a null cursor", async () => {
     clock.now = T0;
     const ana = newBrowser();
-    const first = await createStory(ana, "Ana", "First.");
+    const first = await createStory(ana, nameInTest("Ana"), "First.");
     clock.now = T0 + 1000;
-    const second = await createStory(ana, "Ana", "Second.");
+    const second = await createStory(ana, nameInTest("Ana"), "Second.");
     clock.now = T0 + 2000;
-    const third = await createStory(ana, "Ana", "Third.");
+    const third = await createStory(ana, nameInTest("Ana"), "Third.");
 
     const page1 = await listPage(ana, "limit=2");
     const page2 = await listPage(ana, `limit=2&cursor=${page1.nextCursor ?? ""}`);

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import {
-  contributionsTableSchema,
   participantsTableSchema,
+  passagesTableSchema,
   pushSubscriptionsTableSchema,
   storiesTableSchema,
   usersTableSchema,
@@ -28,25 +28,20 @@ export const storyRowSchema = z.intersection(
 );
 export type StoryRow = z.infer<typeof storyRowSchema>;
 
-export const participantRowSchema = participantsTableSchema.pick({
-  id: true,
-  displayName: true,
-  displayNameKey: true,
-  position: true,
-  userId: true,
-  leftAt: true,
-});
+/** A participant with their user's display name, which every participant's user has. */
+export const participantRowSchema = participantsTableSchema
+  .pick({ id: true, position: true, userId: true, leftAt: true })
+  .extend({ displayName: usersTableSchema.shape.displayName.unwrap() });
 export type ParticipantRow = z.infer<typeof participantRowSchema>;
 
-/** A contribution with its author's name, as the story view shows it. */
-export const contributionRowSchema = contributionsTableSchema
-  .pick({ id: true, text: true, createdAt: true })
+/** A passage with its author's name, as the story view shows it. */
+export const passageRowSchema = passagesTableSchema
+  .pick({ id: true, authorId: true, text: true, createdAt: true })
   .extend({
-    authorId: contributionsTableSchema.shape.participantId,
-    authorName: participantsTableSchema.shape.displayName,
-    startsParagraph: contributionsTableSchema.shape.startsParagraph.transform((flag) => flag === 1),
+    authorName: usersTableSchema.shape.displayName.unwrap(),
+    startsParagraph: passagesTableSchema.shape.startsParagraph.transform((flag) => flag === 1),
   });
-export type ContributionRow = z.infer<typeof contributionRowSchema>;
+export type PassageRow = z.infer<typeof passageRowSchema>;
 
 /** A story the caller is in, with the position they hold in its turn order. */
 export const myStoryRowSchema = z.intersection(
@@ -56,25 +51,27 @@ export const myStoryRowSchema = z.intersection(
 export type MyStoryRow = z.infer<typeof myStoryRowSchema>;
 
 /** One writer who has not left a story, for the list of a user's stories. */
-export const storyWriterRowSchema = participantsTableSchema.pick({
-  storyId: true,
-  displayName: true,
-  position: true,
-});
+export const storyWriterRowSchema = participantsTableSchema
+  .pick({ storyId: true, position: true })
+  .extend({ displayName: usersTableSchema.shape.displayName.unwrap() });
 export type StoryWriterRow = z.infer<typeof storyWriterRowSchema>;
 
 /** A story's first passage and when its newest passage was written. */
-export const storyPassageRowSchema = contributionsTableSchema.pick({ storyId: true }).extend({
-  opening: contributionsTableSchema.shape.text,
-  latestAt: contributionsTableSchema.shape.createdAt,
+export const storyPassageRowSchema = passagesTableSchema.pick({ storyId: true }).extend({
+  opening: passagesTableSchema.shape.text,
+  latestAt: passagesTableSchema.shape.createdAt,
 });
 export type StoryPassageRow = z.infer<typeof storyPassageRowSchema>;
 
-export const openingRowSchema = contributionsTableSchema.pick({ text: true });
+export const openingRowSchema = passagesTableSchema.pick({ text: true });
 
 export const participantStoryIdRowSchema = participantsTableSchema.pick({ storyId: true });
 
-export const userRowSchema = usersTableSchema.pick({ id: true });
+export const userRowSchema = usersTableSchema.pick({
+  id: true,
+  displayName: true,
+  displayNameKey: true,
+});
 export type UserRow = z.infer<typeof userRowSchema>;
 
 /** What a push needs to reach one browser. */

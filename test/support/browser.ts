@@ -1,4 +1,6 @@
 import type { Hono } from "hono";
+import { expect } from "vitest";
+
 import {
   createStoryResponseSchema,
   errorBodySchema,
@@ -57,6 +59,11 @@ export interface Browser {
   sessionToken: string | null;
   /** Sent as `X-Device-Token` on every request while set; null sends none. */
   deviceToken: string | null;
+  /**
+   * The display name the helpers (`createStory`, `joinStory`) sent for this browser's user. A user
+   * has one name in every story, so the helpers send a name only while this is null.
+   */
+  displayName: string | null;
   /** Raw cookie values by name. */
   cookies: Map<string, string>;
   /** Promises the app passed to `waitUntil`, in order. A hung one stays pending forever. */
@@ -160,6 +167,7 @@ export function createBrowser(app: TestApp, env: Env, origin = "http://localhost
   const browser: Browser = {
     sessionToken: null,
     deviceToken: null,
+    displayName: null,
     cookies,
     backgroundWork: background,
     get: (path, options = {}) => send(path, { headers: options.headers ?? {} }, options),
@@ -209,14 +217,59 @@ export function newDeviceToken(): string {
   ).join("");
 }
 
-/** Creates a story as `browser` and returns its ID. */
+let writerCount = 0;
+
+/**
+ * A display name no earlier call returned, starting with `first`. A display name is unique across
+ * users, and the tests in one file share a database, so a test must not reuse a name another test
+ * gave a user.
+ */
+export function newDisplayName(first = "Writer"): string {
+  writerCount += 1;
+
+  return `${first} ${String(writerCount)}`;
+}
+
+const namesInTests = new Map<string, string>();
+
+/**
+ * The display name `first` stands for in the running test: `newDisplayName(first)` on the test's
+ * first call, and the same name on every later call in that test. A test writes `nameInTest("Ana")`
+ * where it means "Ana", so it can assert on the name and still hold one no other test holds.
+ */
+export function nameInTest(first: string): string {
+  const { currentTestName, testPath } = expect.getState();
+  if (currentTestName === undefined) {
+    throw new Error("nameInTest runs only inside a test");
+  }
+
+  const key = JSON.stringify([testPath, currentTestName, first]);
+  const known = namesInTests.get(key);
+  if (known !== undefined) {
+    return known;
+  }
+
+  const name = newDisplayName(first);
+  namesInTests.set(key, name);
+
+  return name;
+}
+
+/**
+ * Creates a story as `browser` and returns its ID. A browser that already has a name sends none
+ * (see `Browser.displayName`).
+ */
 export async function createStory(
   browser: Browser,
-  displayName = "Ana",
+  displayName = newDisplayName(),
   opening = "Once upon a time.",
 ): Promise<string> {
-  const response = await browser.post("/api/stories", { displayName, opening });
+  const response = await browser.post("/api/stories", {
+    ...nameToSend(browser, displayName),
+    opening,
+  });
   expectStatus(response, 201);
+  browser.displayName ??= displayName;
 
   return createStoryResponseSchema.parse(await response.json()).storyId;
 }
@@ -235,12 +288,21 @@ export async function readError(response: Response): Promise<string> {
 export async function joinStory(
   browser: Browser,
   storyId: string,
-  displayName: string,
+  displayName = newDisplayName(),
 ): Promise<string> {
-  const response = await browser.post(`/api/stories/${storyId}/participants`, { displayName });
+  const response = await browser.post(
+    `/api/stories/${storyId}/participants`,
+    nameToSend(browser, displayName),
+  );
   expectStatus(response, 201);
+  browser.displayName ??= displayName;
 
   return joinResponseSchema.parse(await response.json()).participantId;
+}
+
+// A user who already has a name must send none, so the name goes out only on a browser's first request.
+function nameToSend(browser: Browser, displayName: string): { displayName?: string } {
+  return browser.displayName === null ? { displayName } : {};
 }
 
 function expectStatus(response: Response, status: number): void {

@@ -6,11 +6,13 @@ import {
   createStory,
   createTestApp,
   joinStory,
+  newDisplayName,
   readError,
   readStory,
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -34,7 +36,7 @@ describe("story access", () => {
     clock.now = T0;
     const [ana, ben] = [newBrowser(), newBrowser()];
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId);
 
     return { ana, ben, storyId };
   }
@@ -71,7 +73,7 @@ describe("story access", () => {
       const { storyId } = await twoPersonStory();
       const stranger = newBrowser();
       const outsider = newBrowser();
-      await createStory(outsider);
+      await createStory(outsider, nameInTest("Outsider"));
 
       for (const browser of [stranger, outsider]) {
         const response = await browser.get(`/api/stories/${storyId}`);
@@ -103,7 +105,7 @@ describe("story access", () => {
   describe("joining", () => {
     it("answers 404 for an unknown story", async () => {
       const response = await newBrowser().post("/api/stories/zzzzz/participants", {
-        displayName: "Ben",
+        displayName: nameInTest("Ben"),
       });
 
       expect(response.status).toBe(404);
@@ -112,31 +114,16 @@ describe("story access", () => {
     it("answers 409 already_joined when the browser is already in the story", async () => {
       const { ben, storyId } = await twoPersonStory();
 
-      const response = await ben.post(`/api/stories/${storyId}/participants`, {
-        displayName: "Benny",
-      });
+      const response = await ben.post(`/api/stories/${storyId}/participants`, {});
 
       expect(response.status).toBe(409);
       expect(await readError(response)).toBe("already_joined");
     });
 
-    it("answers 409 name_taken for a name in use, whatever its case", async () => {
-      const { storyId } = await twoPersonStory();
-
-      for (const displayName of ["Ana", "ANA", " ana "]) {
-        const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
-          displayName,
-        });
-
-        expect(response.status).toBe(409);
-        expect(await readError(response)).toBe("name_taken");
-      }
-    });
-
     it("answers 400 invalid_display_name for an empty or too long name", async () => {
       const { storyId } = await twoPersonStory();
 
-      for (const displayName of ["   ", "x".repeat(41)]) {
+      for (const displayName of [undefined, "   ", "x".repeat(41)]) {
         const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
           displayName,
         });
@@ -161,7 +148,7 @@ describe("story access", () => {
     it("answers 403 not_participant to a non-participant", async () => {
       const { storyId } = await twoPersonStory();
 
-      const response = await newBrowser().post(`/api/stories/${storyId}/contributions`, {
+      const response = await newBrowser().post(`/api/stories/${storyId}/passages`, {
         text: "Hi.",
         turnVersion: 1,
         startsParagraph: false,
@@ -174,7 +161,7 @@ describe("story access", () => {
     it("answers 403 not_your_turn to a participant who isn't the holder", async () => {
       const { ana, storyId } = await twoPersonStory();
 
-      const response = await ana.post(`/api/stories/${storyId}/contributions`, {
+      const response = await ana.post(`/api/stories/${storyId}/passages`, {
         text: "Hi.",
         turnVersion: 1,
         startsParagraph: false,
@@ -187,7 +174,7 @@ describe("story access", () => {
     it("answers 409 stale_turn for an old version and writes nothing", async () => {
       const { ben, storyId } = await twoPersonStory();
 
-      const response = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const response = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Hi.",
         turnVersion: 0,
         startsParagraph: false,
@@ -195,14 +182,14 @@ describe("story access", () => {
 
       expect(response.status).toBe(409);
       expect(await readError(response)).toBe("stale_turn");
-      expect((await readStory(ben, storyId)).contributions).toHaveLength(1);
+      expect((await readStory(ben, storyId)).passages).toHaveLength(1);
     });
 
     it("answers 400 invalid_passage for an empty or too long passage", async () => {
       const { ben, storyId } = await twoPersonStory();
 
       for (const text of ["  ", "x".repeat(281)]) {
-        const response = await ben.post(`/api/stories/${storyId}/contributions`, {
+        const response = await ben.post(`/api/stories/${storyId}/passages`, {
           text,
           turnVersion: 1,
           startsParagraph: false,
@@ -216,7 +203,7 @@ describe("story access", () => {
     it("accepts a passage of exactly 280 graphemes", async () => {
       const { ben, storyId } = await twoPersonStory();
 
-      const response = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const response = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "x".repeat(280),
         turnVersion: 1,
         startsParagraph: false,
@@ -226,7 +213,7 @@ describe("story access", () => {
     });
 
     it("answers 404 for an unknown story", async () => {
-      const response = await newBrowser().post("/api/stories/zzzzz/contributions", {
+      const response = await newBrowser().post("/api/stories/zzzzz/passages", {
         text: "Hi.",
         turnVersion: 0,
         startsParagraph: false,
@@ -239,7 +226,7 @@ describe("story access", () => {
       const { ben, storyId } = await twoPersonStory();
 
       clock.now = T0 + 24 * 60 * 60 * 1000;
-      const response = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const response = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Late.",
         turnVersion: 1,
         startsParagraph: false,
@@ -280,7 +267,7 @@ describe("story access", () => {
 
     it("answers 409 no_one_to_skip_to when the skip would come straight back", async () => {
       const { ben, storyId } = await twoPersonStory();
-      await ben.post(`/api/stories/${storyId}/contributions`, {
+      await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Hi.",
         turnVersion: 1,
         startsParagraph: false,
@@ -309,10 +296,10 @@ describe("story access", () => {
     it("answers 403 forbidden_origin to a foreign or missing Origin on every POST route", async () => {
       const { ben, storyId } = await twoPersonStory();
       const routes: [string, unknown][] = [
-        ["/api/stories", { displayName: "Zed", opening: "Hi." }],
-        [`/api/stories/${storyId}/participants`, { displayName: "Zed" }],
+        ["/api/stories", { displayName: nameInTest("Zed"), opening: "Hi." }],
+        [`/api/stories/${storyId}/participants`, { displayName: nameInTest("Zed") }],
         [
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Hi.", turnVersion: 1, startsParagraph: false },
         ],
         [`/api/stories/${storyId}/skip`, { turnVersion: 1 }],
@@ -326,7 +313,7 @@ describe("story access", () => {
           expect(await readError(response)).toBe("forbidden_origin");
         }
       }
-      expect((await readStory(ben, storyId)).contributions).toHaveLength(1);
+      expect((await readStory(ben, storyId)).passages).toHaveLength(1);
     });
 
     it("checks the Origin before it reads the body", async () => {
@@ -347,7 +334,7 @@ describe("story access", () => {
     });
 
     it("answers 400 bad_request to a POST that isn't application/json", async () => {
-      const body = { displayName: "Zed", opening: "Hi." };
+      const body = { displayName: nameInTest("Zed"), opening: "Hi." };
 
       for (const contentType of [
         null,
@@ -366,7 +353,7 @@ describe("story access", () => {
     it("treats a Content-Type with spaces around the semicolon as JSON", async () => {
       const response = await newBrowser().post(
         "/api/stories",
-        { displayName: "Zed", opening: "Hi." },
+        { displayName: newDisplayName(), opening: "Hi." },
         { contentType: "application/json ; charset=utf-8" },
       );
 
@@ -390,9 +377,8 @@ describe("story access", () => {
     });
 
     it("accepts application/json with parameters and any case", async () => {
-      const body = { displayName: "Zed", opening: "Hi." };
-
       for (const contentType of ["application/json; charset=utf-8", "Application/JSON"]) {
+        const body = { displayName: newDisplayName(), opening: "Hi." };
         const response = await newBrowser().post("/api/stories", body, { contentType });
 
         expect(response.status).toBe(201);
@@ -404,32 +390,32 @@ describe("story access", () => {
       const attempts: [string, unknown, string | undefined][] = [
         ["/api/stories", undefined, "{nope"],
         ["/api/stories", undefined, ""],
-        ["/api/stories", { displayName: "Zed" }, undefined],
+        ["/api/stories", { displayName: nameInTest("Zed") }, undefined],
         ["/api/stories", { displayName: 1, opening: "Hi." }, undefined],
         ["/api/stories", [], undefined],
-        [`/api/stories/${storyId}/contributions`, { text: "Hi.", turnVersion: 1 }, undefined],
+        [`/api/stories/${storyId}/passages`, { text: "Hi.", turnVersion: 1 }, undefined],
         [
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Hi.", turnVersion: 1, startsParagraph: "yes" },
           undefined,
         ],
         [
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Hi.", turnVersion: "1", startsParagraph: false },
           undefined,
         ],
         [
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Hi.", turnVersion: -1, startsParagraph: false },
           undefined,
         ],
         [
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Hi.", turnVersion: 1.5, startsParagraph: false },
           undefined,
         ],
         [`/api/stories/${storyId}/skip`, {}, undefined],
-        [`/api/stories/${storyId}/participants`, {}, undefined],
+        [`/api/stories/${storyId}/participants`, { displayName: 1 }, undefined],
       ];
 
       for (const [path, body, rawBody] of attempts) {
@@ -441,9 +427,10 @@ describe("story access", () => {
     });
 
     it("answers 413 to a body over the size cap, and accepts one exactly at it", async () => {
-      const envelope = JSON.stringify({ displayName: "Zed", opening: "Hi.", pad: "" });
+      const displayName = newDisplayName();
+      const envelope = JSON.stringify({ displayName, opening: "Hi.", pad: "" });
       const atCap = JSON.stringify({
-        displayName: "Zed",
+        displayName,
         opening: "Hi.",
         pad: "p".repeat(MAX_BODY_BYTES - envelope.length),
       });
@@ -500,9 +487,11 @@ describe("story access", () => {
       const responses = [
         await ana.get(`/api/stories/${storyId}`),
         await newBrowser().get(`/api/stories/${storyId}`),
-        await newBrowser().post(`/api/stories/${storyId}/participants`, { displayName: "Cat" }),
-        await newBrowser().post("/api/stories", { displayName: "Zed", opening: "Hi." }),
-        await ben.post(`/api/stories/${storyId}/contributions`, {
+        await newBrowser().post(`/api/stories/${storyId}/participants`, {
+          displayName: newDisplayName(),
+        }),
+        await newBrowser().post("/api/stories", { displayName: nameInTest("Zed"), opening: "Hi." }),
+        await ben.post(`/api/stories/${storyId}/passages`, {
           text: "Hi.",
           turnVersion: 1,
           startsParagraph: false,
@@ -518,33 +507,34 @@ describe("story access", () => {
     });
 
     it("still sets the cookie when a join is rejected, and that cookie then works", async () => {
-      const { ana, storyId } = await twoPersonStory();
+      const { ana, ben, storyId } = await twoPersonStory();
       const cat = newBrowser();
 
       const rejected = await cat.post(`/api/stories/${storyId}/participants`, {
-        displayName: "Ana",
+        displayName: ana.displayName,
       });
       const token = cat.cookies.get("andthen_bt");
-      await joinStory(cat, storyId, "Cat");
+      await joinStory(cat, storyId);
 
       expect(rejected.status).toBe(409);
       expect(rejected.headers.get("Set-Cookie")).toMatch(/^andthen_bt=/);
       expect(cat.cookies.get("andthen_bt")).toBe(token);
       expect((await readStory(ana, storyId)).participants.map((p) => p.displayName)).toEqual([
-        "Ana",
-        "Ben",
-        "Cat",
+        ana.displayName,
+        ben.displayName,
+        cat.displayName,
       ]);
     });
   });
 
   describe("creating", () => {
     it("answers 400 for an invalid name or opening, and checks the name first", async () => {
-      const cases: [string, string, string][] = [
+      const cases: [string | undefined, string, string][] = [
+        [undefined, "Hi.", "invalid_display_name"],
         ["", "Hi.", "invalid_display_name"],
         ["x".repeat(41), "Hi.", "invalid_display_name"],
-        ["Ana", " ", "invalid_passage"],
-        ["Ana", "x".repeat(281), "invalid_passage"],
+        [nameInTest("Ana"), " ", "invalid_passage"],
+        [nameInTest("Ana"), "x".repeat(281), "invalid_passage"],
         ["", "", "invalid_display_name"],
       ];
 
@@ -553,6 +543,42 @@ describe("story access", () => {
 
         expect(response.status).toBe(400);
         expect(await readError(response)).toBe(code);
+      }
+    });
+
+    it("gives a user one name in every story: later stories send none, a name is refused", async () => {
+      const { ana, storyId } = await twoPersonStory();
+      const second = await createStory(ana);
+      const other = await createStory(newBrowser(), nameInTest("Zoe"));
+
+      const view = await readStory(ana, second);
+      const refusals = [
+        await ana.post("/api/stories", { displayName: nameInTest("Anna"), opening: "Hi." }),
+        await ana.post(`/api/stories/${other}/participants`, { displayName: nameInTest("Anna") }),
+      ];
+
+      expect(view.passages.map((p) => p.authorName)).toEqual([ana.displayName]);
+      expect((await readStory(ana, storyId)).passages[0]?.authorName).toBe(ana.displayName);
+      expect(refusals.map((response) => response.status)).toEqual([400, 400]);
+      expect(await Promise.all(refusals.map(readError))).toEqual(["bad_request", "bad_request"]);
+    });
+
+    it("answers 409 name_taken to a name held by a user in another story, whatever its case", async () => {
+      const { ana } = await twoPersonStory();
+      const taken = ana.displayName ?? "";
+      const elsewhere = await createStory(newBrowser());
+
+      for (const displayName of [taken.toUpperCase(), ` ${taken.toLowerCase()} `]) {
+        const created = await newBrowser().post("/api/stories", { displayName, opening: "Hi." });
+        const joined = await newBrowser().post(`/api/stories/${elsewhere}/participants`, {
+          displayName,
+        });
+
+        expect([created.status, joined.status]).toEqual([409, 409]);
+        expect([await readError(created), await readError(joined)]).toEqual([
+          "name_taken",
+          "name_taken",
+        ]);
       }
     });
 

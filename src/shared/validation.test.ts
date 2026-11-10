@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  chooseDisplayName,
   displayNameKey,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_PASSAGE_LENGTH,
@@ -152,6 +153,44 @@ describe("displayNameKey", () => {
   it("ignores surrounding whitespace", () => {
     expect(displayNameKey(" Ana ")).toBe("ana");
   });
+});
+
+describe("chooseDisplayName", () => {
+  it("takes a valid name from a user who has none, with its key", () => {
+    expect(chooseDisplayName("  Ana  ", null)).toEqual({
+      ok: true,
+      value: { displayName: "Ana", displayNameKey: displayNameKey("Ana") },
+    });
+  });
+
+  it("keys a name the way displayNameKey does, ignoring case", () => {
+    expect(chooseDisplayName("ANA", null)).toEqual({
+      ok: true,
+      value: { displayName: "ANA", displayNameKey: displayNameKey("ana") },
+    });
+  });
+
+  it.each([
+    ["no name", undefined],
+    ["a blank name", "   "],
+    ["a name over the limit", "x".repeat(MAX_DISPLAY_NAME_LENGTH + 1)],
+  ])("refuses %s from a user who has none", (_case, requested) => {
+    expect(chooseDisplayName(requested, null)).toEqual({
+      ok: false,
+      reason: "invalid_display_name",
+    });
+  });
+
+  it("changes nothing when a user who has a name sends none", () => {
+    expect(chooseDisplayName(undefined, "Ana")).toEqual({ ok: true, value: null });
+  });
+
+  it.each(["Ana", "Ben", "", "   "])(
+    "refuses any name (%j) from a user who has one, because it would read as a rename",
+    (requested) => {
+      expect(chooseDisplayName(requested, "Ana")).toEqual({ ok: false, reason: "bad_request" });
+    },
+  );
 });
 
 describe("normaliseStoryId", () => {

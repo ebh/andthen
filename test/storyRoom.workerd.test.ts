@@ -116,7 +116,7 @@ describe("StoryRoom in workerd", () => {
       const token = await signSessionToken("user_workerd_live", origin);
       const created = await post(
         "/api/stories",
-        { displayName: "Ana", opening: "Once upon a time." },
+        { displayName: uniqueName("Ana"), opening: "Once upon a time." },
         { Authorization: `Bearer ${token}` },
       );
       const { storyId } = createStoryResponseSchema.parse(await created.json());
@@ -196,7 +196,7 @@ describe("StoryRoom in workerd", () => {
       const { turn } = await readStory(ana.storyId, ben.cookie);
 
       const written = await post(
-        `/api/stories/${ana.storyId}/contributions`,
+        `/api/stories/${ana.storyId}/passages`,
         { text: "And then.", turnVersion: turn.version, startsParagraph: false },
         ben.cookie,
       );
@@ -234,7 +234,7 @@ describe("StoryRoom in workerd", () => {
       const heardSentinel = nextMessage(zedSocket);
       const { turn: zedsTurn } = await readStory(zed.storyId, yan.cookie);
       const written = await post(
-        `/api/stories/${zed.storyId}/contributions`,
+        `/api/stories/${zed.storyId}/passages`,
         { text: "Zed's story moves on.", turnVersion: zedsTurn.version, startsParagraph: false },
         yan.cookie,
       );
@@ -251,7 +251,7 @@ describe("StoryRoom in workerd", () => {
       const { turn } = await readStory(ana.storyId, ben.cookie);
 
       const written = await post(
-        `/api/stories/${ana.storyId}/contributions`,
+        `/api/stories/${ana.storyId}/passages`,
         { text: "Nobody listening.", turnVersion: turn.version, startsParagraph: false },
         ben.cookie,
       );
@@ -309,8 +309,19 @@ describe("StoryRoom in workerd", () => {
     }, 15_000);
   });
 
+  // A display name is unique across users, and every request here is from a new user.
+  let namesMade = 0;
+  function uniqueName(displayName: string): string {
+    namesMade += 1;
+
+    return `${displayName} ${String(namesMade)}`;
+  }
+
   async function createStory(displayName: string): Promise<{ storyId: string; cookie: string }> {
-    const response = await post("/api/stories", { displayName, opening: "Once upon a time." });
+    const response = await post("/api/stories", {
+      displayName: uniqueName(displayName),
+      opening: "Once upon a time.",
+    });
     expect(response.status).toBe(201);
     const { storyId } = createStoryResponseSchema.parse(await response.json());
 
@@ -318,7 +329,9 @@ describe("StoryRoom in workerd", () => {
   }
 
   async function join(storyId: string, displayName: string): Promise<{ cookie: string }> {
-    const response = await post(`/api/stories/${storyId}/participants`, { displayName });
+    const response = await post(`/api/stories/${storyId}/participants`, {
+      displayName: uniqueName(displayName),
+    });
     expect(response.status).toBe(201);
 
     return { cookie: cookieFrom(response.headers.getSetCookie()) };

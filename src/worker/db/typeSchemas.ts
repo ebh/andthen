@@ -2,20 +2,20 @@ import { z } from "zod";
 
 import type { TurnState } from "../../shared/turnOrder";
 import {
-  contributionRowSchema,
   databaseColumnRowSchema,
   foreignKeyRowSchema,
   indexRowSchema,
   myStoryRowSchema,
   participantRowSchema,
+  passageRowSchema,
   storyPassageRowSchema,
   storyRowSchema,
   storyWriterRowSchema,
   tableSqlRowSchema,
 } from "./rows";
 import {
-  contributionsTableSchema,
   participantsTableSchema,
+  passagesTableSchema,
   pushSubscriptionsTableSchema,
   storiesTableSchema,
   suggestionRequestsTableSchema,
@@ -28,7 +28,7 @@ const turnStateSchema = z.custom<TurnState>();
 
 const loadedStorySchema = z.object({
   story: storyRowSchema,
-  /** Everyone who ever joined, in turn order. A leaver keeps their row, and their name stays taken. */
+  /** Everyone who ever joined, in turn order. A leaver keeps their row, and their place if they rejoin. */
   participants: z.array(participantRowSchema),
   /** The participants who have not left, in turn order. They hold the turn and fill the cap. */
   activeParticipants: z.array(participantRowSchema),
@@ -39,12 +39,12 @@ const loadedStorySchema = z.object({
 });
 export type LoadedStory = z.infer<typeof loadedStorySchema>;
 
-/** A loaded story with its contributions, oldest first. */
-const loadedStoryWithContributionsSchema = z.object({
+/** A loaded story with its passages, oldest first. */
+const loadedStoryWithPassagesSchema = z.object({
   loaded: loadedStorySchema,
-  contributions: z.array(contributionRowSchema),
+  passages: z.array(passageRowSchema),
 });
-export type LoadedStoryWithContributions = z.infer<typeof loadedStoryWithContributionsSchema>;
+export type LoadedStoryWithPassages = z.infer<typeof loadedStoryWithPassagesSchema>;
 
 /** What the list of one user's stories is built from. */
 const myStoryRowsSchema = z.object({
@@ -57,12 +57,17 @@ export type MyStoryRows = z.infer<typeof myStoryRowsSchema>;
 
 const newParticipantSchema = participantsTableSchema.pick({
   id: true,
-  displayName: true,
-  displayNameKey: true,
   position: true,
   userId: true,
 });
 export type NewParticipant = z.infer<typeof newParticipantSchema>;
+
+/** The name a user takes when they start or join their first story. */
+const newDisplayNameSchema = z.object({
+  displayName: usersTableSchema.shape.displayName.unwrap(),
+  displayNameKey: usersTableSchema.shape.displayNameKey.unwrap(),
+});
+export type NewDisplayName = z.infer<typeof newDisplayNameSchema>;
 
 const createStoryInputSchema = z.object({
   storyId: storiesTableSchema.shape.id,
@@ -70,19 +75,21 @@ const createStoryInputSchema = z.object({
   /** `newStoryState()`. */
   state: turnStateSchema,
   creator: newParticipantSchema,
-  opening: contributionsTableSchema.pick({ id: true, text: true }),
+  /** Null when the creator's user already has a name. */
+  displayName: newDisplayNameSchema.nullable(),
+  opening: passagesTableSchema.pick({ id: true, text: true }),
 });
 export type CreateStoryInput = z.infer<typeof createStoryInputSchema>;
 
-const appendContributionInputSchema = z.object({
+const appendPassageInputSchema = z.object({
   storyId: storiesTableSchema.shape.id,
   loadedVersion: z.number(),
   next: turnStateSchema,
-  contribution: contributionsTableSchema
-    .pick({ id: true, participantId: true, text: true, createdAt: true })
+  passage: passagesTableSchema
+    .pick({ id: true, authorId: true, text: true, createdAt: true })
     .extend({ startsParagraph: z.boolean() }),
 });
-export type AppendContributionInput = z.infer<typeof appendContributionInputSchema>;
+export type AppendPassageInput = z.infer<typeof appendPassageInputSchema>;
 
 const leaveStoryInputSchema = z.object({
   storyId: storiesTableSchema.shape.id,
@@ -108,6 +115,8 @@ const addParticipantInputSchema = z.object({
   loadedVersion: z.number(),
   next: turnStateSchema,
   participant: newParticipantSchema,
+  /** Null when the joiner's user already has a name. */
+  displayName: newDisplayNameSchema.nullable(),
   joinedAt: participantsTableSchema.shape.joinedAt,
 });
 export type AddParticipantInput = z.infer<typeof addParticipantInputSchema>;

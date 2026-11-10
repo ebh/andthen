@@ -8,7 +8,6 @@ import { buildStoryView } from "./storyView";
 const ana: ParticipantRow = {
   id: "p0",
   displayName: "Ana",
-  displayNameKey: "ana",
   position: 0,
   userId: "u0",
   leftAt: null,
@@ -17,7 +16,6 @@ const ana: ParticipantRow = {
 const ben: ParticipantRow = {
   id: "p1",
   displayName: "Ben",
-  displayNameKey: "ben",
   position: 1,
   userId: "u1",
   leftAt: null,
@@ -62,8 +60,8 @@ describe("buildStoryView", () => {
     const view = buildStoryView(running, [], ana, 100);
 
     expect(view).toEqual({
-      contributions: [],
-      participants: [{ id: "p0", displayName: "Ana" }],
+      passages: [],
+      participants: [{ id: "p0", userId: "u0", displayName: "Ana" }],
       turn: { holderId: "p0", endsAt: 100 + TURN_WINDOW_MS, version: 1 },
       me: "p0",
     });
@@ -80,7 +78,7 @@ describe("buildStoryView", () => {
 
     const view = buildStoryView(afterLeave, [], ana, 100);
 
-    expect(view.participants).toEqual([{ id: "p0", displayName: "Ana" }]);
+    expect(view.participants).toEqual([{ id: "p0", userId: "u0", displayName: "Ana" }]);
     expect(view.turn.holderId).toBe("p0");
   });
 

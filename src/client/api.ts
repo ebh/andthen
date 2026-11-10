@@ -2,21 +2,23 @@ import { z } from "zod";
 
 import { API_LEVEL, API_LEVEL_HEADER } from "../shared/apiLevel";
 import {
-  contributeResponseSchema,
+  createPassageResponseSchema,
   createStoryResponseSchema,
   errorBodySchema,
   errorCodeSchema,
   joinResponseSchema,
+  meResponseSchema,
   myStoriesResponseSchema,
   vapidPublicKeyResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
-  type ContributeRequest,
-  type ContributeResponse,
+  type CreatePassageRequest,
+  type CreatePassageResponse,
   type CreateStoryRequest,
   type CreateStoryResponse,
   type JoinRequest,
   type JoinResponse,
+  type MeResponse,
   type MyStoriesResponse,
   type PlainErrorCode,
   type VapidPublicKeyResponse,
@@ -54,6 +56,11 @@ export function createStory(request: CreateStoryRequest): Promise<ApiResult<Crea
   return call("/api/stories", postJson(request), createStoryResponseSchema);
 }
 
+/** The requesting user's display name; null until they have chosen one. Creates no user. */
+export function fetchMe(): Promise<ApiResult<MeResponse>> {
+  return call("/api/users/me", { method: "GET" }, meResponseSchema);
+}
+
 export function fetchStory(storyId: string): Promise<ApiResult<StoryView>> {
   return call(storyPath(storyId), { method: "GET" }, storyViewSchema);
 }
@@ -62,11 +69,11 @@ export function joinStory(storyId: string, request: JoinRequest): Promise<ApiRes
   return call(`${storyPath(storyId)}/participants`, postJson(request), joinResponseSchema);
 }
 
-export function contribute(
+export function createPassage(
   storyId: string,
-  request: ContributeRequest,
-): Promise<ApiResult<ContributeResponse>> {
-  return call(`${storyPath(storyId)}/contributions`, postJson(request), contributeResponseSchema);
+  request: CreatePassageRequest,
+): Promise<ApiResult<CreatePassageResponse>> {
+  return call(`${storyPath(storyId)}/passages`, postJson(request), createPassageResponseSchema);
 }
 
 export function skipTurn(storyId: string, turnVersion: number): Promise<ApiResult<null>> {

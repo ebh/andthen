@@ -12,6 +12,7 @@
     "src/shared",
     "src/client/live.ts",
     "src/client/live.test.ts",
+    "src/client/storyRules.ts",
     "test"
   ]
 }

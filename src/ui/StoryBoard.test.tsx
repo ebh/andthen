@@ -111,7 +111,7 @@ describe("composer", () => {
 
   it("sends the passage with the shown turn version and clears it on success", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse(201, { contributionId: "c9" })),
+      Promise.resolve(jsonResponse(201, { passageId: "c9" })),
     );
     vi.stubGlobal("fetch", fetchMock);
     const refetch = renderBoard(myTurn);
@@ -124,7 +124,7 @@ describe("composer", () => {
       expect(screen.getByLabelText("Your passage")).toHaveValue("");
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/contributions",
+      "/api/stories/abc12/passages",
       expect.objectContaining({
         body: JSON.stringify({ text: "And then.", turnVersion: 3, startsParagraph: false }),
       }),
@@ -134,7 +134,7 @@ describe("composer", () => {
 
   it("sends startsParagraph when New paragraph is ticked, then unticks it after sending", async () => {
     const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse(201, { contributionId: "c9" })),
+      Promise.resolve(jsonResponse(201, { passageId: "c9" })),
     );
     vi.stubGlobal("fetch", fetchMock);
     renderBoard(myTurn);
@@ -149,7 +149,7 @@ describe("composer", () => {
       expect(box).not.toBeChecked();
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/contributions",
+      "/api/stories/abc12/passages",
       expect.objectContaining({
         body: JSON.stringify({ text: "A fresh start.", turnVersion: 3, startsParagraph: true }),
       }),
@@ -276,7 +276,7 @@ describe("replacing a draft with a suggestion", () => {
 });
 
 describe("stale pages and notices", () => {
-  it("refetches on 403 not_participant from a contribution, so the page can show the join form", async () => {
+  it("refetches on 403 not_participant from adding a passage, so the page can show the join form", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_participant" })));
     const refetch = renderBoard(myTurn);
     const user = userEvent.setup();

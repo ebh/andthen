@@ -2,11 +2,21 @@ import { hashBrowserToken } from "../../src/worker/cookies";
 import { findUserByBrowserTokenHash } from "../../src/worker/db/userRepo";
 import type { Browser } from "./browser";
 
-/** Adds an anonymous user straight to D1 and returns its ID, which is `id` itself. */
-export async function insertUser(db: Env["DB"], id: string): Promise<string> {
+/**
+ * Adds an anonymous user straight to D1 and returns its ID, which is `id` itself. `displayName`
+ * gives the user a name, with its lowercase form as the key.
+ */
+export async function insertUser(
+  db: Env["DB"],
+  id: string,
+  displayName: string | null = null,
+): Promise<string> {
   await db
-    .prepare("INSERT INTO users (id, browser_token_hash, created_at) VALUES (?, ?, 0)")
-    .bind(id, `hash-of-${id}`)
+    .prepare(
+      `INSERT INTO users (id, browser_token_hash, display_name, display_name_key, created_at)
+       VALUES (?, ?, ?, ?, 0)`,
+    )
+    .bind(id, `hash-of-${id}`, displayName, displayName?.toLowerCase() ?? null)
     .run();
 
   return id;

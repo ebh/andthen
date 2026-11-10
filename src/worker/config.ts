@@ -11,6 +11,12 @@ export const STORY_ID_ATTEMPTS = 5;
 /** Times a merge reloads a story and tries to leave it, when other writes keep moving the turn. */
 export const MERGE_LEAVE_ATTEMPTS = 3;
 
+/**
+ * Times the account route reads the device user and merges it, when the device user was named
+ * between the read and the merge.
+ */
+export const MERGE_ATTEMPTS = 2;
+
 /** Suggestion requests one participant may make in any rolling SUGGESTION_WINDOW_MS. */
 export const SUGGESTION_LIMIT = 3;
 

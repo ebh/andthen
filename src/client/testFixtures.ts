@@ -11,9 +11,14 @@ interface ViewOptions {
   participants: readonly string[];
   /** Null for a waiting story. */
   holderId: string | null;
-  /** Who wrote the most recent passage. */
+  /** The participant who wrote the most recent passage. */
   lastWriterId: string;
   version?: number;
+}
+
+/** The user behind a participant. A passage names its author by user, not by participant. */
+export function userIdOf(participantId: string): string {
+  return `u-${participantId}`;
 }
 
 /** A story view as `me` (ME) sees it. */
@@ -23,20 +28,24 @@ export function storyView({
   lastWriterId,
   version = 3,
 }: ViewOptions): StoryView {
-  const contributions = [
+  const passages = [
     {
       id: "c1",
-      authorId: lastWriterId,
+      authorId: userIdOf(lastWriterId),
       authorName: NAMES[lastWriterId] ?? "?",
       text: "Once upon a time.",
       startsParagraph: true,
       createdAt: 1,
     },
   ];
-  const people = participants.map((id) => ({ id, displayName: NAMES[id] ?? "?" }));
+  const people = participants.map((id) => ({
+    id,
+    userId: userIdOf(id),
+    displayName: NAMES[id] ?? "?",
+  }));
 
   return {
-    contributions,
+    passages,
     participants: people,
     me: ME,
     turn:

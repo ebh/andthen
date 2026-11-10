@@ -2,11 +2,11 @@ import { useId, useState } from "react";
 import type { FocusEvent } from "react";
 import { Button, Label, Paragraph, Switch, Text, XStack, YStack, styled, useMedia } from "tamagui";
 
-import type { ContributionView } from "../shared/api";
+import type { PassageView } from "../shared/api";
 import { groupParagraphs } from "../shared/paragraphs";
 
 interface StoryTextProps {
-  contributions: readonly ContributionView[];
+  passages: readonly PassageView[];
 }
 
 /** One author of one paragraph: the name beside it, and whose turns to highlight. */
@@ -16,7 +16,7 @@ interface AuthorInParagraph {
 }
 
 interface ParagraphViewProps {
-  turns: readonly ContributionView[];
+  turns: readonly PassageView[];
   paragraph: number;
   showAuthors: boolean;
   highlighted: AuthorInParagraph | null;
@@ -36,7 +36,7 @@ const HighlightedTurn = styled(Text, { render: "mark", bg: "highlight", color: "
  * author highlights their turns in the paragraph: hovering with a mouse, keyboard focus, or a
  * press, which pins the highlight until the next one. Text is rendered as plain text.
  */
-export function StoryText({ contributions }: StoryTextProps) {
+export function StoryText({ passages }: StoryTextProps) {
   const media = useMedia();
   const toggleId = useId();
   const [showAuthors, setShowAuthors] = useState(false);
@@ -63,7 +63,7 @@ export function StoryText({ contributions }: StoryTextProps) {
         </XStack>
       )}
       <YStack role="region" aria-label="The story so far" gap="8">
-        {groupParagraphs(contributions).map((turns, paragraph) => (
+        {groupParagraphs(passages).map((turns, paragraph) => (
           <ParagraphView
             key={turns[0]?.id}
             turns={turns}
@@ -207,7 +207,7 @@ function Turn({
   separated,
   highlighted,
 }: {
-  turn: ContributionView;
+  turn: PassageView;
   separated: boolean;
   highlighted: boolean;
 }) {
@@ -219,9 +219,7 @@ function Turn({
   );
 }
 
-function uniqueAuthors(
-  turns: readonly ContributionView[],
-): { authorId: string; authorName: string }[] {
+function uniqueAuthors(turns: readonly PassageView[]): { authorId: string; authorName: string }[] {
   const authors = new Map<string, string>();
   for (const { authorId, authorName } of turns) {
     authors.set(authorId, authorName);

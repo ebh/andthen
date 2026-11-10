@@ -55,6 +55,14 @@ describe("turnAfterLeaving", () => {
     expect(turnAfterLeaving(view)).toEqual({ type: "passes_to", displayName: "Kim" });
   });
 
+  it("finds the last writer by the passage author's user, not the participant ID", () => {
+    // Same setup as the test above; if authors were matched to participant IDs, no one would be found.
+    const view = storyView({ participants: [ME, OTHER, THIRD], holderId: ME, lastWriterId: OTHER });
+
+    expect(view.passages[0]?.authorId).not.toBe(OTHER);
+    expect(turnAfterLeaving(view)).toEqual({ type: "passes_to", displayName: "Kim" });
+  });
+
   it("makes the story wait when the one left wrote last", () => {
     const view = storyView({ participants: [OTHER, ME], holderId: ME, lastWriterId: OTHER });
 

@@ -12,6 +12,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { putPushSubscription } from "./support/pushSubscriptions";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
@@ -49,9 +50,9 @@ describe("passTimedOutTurn", () => {
     const ana = createBrowser(app, env);
     const ben = createBrowser(app, env);
     const cy = createBrowser(app, env);
-    const storyId = await createStory(ana, "Ana", OPENING);
-    await joinStory(ben, storyId, "Ben");
-    await joinStory(cy, storyId, "Cy");
+    const storyId = await createStory(ana, nameInTest("Ana"), OPENING);
+    await joinStory(ben, storyId, nameInTest("Ben"));
+    await joinStory(cy, storyId, nameInTest("Cy"));
 
     return { ben, cy, storyId, sender: createFakePushSender() };
   }
@@ -113,7 +114,7 @@ describe("passTimedOutTurn", () => {
 
   it("does nothing for a story that waits, and for an unknown story", async () => {
     const solo = createBrowser(newApp(), quietRoom(testEnv.env));
-    const storyId = await createStory(solo, "Ana", OPENING);
+    const storyId = await createStory(solo, nameInTest("Ana"), OPENING);
     const sender = createFakePushSender();
 
     expect(await fire(storyId, sender, LAPSED)).toEqual({
@@ -139,7 +140,7 @@ describe("passTimedOutTurn", () => {
         loads += 1;
         if (loads === 1) {
           const version = (await readStory(ben, storyId)).turn.version;
-          const written = await ben.post(`/api/stories/${storyId}/contributions`, {
+          const written = await ben.post(`/api/stories/${storyId}/passages`, {
             text: "Just in time.",
             turnVersion: version,
             startsParagraph: false,

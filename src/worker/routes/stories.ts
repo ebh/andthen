@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 
 import {
-  contributeRequestSchema,
+  createPassageRequestSchema,
   createStoryRequestSchema,
   emptyRequestSchema,
   joinRequestSchema,
   myStoriesQuerySchema,
   skipRequestSchema,
-  type ContributeResponse,
+  type CreatePassageResponse,
   type CreateStoryResponse,
   type JoinResponse,
   type MyStoriesResponse,
@@ -23,28 +23,28 @@ import {
   skip,
 } from "../../shared/turnOrder";
 import {
-  displayNameKey,
+  chooseDisplayName,
   MAX_PARTICIPANTS,
   normaliseStoryId,
-  validateDisplayName,
   validatePassage,
 } from "../../shared/validation";
 import { STORY_ID_ATTEMPTS, SUGGESTION_LIMIT, SUGGESTION_WINDOW_MS } from "../config";
-import type { ParticipantRow } from "../db/rows";
+import type { ParticipantRow, UserRow } from "../db/rows";
 import { releaseSuggestion, reserveSuggestion } from "../db/suggestionRepo";
 import {
   addParticipant,
-  appendContribution,
+  appendPassage,
   createStory,
+  isHeldByAnotherUser,
   loadMyStories,
   loadOpeningText,
   loadStory,
-  loadStoryWithContributions,
+  loadStoryWithPassages,
   rejoinStory,
   saveTurn,
   type Db,
 } from "../db/storyRepo";
-import type { CreateStoryInput, LoadedStory } from "../db/typeSchemas";
+import type { CreateStoryInput, LoadedStory, NewDisplayName } from "../db/typeSchemas";
 import {
   ApiError,
   LeftStoryError,
@@ -78,30 +78,24 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
 
   routes.post("/api/stories", async (c) => {
     const body = await parseJsonBody(c, createStoryRequestSchema);
-    const name = validateDisplayName(body.displayName);
-    if (!name.ok) {
-      throw new ApiError("invalid_display_name");
-    }
+    const known = await resolveMe(c, deps);
+    const displayName = chooseDisplayNameFor(known, body.displayName);
     const opening = validatePassage(body.opening);
     if (!opening.ok) {
       throw new ApiError("invalid_passage");
     }
+    await requireFreeDisplayName(c.env.DB, displayName, known?.id ?? null);
 
     const now = deps.now();
     const user = await requireOrCreateMe(c, deps);
-    const creator = {
-      id: newId(),
-      displayName: name.value,
-      displayNameKey: displayNameKey(name.value),
-      position: 0,
-      userId: user.id,
-    };
+    const creator = { id: newId(), position: 0, userId: user.id };
 
     const storyId = await createUnderFreeId(c.env.DB, deps.newStoryId, STORY_ID_ATTEMPTS, (id) => ({
       storyId: id,
       now,
       state: newStoryState(),
       creator,
+      displayName,
       opening: { id: newId(), text: opening.value },
     }));
     const response: CreateStoryResponse = { storyId };
@@ -133,53 +127,45 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
 
   routes.get("/api/stories/:storyId", async (c) => {
     const storyId = parseStoryId(c.req.param("storyId"));
-    const found = await loadStoryWithContributions(c.env.DB, storyId);
+    const found = await loadStoryWithPassages(c.env.DB, storyId);
     if (found === null) {
       throw new ApiError("not_found");
     }
     const me = await requireParticipant(c, deps, found.loaded);
 
-    return c.json(buildStoryView(found.loaded, found.contributions, me, deps.now()));
+    return c.json(buildStoryView(found.loaded, found.passages, me, deps.now()));
   });
 
   routes.post("/api/stories/:storyId/participants", async (c) => {
     const storyId = parseStoryId(c.req.param("storyId"));
     const body = await parseJsonBody(c, joinRequestSchema);
     const loaded = await requireStory(c, storyId);
-    const name = validateDisplayName(body.displayName);
-    if (!name.ok) {
-      throw new ApiError("invalid_display_name");
-    }
+    const displayName = chooseDisplayNameFor(await resolveMe(c, deps), body.displayName);
 
     const now = deps.now();
     const me = await requireOrCreateMe(c, deps);
-    const key = displayNameKey(name.value);
     if (loaded.participants.some((p) => p.userId === me.id)) {
       throw new ApiError("already_joined");
     }
-    if (loaded.participants.some((p) => p.displayNameKey === key)) {
-      throw new ApiError("name_taken");
-    }
+    await requireFreeDisplayName(c.env.DB, displayName, me.id);
     if (loaded.activeParticipants.length >= MAX_PARTICIPANTS) {
       throw new ApiError("story_full");
     }
 
     const joinedState = onJoin(loaded.state, loaded.nextPosition, now);
-    const participant = {
-      id: newId(),
-      displayName: name.value,
-      displayNameKey: key,
-      position: loaded.nextPosition,
-      userId: me.id,
-    };
+    const participant = { id: newId(), position: loaded.nextPosition, userId: me.id };
     const saved = await addParticipant(c.env.DB, {
       storyId,
       loadedVersion: loaded.state.turnVersion,
       next: joinedState,
       participant,
+      displayName,
       joinedAt: now,
     });
-    if (!saved) {
+    if (saved === "name_taken") {
+      throw new ApiError("name_taken");
+    }
+    if (saved === "refused") {
       throw await joinRefusal(c, storyId);
     }
 
@@ -256,9 +242,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
     return c.body(null, 204);
   });
 
-  routes.post("/api/stories/:storyId/contributions", async (c) => {
+  routes.post("/api/stories/:storyId/passages", async (c) => {
     const storyId = parseStoryId(c.req.param("storyId"));
-    const body = await parseJsonBody(c, contributeRequestSchema);
+    const body = await parseJsonBody(c, createPassageRequestSchema);
     const loaded = await requireStory(c, storyId);
     const me = await requireParticipant(c, deps, loaded);
     const passage = validatePassage(body.text);
@@ -275,14 +261,14 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError(result.reason);
     }
 
-    const contributionId = newId();
-    const saved = await appendContribution(c.env.DB, {
+    const passageId = newId();
+    const saved = await appendPassage(c.env.DB, {
       storyId,
       loadedVersion: loaded.state.turnVersion,
       next: result.state,
-      contribution: {
-        id: contributionId,
-        participantId: me.id,
+      passage: {
+        id: passageId,
+        authorId: me.userId,
         text: passage.value,
         startsParagraph: body.startsParagraph,
         createdAt: now,
@@ -301,9 +287,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       now,
     });
 
-    const response: ContributeResponse = { contributionId };
+    const response: CreatePassageResponse = { passageId };
 
-    c.header("Location", `/api/stories/${storyId}/contributions/${contributionId}`);
+    c.header("Location", `/api/stories/${storyId}/passages/${passageId}`);
 
     return c.json(response, 201);
   });
@@ -343,7 +329,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
   // Reads the story and writes only the quota row: no text, no turn change, no version bump.
   routes.post("/api/stories/:storyId/suggestions", async (c) => {
     const storyId = parseStoryId(c.req.param("storyId"));
-    const found = await loadStoryWithContributions(c.env.DB, storyId);
+    const found = await loadStoryWithPassages(c.env.DB, storyId);
     if (found === null) {
       throw new ApiError("not_found");
     }
@@ -367,7 +353,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("ai_rate_limited");
     }
 
-    const storyText = groupParagraphs(found.contributions)
+    const storyText = groupParagraphs(found.passages)
       .map((paragraph) => paragraph.map(({ text }) => text).join(" "))
       .join("\n\n");
     const result = await askProvider(provider, storyText);
@@ -434,11 +420,40 @@ async function createUnderFreeId(
   }
 
   const storyId = newStoryId();
-  if (await createStory(db, input(storyId))) {
+  const result = await createStory(db, input(storyId));
+  if (result === "created") {
     return storyId;
+  }
+  if (result === "name_taken") {
+    throw new ApiError("name_taken");
   }
 
   return createUnderFreeId(db, newStoryId, attemptsLeft - 1, input);
+}
+
+// What the request's display name means for `known`, the requesting user as read without creating
+// one, which depends on whether they already have a name.
+function chooseDisplayNameFor(
+  known: UserRow | null,
+  requested: string | undefined,
+): NewDisplayName | null {
+  const choice = chooseDisplayName(requested, known?.displayName ?? null);
+  if (!choice.ok) {
+    throw new ApiError(choice.reason);
+  }
+
+  return choice.value;
+}
+
+// The friendly path; the write itself still refuses a name that another request took in between.
+async function requireFreeDisplayName(
+  db: Db,
+  displayName: NewDisplayName | null,
+  userId: string | null,
+): Promise<void> {
+  if (await isHeldByAnotherUser(db, displayName, userId)) {
+    throw new ApiError("name_taken");
+  }
 }
 
 // An ID that can't be a story ID is an unknown story.

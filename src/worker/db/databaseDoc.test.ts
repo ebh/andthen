@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { findSchemaDrift } from "./databaseDoc";
-import type { DatabaseColumnRow } from "./rows";
+import {
+  assertSimpleForeignKey,
+  findSchemaDrift,
+  indexFromColumnRows,
+  isRequired,
+} from "./databaseDoc";
+import type { DatabaseColumnRow, IndexColumnRow } from "./rows";
 
 function column(overrides: Partial<DatabaseColumnRow> & { name: string }): DatabaseColumnRow {
   return {
@@ -193,5 +198,81 @@ describe("findSchemaDrift", () => {
       "table schema mice has no table in the database",
       "table zebras has no table schema",
     ]);
+  });
+});
+
+describe("isRequired", () => {
+  it.each([
+    ["NOT NULL", { notNull: 1 as const, primaryKey: 0 }, true],
+    ["a primary key that SQLite reports as nullable", { notNull: 0 as const, primaryKey: 1 }, true],
+    ["a nullable column", { notNull: 0 as const, primaryKey: 0 }, false],
+  ])("for %s is %s", (_name, overrides, expected) => {
+    expect(isRequired(column({ name: "x", ...overrides }))).toBe(expected);
+  });
+});
+
+describe("assertSimpleForeignKey", () => {
+  it("accepts the first column of a key", () => {
+    expect(() => {
+      assertSimpleForeignKey({ tableName: "a", parentTable: "b", fromColumn: "x", seq: 0 });
+    }).not.toThrow();
+  });
+
+  it("names the table and column of a composite key", () => {
+    expect(() => {
+      assertSimpleForeignKey({ tableName: "a", parentTable: "b", fromColumn: "y", seq: 1 });
+    }).toThrow("foreign key a.y is part of a composite key, which is not supported");
+  });
+});
+
+function indexColumn(overrides: Partial<IndexColumnRow>): IndexColumnRow {
+  return {
+    tableName: "things",
+    name: "things_by_x",
+    unique: 0,
+    origin: "c",
+    partial: 0,
+    sql: null,
+    seqno: 0,
+    columnName: "x",
+    descending: 0,
+    collation: "BINARY",
+    ...overrides,
+  };
+}
+
+describe("indexFromColumnRows", () => {
+  it("keeps the index fields and lists the columns in order", () => {
+    const rows = [indexColumn({ columnName: "x" }), indexColumn({ seqno: 1, columnName: "y" })];
+
+    expect(indexFromColumnRows(rows)).toEqual({
+      tableName: "things",
+      name: "things_by_x",
+      unique: 0,
+      origin: "c",
+      partial: 0,
+      sql: null,
+      columns: ["x", "y"],
+    });
+  });
+
+  it.each([
+    [
+      "an expression column",
+      { columnName: null },
+      "index things_by_x on table things has an expression column, which is not supported",
+    ],
+    [
+      "a descending column",
+      { descending: 1 as const },
+      "index things_by_x on table things sorts column x descending, which is not supported",
+    ],
+    [
+      "a collation other than BINARY",
+      { collation: "NOCASE" },
+      "index things_by_x on table things uses collation NOCASE on column x, which is not supported",
+    ],
+  ])("refuses %s", (_name, overrides, message) => {
+    expect(() => indexFromColumnRows([indexColumn(overrides)])).toThrow(message);
   });
 });

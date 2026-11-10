@@ -3,11 +3,15 @@ import { z } from "zod";
 import type { TurnState } from "../../shared/turnOrder";
 import {
   contributionRowSchema,
+  databaseColumnRowSchema,
+  foreignKeyRowSchema,
+  indexRowSchema,
   myStoryRowSchema,
   participantRowSchema,
   storyPassageRowSchema,
   storyRowSchema,
   storyWriterRowSchema,
+  tableSqlRowSchema,
 } from "./rows";
 import {
   contributionsTableSchema,
@@ -136,3 +140,12 @@ const suggestionReservationSchema = suggestionRequestsTableSchema
     limit: z.number(),
   });
 export type SuggestionReservation = z.infer<typeof suggestionReservationSchema>;
+
+/** What the generated database reference is rendered from: flat rows read from the database. */
+const databaseDocInputSchema = z.object({
+  columns: z.array(databaseColumnRowSchema),
+  foreignKeys: z.array(foreignKeyRowSchema),
+  indexes: z.array(indexRowSchema),
+  tableSql: z.array(tableSqlRowSchema),
+});
+export type DatabaseDocInput = z.infer<typeof databaseDocInputSchema>;

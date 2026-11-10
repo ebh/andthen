@@ -1,0 +1,2 @@
+# Keeps the stale-doc check from failing on a checkout that converts line endings.
+docs/database.md text eol=lf

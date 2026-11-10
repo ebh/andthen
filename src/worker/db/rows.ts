@@ -98,3 +98,46 @@ export const databaseColumnRowSchema = z.object({
   primaryKey: z.number().int().nonnegative(),
 });
 export type DatabaseColumnRow = z.infer<typeof databaseColumnRowSchema>;
+
+/** One foreign key column, as `pragma_foreign_key_list` reports it. */
+export const foreignKeyRowSchema = z.object({
+  tableName: z.string(),
+  /** The table the key points at. */
+  parentTable: z.string(),
+  /** The column of `tableName` that holds the key. */
+  fromColumn: z.string(),
+  /** 0 for the only or first column of the key; above 0 only in a composite key. */
+  seq: z.number().int().nonnegative(),
+});
+export type ForeignKeyRow = z.infer<typeof foreignKeyRowSchema>;
+
+/** One column of one index, as `pragma_index_xinfo` reports it. */
+export const indexColumnRowSchema = z.object({
+  tableName: z.string(),
+  name: z.string(),
+  unique: z.union([z.literal(0), z.literal(1)]),
+  /** `c` for CREATE INDEX, `u` for a UNIQUE constraint, `pk` for the primary key. */
+  origin: z.enum(["c", "u", "pk"]),
+  partial: z.union([z.literal(0), z.literal(1)]),
+  /** The CREATE INDEX statement; null for an index SQLite makes by itself. */
+  sql: z.string().nullable(),
+  seqno: z.number().int().nonnegative(),
+  /** Null for an expression such as `lower(name)`. */
+  columnName: z.string().nullable(),
+  descending: z.union([z.literal(0), z.literal(1)]),
+  collation: z.string(),
+});
+export type IndexColumnRow = z.infer<typeof indexColumnRowSchema>;
+
+/** One index of a table, with its columns in order. */
+export const indexRowSchema = indexColumnRowSchema
+  .omit({ seqno: true, columnName: true, descending: true, collation: true })
+  .extend({ columns: z.array(indexColumnRowSchema.shape.columnName.unwrap()) });
+export type IndexRow = z.infer<typeof indexRowSchema>;
+
+/** The CREATE TABLE statement SQLite kept for a table. */
+export const tableSqlRowSchema = z.object({
+  tableName: z.string(),
+  sql: z.string(),
+});
+export type TableSqlRow = z.infer<typeof tableSqlRowSchema>;

@@ -7,7 +7,7 @@ paths:
 
 # Database rules
 
-The D1 schema is described once, in Zod, and every database type in the code is inferred from that description, so a drift fails a check. `docs/database.md` is generated from the table schemas and the migrated database: foreign keys and indexes come from the database, and descriptions come from Zod.
+The D1 schema is described once, in Zod, and every database type in the code is inferred from that description, so a drift fails a check. `docs/database.md` is generated from the table schemas and the migrated database: columns, types, keys and indexes come from the database, and descriptions come from Zod.
 
 ## Rules
 
@@ -26,6 +26,7 @@ The D1 schema is described once, in Zod, and every database type in the code is 
   - A field that narrows a column is `<table>TableSchema.shape.<key>`, its `.unwrap()`, or `z.null()`. Never restate a column's type.
   - `z.object` is allowed in `rows.ts` only for union branches and intersection members whose fields follow the narrowing rule above.
   - Row types are `z.infer` exports of `rows.ts`.
+  - Rows read from SQLite's own catalogue (`pragma_*`, `sqlite_master`) have no table schema to build from, so their row schemas in `rows.ts` may be top-level `z.object`.
   - Why: a column's shape is written once, and a query only says which parts it reads.
 - **`src/worker/db/` has no `interface` and no object type literal (test files excepted).** A type alias over a library type, such as `Db`, is allowed. Write inputs and composite results are Zod schemas in `src/worker/db/typeSchemas.ts`.
   - Export each as `export type X = z.infer<typeof xSchema>`.
@@ -44,6 +45,7 @@ The D1 schema is described once, in Zod, and every database type in the code is 
 - **Every table schema and every column carries `.meta({ description })`, called last in the chain.** Write `z.number().int().nullable().meta({ description: "..." })`.
   - `.nullable()`, `.optional()` or `.transform()` after `.meta()` hides the description inside the wrapper, where the reference and the test do not look.
   - Descriptions use the words in `docs/domain.md`.
+  - Descriptions use ASCII characters only (Australian spelling, plain quotes and hyphens), because `oxfmt` pads the generated tables by display width and the generator refuses anything else.
   - Why: the generated reference reads these descriptions.
 
 ## How it is enforced
@@ -51,6 +53,6 @@ The D1 schema is described once, in Zod, and every database type in the code is 
 These checks run in CI and fail the build.
 
 - **An ESLint `no-restricted-syntax` rule**, scoped to `src/worker/db/**`, bans `interface`, object type literals, and `z.object`, `z.strictObject` and `z.looseObject` outside the three schema files.
-- **A drift test** checks that the tables and columns in Zod equal those in the migrated database. It also compares `NOT NULL` (SQLite allows NULL in a non-INTEGER primary key; the check treats every primary key as required) with `.nullable()`, and the SQLite column type with the Zod base type (INTEGER with number or number literals, TEXT with string).
+- **A drift test** checks that the tables and columns in Zod equal those in the migrated database. It also compares `NOT NULL` (SQLite allows NULL in a non-INTEGER primary key; the check treats every primary key as required) with `.nullable()`, and the SQLite column type with the Zod base type (INTEGER with a number or number literals, TEXT with a string, a string enum or string literals).
 - **A description test** checks that every table schema and column has a description.
 - **A stale-doc check** fails when `docs/database.md` differs from what `pnpm db:docs` generates.

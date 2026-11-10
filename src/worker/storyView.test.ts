@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TURN_WINDOW_MS } from "../shared/validation";
 import type { ParticipantRow } from "./db/rows";
-import type { LoadedStory } from "./db/storyRepo";
+import type { LoadedStory } from "./db/typeSchemas";
 import { buildStoryView } from "./storyView";
 
 const ana: ParticipantRow = {

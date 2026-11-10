@@ -9,6 +9,7 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 - **Keep Worker logic out of files that import `cloudflare:*`.** Those files can't run in Node, so Stryker can't mutate them. `src/worker/app.ts` holds the Hono app; `src/worker/index.ts` only re-exports it with `StoryRoom`.
 - **After changing bindings in `wrangler.jsonc`, run `pnpm cf-typegen`** and commit `worker-configuration.d.ts`. CI fails if it is stale.
 - **A new D1 change is a new file in `migrations/`.** Never edit an applied migration.
+- **D1 tables are described by Zod in `src/worker/db/tableSchemas.ts`, and every database type is inferred from it.** Read `.claude/rules/database.md` before touching `src/worker/db/` or `migrations/`.
 
 ## Where things live
 
@@ -27,6 +28,7 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 
 - `docs/domain.md`: the app's terms, each with one meaning, and the words reserved for planned features. Read it before naming a concept, type, table, route or UI label.
 - `docs/api.md`: the story and account routes, error statuses, request guards, how a request is identified (session token or cookie), write guards and test helpers (`createApp`, `createBrowser`, `gateLoads`). Read it before adding a route or changing how writes are guarded.
+- `docs/database.md`: the generated diagram and per-table reference of the database, made from the table schemas and the migrated database. `pnpm db:docs` generates it; never edit it by hand. Read it before changing a table.
 - `docs/deployment.md`: local vs preview vs production, first-time Cloudflare setup, the domain, smoke tests, accepted risks, and what is proven only locally. Read it before changing `wrangler.jsonc`, `deploy.yml`, how an environment is built or how the service worker is served.
 - `docs/assets.md`: where images, icons, fonts, store art and files served at a fixed address live, how `pnpm install` makes the icons from `assets/brand/`, and the platform size rules. Read it before adding or changing any static file, and never edit a generated one.
 - `docs/constraints.md`: what Stryker, Workers AI, the lint tools, the `__Host-` cookie, Expo, Tamagui and Clerk force on the code. Read it before changing the toolchain, test harness or cookie handling.

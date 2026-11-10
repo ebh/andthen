@@ -5,8 +5,8 @@ import {
   createAnonymousUser,
   findUserByBrowserTokenHash,
   findUserByClerkUserId,
-  type UserRow,
 } from "./db/userRepo";
+import type { UserRow } from "./db/rows";
 import { ApiError, isWebSocketUpgrade, NO_TOKEN_CHALLENGE, type AppContext } from "./http";
 import { newId } from "./ids";
 import type { SessionVerifier } from "./sessionToken";

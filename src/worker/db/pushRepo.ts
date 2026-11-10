@@ -1,23 +1,8 @@
 import { z } from "zod";
 
+import { pushSubscriptionRowSchema, type PushSubscriptionRow } from "./rows";
 import type { Db } from "./storyRepo";
-
-export interface PushSubscriptionRow {
-  endpoint: string;
-  p256dh: string;
-  auth: string;
-}
-
-export interface NewPushSubscription extends PushSubscriptionRow {
-  userId: string;
-  createdAt: number;
-}
-
-const pushSubscriptionRowSchema = z.object({
-  endpoint: z.string(),
-  p256dh: z.string(),
-  auth: z.string(),
-});
+import type { NewPushSubscription } from "./typeSchemas";
 
 /**
  * Stores a subscription for a user. A stored endpoint is taken over: its keys and owner are

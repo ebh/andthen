@@ -1,6 +1,7 @@
 import type { StorySummary } from "../shared/api";
 import { resolveTurn, turnEndsAt } from "../shared/turnOrder";
-import { toTurnState, type MyStoryRows } from "./db/storyRepo";
+import { toTurnState } from "./db/storyRepo";
+import type { MyStoryRows } from "./db/typeSchemas";
 import type { MyStoryRow } from "./db/rows";
 import { encodeStoryCursor, type StoryCursor } from "./storyCursor";
 

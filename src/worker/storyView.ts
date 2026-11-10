@@ -1,6 +1,6 @@
 import type { StoryView, TurnView } from "../shared/api";
 import { resolveTurn, turnEndsAt } from "../shared/turnOrder";
-import type { LoadedStory } from "./db/storyRepo";
+import type { LoadedStory } from "./db/typeSchemas";
 import type { ContributionRow, ParticipantRow } from "./db/rows";
 
 /**

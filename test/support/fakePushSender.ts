@@ -1,4 +1,4 @@
-import type { PushSubscriptionRow } from "../../src/worker/db/pushRepo";
+import type { PushSubscriptionRow } from "../../src/worker/db/rows";
 import type { PushMessage, PushOutcome, PushSender } from "../../src/worker/push";
 
 export interface SentPush {

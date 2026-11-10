@@ -15,7 +15,8 @@
     "!src/client/testFixtures.ts",
     "!src/client/testSetup.ts",
     "!src/worker/index.ts",
-    "!src/worker/storyRoom.ts"
+    "!src/worker/storyRoom.ts",
+    "!src/worker/db/typeSchemas.ts"
   ],
   "coverageAnalysis": "perTest",
   "thresholds": {

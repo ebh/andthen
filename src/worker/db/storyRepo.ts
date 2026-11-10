@@ -12,95 +12,28 @@ import { MAX_PARTICIPANTS } from "../../shared/validation";
 import {
   contributionRowSchema,
   myStoryRowSchema,
+  openingRowSchema,
   participantRowSchema,
   storyPassageRowSchema,
   storyRowSchema,
   storyWriterRowSchema,
-  type ContributionRow,
-  type MyStoryRow,
   type ParticipantRow,
-  type StoryPassageRow,
   type StoryRow,
-  type StoryWriterRow,
 } from "./rows";
+import type {
+  AddParticipantInput,
+  AppendContributionInput,
+  CreateStoryInput,
+  LeaveStoryInput,
+  LoadedStory,
+  LoadedStoryWithContributions,
+  MyStoryRows,
+  NewParticipant,
+  RejoinStoryInput,
+} from "./typeSchemas";
 
 /** The two D1 methods the repo uses, so a test can hand it a stand-in. */
 export type Db = Pick<D1Database, "prepare" | "batch">;
-
-export interface LoadedStory {
-  story: StoryRow;
-  /** Everyone who ever joined, in turn order. A leaver keeps their row, and their name stays taken. */
-  participants: ParticipantRow[];
-  /** The participants who have not left, in turn order. They hold the turn and fill the cap. */
-  activeParticipants: ParticipantRow[];
-  /** One past the highest position anyone has held, a leaver's included, so a new one never collides. */
-  nextPosition: number;
-  /** The stored turn state; `resolveTurn(state, now)` applies any expiry. */
-  state: TurnState;
-}
-
-/** What the list of one user's stories is built from. */
-export interface MyStoryRows {
-  stories: MyStoryRow[];
-  /** The writers of those stories who have not left, in turn order. */
-  writers: StoryWriterRow[];
-  passages: StoryPassageRow[];
-}
-
-export interface NewParticipant {
-  id: string;
-  displayName: string;
-  displayNameKey: string;
-  position: number;
-  userId: string;
-}
-
-export interface CreateStoryInput {
-  storyId: string;
-  now: number;
-  /** `newStoryState()`. */
-  state: TurnState;
-  creator: NewParticipant;
-  opening: { id: string; text: string };
-}
-
-export interface AppendContributionInput {
-  storyId: string;
-  loadedVersion: number;
-  next: TurnState;
-  contribution: {
-    id: string;
-    participantId: string;
-    text: string;
-    startsParagraph: boolean;
-    createdAt: number;
-  };
-}
-
-export interface LeaveStoryInput {
-  storyId: string;
-  loadedVersion: number;
-  next: TurnState;
-  participantId: string;
-  leftAt: number;
-}
-
-export interface RejoinStoryInput {
-  storyId: string;
-  loadedVersion: number;
-  next: TurnState;
-  participantId: string;
-  /** The place at the end of the turn order: `LoadedStory.nextPosition`. */
-  position: number;
-}
-
-export interface AddParticipantInput {
-  storyId: string;
-  loadedVersion: number;
-  next: TurnState;
-  participant: NewParticipant;
-  joinedAt: number;
-}
 
 const STORY_COLUMNS = `id, created_at AS createdAt, current_position AS currentPosition,
   turn_started_at AS turnStartedAt, turn_version AS turnVersion,
@@ -123,7 +56,7 @@ export async function loadStory(db: Db, storyId: string): Promise<LoadedStory | 
 export async function loadStoryWithContributions(
   db: Db,
   storyId: string,
-): Promise<{ loaded: LoadedStory; contributions: ContributionRow[] } | null> {
+): Promise<LoadedStoryWithContributions | null> {
   const results = await db.batch([
     selectStory(db, storyId),
     selectParticipants(db, storyId),
@@ -340,7 +273,7 @@ export async function loadOpeningText(db: Db, storyId: string): Promise<string> 
     .prepare("SELECT text FROM contributions WHERE story_id = ? AND seq = 1")
     .bind(storyId)
     .all();
-  const [row] = z.array(z.object({ text: z.string() })).parse(result.results);
+  const [row] = z.array(openingRowSchema).parse(result.results);
   if (row === undefined) {
     throw new Error(`Story ${storyId} has no opening passage`);
   }

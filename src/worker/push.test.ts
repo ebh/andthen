@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { PushSubscriptionRow } from "./db/pushRepo";
+import type { PushSubscriptionRow } from "./db/rows";
 import { createWebPushSender, selectPushSender, type PushMessage } from "./push";
 import { generateVapidKeys } from "./vapidKeys";
 

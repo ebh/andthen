@@ -40,6 +40,18 @@ describe("turnNotification", () => {
     });
   });
 
+  it("quotes nothing when the opening is withheld", () => {
+    const { data } = turnNotification({ ...input, opening: null });
+
+    expect(data.notification).toEqual({
+      title: "Your turn",
+      body: "",
+      navigate: "https://app.andthen.page/abc12",
+      tag: "turn-abc12",
+    });
+    expect(turnPushPayloadSchema.safeParse(data).success).toBe(true);
+  });
+
   it("takes the origin it is given, so a preview links to the preview", () => {
     const { data } = turnNotification({ ...input, origin: "https://andthen-preview.example.dev" });
 

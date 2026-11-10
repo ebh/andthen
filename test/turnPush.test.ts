@@ -23,6 +23,7 @@ import { createTestEnv, type TestEnv } from "./support/testEnv";
 import { userIdOf } from "./support/users";
 
 const OPENING = "Once upon a time, in a village by the sea, a lantern went out.";
+const OPENING_EXCERPT = "Once upon a time, in a village by the sea, a lantern went…";
 const P256DH = "B".repeat(87);
 const AUTH = "a".repeat(22);
 
@@ -120,7 +121,7 @@ describe("pushing the turn", () => {
           web_push: 8030,
           notification: {
             title: "Your turn",
-            body: "Once upon a time, in a village by the sea, a lantern went…",
+            body: OPENING_EXCERPT,
             navigate: `http://localhost/${storyId}`,
             tag: `turn-${storyId}`,
           },
@@ -129,6 +130,65 @@ describe("pushing the turn", () => {
         ttlSeconds: TURN_WINDOW_MS / 1000,
       });
       expect(await holds(cy, storyId)).toBe(true);
+    });
+
+    describe("quoting the opening", () => {
+      it("quotes it when the new holder blocks no one", async () => {
+        const { ben, storyId } = await threeWriters();
+
+        await contribute(ben, storyId);
+        await settle(ben);
+
+        expect(sender.sent[0]?.message.data.notification.body).toBe(OPENING_EXCERPT);
+      });
+
+      it("quotes none of it when the new holder blocks the opening's author", async () => {
+        const { ana, ben, cy, storyId } = await threeWriters();
+        await block(cy, await userIdOf(env.DB, ana));
+
+        await contribute(ben, storyId);
+        await settle(ben);
+
+        expect(sender.sent).toHaveLength(1);
+        expect(sender.sent[0]?.message.data.notification).toEqual({
+          title: "Your turn",
+          body: "",
+          navigate: `http://localhost/${storyId}`,
+          tag: `turn-${storyId}`,
+        });
+      });
+
+      it("quotes none of it when the holder blocked the author while in another story", async () => {
+        const { ana, ben, cy, storyId } = await threeWriters();
+        const otherStoryId = await createStory(ana, nameInTest("Ana"), "Another story.");
+        await joinStory(cy, otherStoryId, nameInTest("Cy"));
+        await block(cy, await userIdOf(env.DB, ana));
+
+        await contribute(ben, storyId);
+        await settle(ben);
+
+        expect(sender.sent[0]?.message.data.notification.body).toBe("");
+      });
+
+      it("still quotes it when someone else blocks the opening's author", async () => {
+        const { ana, ben, storyId } = await threeWriters();
+        await block(ben, await userIdOf(env.DB, ana));
+
+        await contribute(ben, storyId);
+        await settle(ben);
+
+        expect(sender.sent[0]?.message.data.notification.body).toBe(OPENING_EXCERPT);
+      });
+
+      it("still quotes it when the holder blocks a writer other than the opening's author", async () => {
+        const { ben, cy, storyId } = await threeWriters();
+        await block(cy, await userIdOf(env.DB, ben));
+
+        await contribute(ben, storyId);
+        await settle(ben);
+
+        expect(sender.sent[0]?.message.data.notification.body).toBe(OPENING_EXCERPT);
+      });
     });
 
     it("lives for the rest of the window: the TTL counts down from the turn's start", async () => {
@@ -451,6 +511,11 @@ async function contribute(browser: Browser, storyId: string): Promise<Response> 
     turnVersion: await version(browser, storyId),
     startsParagraph: false,
   });
+}
+
+async function block(browser: Browser, blockedUserId: string): Promise<void> {
+  const response = await browser.post("/api/users/me/blocks", { blockedUserId });
+  expect(response.status).toBe(201);
 }
 
 async function subscribe(browser: Browser, name: string): Promise<string> {

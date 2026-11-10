@@ -10,6 +10,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { gateLoads } from "./support/gatedDb";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
@@ -55,7 +56,7 @@ describe("concurrent writes to one story", () => {
     clock.now = T0;
     const ana = newBrowser();
     const storyId = await createStory(ana);
-    const browsers = new Map<string, Browser>([["Ana", ana]]);
+    const browsers = new Map<string, Browser>([[nameInTest("Ana"), ana]]);
     for (const name of names) {
       const browser = newBrowser();
       await joinStory(browser, storyId, name);
@@ -77,13 +78,13 @@ describe("concurrent writes to one story", () => {
 
   const gated = (requests: number) => ({ env: { DB: gateLoads(testEnv.env.DB, requests) } });
 
-  it("lets one of several identical contributions win", async () => {
-    const { as, storyId } = await storyWith(["Ben"]);
-    const ben = as("Ben");
+  it("lets one of several identical passages win", async () => {
+    const { as, storyId } = await storyWith([nameInTest("Ben")]);
+    const ben = as(nameInTest("Ben"));
     const gate = gated(4);
     const send = () =>
       ben.post(
-        `/api/stories/${storyId}/contributions`,
+        `/api/stories/${storyId}/passages`,
         { text: "Mine.", turnVersion: 1, startsParagraph: false },
         gate,
       );
@@ -92,18 +93,18 @@ describe("concurrent writes to one story", () => {
 
     expect(statuses).toEqual([201, 409, 409, 409]);
     expect(errors).toEqual(["stale_turn", "stale_turn", "stale_turn"]);
-    expect((await readStory(ben, storyId)).contributions).toHaveLength(2);
+    expect((await readStory(ben, storyId)).passages).toHaveLength(2);
   });
 
   it("lets one of a contribution and a skip win", async () => {
-    const { as, storyId } = await storyWith(["Ben", "Cat"]);
-    const [ben, cat] = [as("Ben"), as("Cat")];
+    const { as, storyId } = await storyWith([nameInTest("Ben"), nameInTest("Cat")]);
+    const [ben, cat] = [as(nameInTest("Ben")), as(nameInTest("Cat"))];
     const gate = gated(2);
 
     const { statuses, errors } = await raced([
       () =>
         ben.post(
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Ben.", turnVersion: 2, startsParagraph: false },
           gate,
         ),
@@ -116,18 +117,18 @@ describe("concurrent writes to one story", () => {
     expect(errors).toEqual(["stale_turn"]);
     const view = await readStory(cat, storyId);
     expect(view.turn.version).toBe(3);
-    expect(view.contributions.length).toBeLessThanOrEqual(2);
+    expect(view.passages.length).toBeLessThanOrEqual(2);
   });
 
   it("lets one of a contribution and the holder leaving win", async () => {
-    const { as, storyId } = await storyWith(["Ben", "Cat"]);
-    const [ben, cat] = [as("Ben"), as("Cat")];
+    const { as, storyId } = await storyWith([nameInTest("Ben"), nameInTest("Cat")]);
+    const [ben, cat] = [as(nameInTest("Ben")), as(nameInTest("Cat"))];
     const gate = gated(2);
 
     const { statuses, errors } = await raced([
       () =>
         ben.post(
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Ben.", turnVersion: 2, startsParagraph: false },
           gate,
         ),
@@ -142,8 +143,8 @@ describe("concurrent writes to one story", () => {
   });
 
   it("lets one of two leaves from the same browser win", async () => {
-    const { as, storyId } = await storyWith(["Ben", "Cat"]);
-    const [ben, cat] = [as("Ben"), as("Cat")];
+    const { as, storyId } = await storyWith([nameInTest("Ben"), nameInTest("Cat")]);
+    const [ben, cat] = [as(nameInTest("Ben")), as(nameInTest("Cat"))];
     const gate = gated(2);
     const send = () => ben.post(`/api/stories/${storyId}/leave`, {}, gate);
 
@@ -155,13 +156,18 @@ describe("concurrent writes to one story", () => {
   });
 
   it("lets one of a leave and a join win", async () => {
-    const { as, storyId } = await storyWith(["Ben", "Cat"]);
-    const cat = as("Cat");
+    const { as, storyId } = await storyWith([nameInTest("Ben"), nameInTest("Cat")]);
+    const cat = as(nameInTest("Cat"));
     const gate = gated(2);
 
     const { statuses, errors } = await raced([
       () => cat.post(`/api/stories/${storyId}/leave`, {}, gate),
-      () => newBrowser().post(`/api/stories/${storyId}/participants`, { displayName: "Dee" }, gate),
+      () =>
+        newBrowser().post(
+          `/api/stories/${storyId}/participants`,
+          { displayName: nameInTest("Dee") },
+          gate,
+        ),
     ]);
 
     expect(statuses.filter((status) => status === 409)).toHaveLength(1);
@@ -169,8 +175,12 @@ describe("concurrent writes to one story", () => {
   });
 
   it("lets one of two skips by different people win", async () => {
-    const { as, storyId } = await storyWith(["Ben", "Cat", "Dee"]);
-    const [ana, cat] = [as("Ana"), as("Cat")];
+    const { as, storyId } = await storyWith([
+      nameInTest("Ben"),
+      nameInTest("Cat"),
+      nameInTest("Dee"),
+    ]);
+    const [ana, cat] = [as(nameInTest("Ana")), as(nameInTest("Cat"))];
     const gate = gated(2);
 
     const { statuses, errors } = await raced([
@@ -184,9 +194,12 @@ describe("concurrent writes to one story", () => {
   });
 
   it("lets one of several joins win, and adds no participant for the losers", async () => {
-    const { as, storyId } = await storyWith(["Ben"]);
-    const ana = as("Ana");
-    const joiners = ["Cat", "Dee", "Eve"].map((name) => ({ name, browser: newBrowser() }));
+    const { as, storyId } = await storyWith([nameInTest("Ben")]);
+    const ana = as(nameInTest("Ana"));
+    const joiners = [nameInTest("Cat"), nameInTest("Dee"), nameInTest("Eve")].map((name) => ({
+      name,
+      browser: newBrowser(),
+    }));
     const gate = gated(3);
 
     const { statuses, errors } = await raced(
@@ -205,19 +218,20 @@ describe("concurrent writes to one story", () => {
   });
 
   it("fails a contribution that raced a join, because the join changes the turn order", async () => {
-    const { as, storyId } = await storyWith(["Ben"]);
-    const ben = as("Ben");
+    const { as, storyId } = await storyWith([nameInTest("Ben")]);
+    const ben = as(nameInTest("Ben"));
     const cat = newBrowser();
     const gate = gated(2);
 
     const { statuses } = await raced([
       () =>
         ben.post(
-          `/api/stories/${storyId}/contributions`,
+          `/api/stories/${storyId}/passages`,
           { text: "Ben.", turnVersion: 1, startsParagraph: false },
           gate,
         ),
-      () => cat.post(`/api/stories/${storyId}/participants`, { displayName: "Cat" }, gate),
+      () =>
+        cat.post(`/api/stories/${storyId}/participants`, { displayName: nameInTest("Cat") }, gate),
     ]);
 
     // Either the join won (three participants) or the contribution did (two passages).
@@ -225,13 +239,20 @@ describe("concurrent writes to one story", () => {
     expect(statuses.filter((status) => status === 201)).toHaveLength(1);
     const view = await readStory(ben, storyId);
     expect(view.turn.version).toBe(2);
-    expect(view.participants.length + view.contributions.length).toBe(4);
+    expect(view.participants.length + view.passages.length).toBe(4);
   });
 
   it("keeps the story consistent when joins race without a gate", async () => {
-    const { as, storyId } = await storyWith(["Ben"]);
-    const ana = as("Ana");
-    const names = ["Cat", "Dee", "Eve", "Fay", "Gus", "Hal"];
+    const { as, storyId } = await storyWith([nameInTest("Ben")]);
+    const ana = as(nameInTest("Ana"));
+    const names = [
+      nameInTest("Cat"),
+      nameInTest("Dee"),
+      nameInTest("Eve"),
+      nameInTest("Fay"),
+      nameInTest("Gus"),
+      nameInTest("Hal"),
+    ];
 
     const { statuses } = await raced(
       names.map(

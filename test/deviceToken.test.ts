@@ -14,6 +14,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { signSessionToken } from "./support/sessionToken";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
@@ -51,7 +52,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
     clock.now = T0;
     const [ana, ben] = [phone(), phone()];
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId, nameInTest("Ben"));
 
     return { ana, ben, storyId };
   }
@@ -61,7 +62,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
     const ben = phone();
 
     const created = await ana.post("/api/stories", {
-      displayName: "Ana",
+      displayName: nameInTest("Ana"),
       opening: "Once upon a time.",
     });
     expect(created.status).toBe(201);
@@ -71,17 +72,19 @@ describe("a request with a device token and no Origin (the store apps)", () => {
     const listed = await ana.get("/api/stories");
     expect(myStoriesResponseSchema.parse(await listed.json()).stories).toHaveLength(1);
 
-    const joined = await ben.post(`/api/stories/${storyId}/participants`, { displayName: "Ben" });
+    const joined = await ben.post(`/api/stories/${storyId}/participants`, {
+      displayName: nameInTest("Ben"),
+    });
     expect(joined.status).toBe(201);
     expect(joined.headers.getSetCookie()).toEqual([]);
 
-    const written = await ben.post(`/api/stories/${storyId}/contributions`, {
+    const written = await ben.post(`/api/stories/${storyId}/passages`, {
       text: " And then Ben wrote. ",
       turnVersion: 1,
       startsParagraph: false,
     });
     expect(written.status).toBe(201);
-    expect((await readStory(ana, storyId)).contributions).toHaveLength(2);
+    expect((await readStory(ana, storyId)).passages).toHaveLength(2);
   });
 
   it("is the same user on every request with the same token", async () => {
@@ -125,7 +128,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
 
     const response = await ana.post(
       "/api/stories",
-      { displayName: "Ana", opening: "Once upon a time." },
+      { displayName: nameInTest("Ana"), opening: "Once upon a time." },
       { origin: "https://evil.example" },
     );
 
@@ -138,7 +141,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
 
     const response = await ana.post(
       "/api/stories",
-      { displayName: "Ana", opening: "Once upon a time." },
+      { displayName: nameInTest("Ana"), opening: "Once upon a time." },
       { origin: "null" },
     );
 
@@ -151,7 +154,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
 
     const response = await ana.post(
       "/api/stories",
-      { displayName: "Ana", opening: "Once upon a time." },
+      { displayName: nameInTest("Ana"), opening: "Once upon a time." },
       { origin: null },
     );
 
@@ -164,7 +167,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
 
     const read = await ana.get("/api/stories");
     const write = await ana.post("/api/stories", {
-      displayName: "Ana",
+      displayName: nameInTest("Ana"),
       opening: "Once upon a time.",
     });
 
@@ -184,7 +187,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
   it("decides alone when a cookie names another user", async () => {
     const { ana, storyId } = await twoPhoneStory();
     const browser = web();
-    await createStory(browser);
+    await createStory(browser, nameInTest("Web"));
     const sameToken = createPhone(app, env, ana.deviceToken ?? "");
     sameToken.cookies.set("andthen_bt", browser.cookies.get("andthen_bt") ?? "");
 
@@ -229,7 +232,7 @@ describe("a request with no Origin and no credential", () => {
 
     const response = await browser.post(
       "/api/stories",
-      { displayName: "Ana", opening: "Once upon a time." },
+      { displayName: nameInTest("Ana"), opening: "Once upon a time." },
       { origin: null },
     );
 
@@ -253,7 +256,7 @@ describe("a request with no Origin and no credential", () => {
 
     const response = await browser.post(
       "/api/stories",
-      { displayName: "Ana", opening: "Once upon a time." },
+      { displayName: nameInTest("Ana"), opening: "Once upon a time." },
       { origin: null, headers: { "Sec-WebSocket-Protocol": `${LIVE_SUBPROTOCOL}, some-token` } },
     );
 

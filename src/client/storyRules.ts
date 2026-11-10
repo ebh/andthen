@@ -60,8 +60,9 @@ export function turnAfterLeaving(view: StoryView): TurnAfterLeaving {
 
 // The view's turn as the shared rules take it. Only the order matters to them, so the clock is 0.
 function turnOrderState(view: StoryView, currentPosition: number): TurnState {
-  const lastWriterId = view.contributions.at(-1)?.authorId;
-  const lastWriterIndex = view.participants.findIndex(({ id }) => id === lastWriterId);
+  // A passage's author is a user, so the last writer is found by `userId`, not by participant `id`.
+  const lastAuthorId = view.passages.at(-1)?.authorId;
+  const lastWriterIndex = view.participants.findIndex(({ userId }) => userId === lastAuthorId);
 
   return {
     turnVersion: view.turn.version,

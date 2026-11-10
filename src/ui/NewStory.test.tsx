@@ -17,7 +17,11 @@ vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
 
 const HOUR_MS = 60 * 60 * 1000;
 
+/** What `GET /api/users/me` answers: a user with no name, until a test says otherwise. */
+let meReply: { displayName: string | null } = { displayName: null };
+
 beforeEach(() => {
+  meReply = { displayName: null };
   resetClerk();
   push.mockClear();
   takeLeftStoryNote();
@@ -49,7 +53,12 @@ function stubFetch(stories: Response | null = null, ...responses: Response[]) {
   for (const response of responses) {
     fetchMock.mockResolvedValueOnce(response);
   }
-  vi.stubGlobal("fetch", fetchMock);
+  // The name lookup is answered apart, so `fetchMock` records only the story calls.
+  vi.stubGlobal("fetch", (input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+    input === "/api/users/me"
+      ? Promise.resolve(jsonResponse(200, meReply))
+      : fetchMock(input, init),
+  );
 
   return fetchMock;
 }
@@ -61,7 +70,7 @@ function createCalls(fetchMock: ReturnType<typeof stubFetch>) {
 async function fillIn(name: string, opening: string) {
   const user = userEvent.setup();
   if (name !== "") {
-    await user.type(screen.getByLabelText("Your name"), name);
+    await user.type(await screen.findByLabelText("Your name"), name);
   }
   if (opening !== "") {
     await user.type(screen.getByLabelText("Opening passage"), opening);
@@ -107,6 +116,7 @@ describe("NewStory", () => {
     const fetchMock = stubFetch();
     renderPage(<NewStory />);
 
+    await screen.findByLabelText("Your name");
     const user = await fillIn("", "It began.");
     await user.click(screen.getByRole("button", { name: "Start the story" }));
 
@@ -141,6 +151,35 @@ describe("NewStory", () => {
     expect(createCalls(fetchMock)[0]?.[1]?.body).toBe(
       JSON.stringify({ displayName: "Ada", opening: "It began." }),
     );
+  });
+
+  it("shows no name field to a user who has a name, and creates the story without sending one", async () => {
+    meReply = { displayName: "Ada" };
+    const fetchMock = stubFetch(null, jsonResponse(201, { storyId: "abc12" }));
+    renderPage(<NewStory />);
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    const user = await fillIn("", "It began.");
+    await user.click(screen.getByRole("button", { name: "Start the story" }));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/abc12");
+    });
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+    expect(createCalls(fetchMock)[0]?.[1]?.body).toBe(JSON.stringify({ opening: "It began." }));
+  });
+
+  it("explains a taken name and suggests signing in", async () => {
+    stubFetch(null, jsonResponse(409, { error: "name_taken" }));
+    renderPage(<NewStory />);
+
+    const user = await fillIn("Ada", "It began.");
+    await user.click(screen.getByRole("button", { name: "Start the story" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("sign in");
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("submits from the keyboard", async () => {
@@ -208,7 +247,7 @@ describe("NewStory", () => {
     expect(screen.queryByRole("list", { name: "How it works" })).not.toBeInTheDocument();
   });
 
-  it("shows neither the pitch nor a list until the stories have loaded, but the form at once", () => {
+  it("shows neither the pitch nor a list until the stories have loaded, but the form at once, holding the start button until the name is known", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() => new Promise<Response>(() => undefined)),
@@ -218,7 +257,8 @@ describe("NewStory", () => {
     expect(screen.queryByRole("heading", { name: /write it together/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Your stories" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Start a story" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Your name")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
   });
 
   it("shows the pitch to a writer with no stories", async () => {
@@ -308,7 +348,7 @@ describe("NewStory", () => {
     const message = await screen.findByText("Couldn't load your stories.");
     expect(message.closest('[role="alert"]')).not.toBeNull();
     expect(screen.queryByRole("heading", { name: /write it together/i })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Your name")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
 
@@ -337,9 +377,10 @@ describe("NewStory", () => {
     );
   });
 
-  it("shows the account and loads the stories again after signing out", async () => {
+  it("shows the account and loads the stories and the name again after signing out", async () => {
     clerk.isSignedIn = true;
     clerk.email = "ana@example.com";
+    meReply = { displayName: "Ana" };
     const fetchMock = stubFetch(
       jsonResponse(200, { stories: [summary({})], nextCursor: null }),
       jsonResponse(200, { stories: [], nextCursor: null }),
@@ -347,6 +388,8 @@ describe("NewStory", () => {
     renderPage(<NewStory />);
     await screen.findByRole("region", { name: "Your stories" });
     expect(screen.getByText("ana@example.com")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+    meReply = { displayName: null };
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -355,6 +398,25 @@ describe("NewStory", () => {
     });
     expect(clerk.signOut).toHaveBeenCalledOnce();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The signed-out browser is a user with no name, so the form asks for one.
+    expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+  });
+
+  // The name can change after the form loaded it, by sign-in or sign-out in another tab. Without
+  // the reload, the form would keep sending a name the server refuses.
+  it("reloads the name when the server says the form's view of it is out of date", async () => {
+    stubFetch(null, jsonResponse(400, { error: "bad_request" }));
+    renderPage(<NewStory />);
+    const user = await fillIn("Ada", "It began.");
+    meReply = { displayName: "Ada" };
+
+    await user.click(screen.getByRole("button", { name: "Start the story" }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Check your name and try again.");
+    expect(screen.getByRole("button", { name: "Start the story" })).toBeEnabled();
   });
 
   it("says nothing about leaving when the writer arrived any other way", async () => {

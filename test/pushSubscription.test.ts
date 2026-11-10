@@ -10,6 +10,7 @@ import {
   createBrowser,
   createStory,
   createTestApp,
+  newDisplayName,
   readError,
   T0,
   type Browser,
@@ -48,7 +49,7 @@ describe("push subscription routes", () => {
   // A browser that has a cookie because it started a story.
   async function browserWithCookie(): Promise<{ browser: Browser; hash: string }> {
     const browser = newBrowser();
-    await createStory(browser);
+    await createStory(browser, newDisplayName());
 
     return { browser, hash: await userIdOf(testEnv.env.DB, browser) };
   }

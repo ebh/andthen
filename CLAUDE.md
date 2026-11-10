@@ -9,7 +9,8 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 - **Keep Worker logic out of files that import `cloudflare:*`.** Those files can't run in Node, so Stryker can't mutate them. `src/worker/app.ts` holds the Hono app; `src/worker/index.ts` only re-exports it with `StoryRoom`.
 - **After changing bindings in `wrangler.jsonc`, run `pnpm cf-typegen`** and commit `worker-configuration.d.ts`. CI fails if it is stale.
 - **A new D1 change is a new file in `migrations/`.** Never edit an applied migration.
-- **D1 tables are described by Zod in `src/worker/db/tableSchemas.ts`, and every database type is inferred from it.** Read `.claude/rules/database.md` before touching `src/worker/db/` or `migrations/`.
+- **A plan for a change to what is stored, sent or shown, or to who can see it, checks every legal document against `.claude/rules/legal-impact.md`.** Each document the change makes false gets a new version as a step in the plan, and the plan names the sentence that breaks. A document left alone gets a line saying why.
+- **D1 tables are described by Zod in `src/worker/db/tableSchemas.ts`, and every database type is inferred from it.** Read `.claude/rules/database.md` before touching `src/worker/db/` or `migrations/`, and `.claude/rules/migrations.md` before writing a migration.
 
 ## Where things live
 

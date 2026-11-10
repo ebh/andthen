@@ -4,7 +4,6 @@ import {
   Button,
   Form,
   H2,
-  Input,
   Label,
   Paragraph,
   Text,
@@ -14,17 +13,14 @@ import {
   YStack,
 } from "tamagui";
 
-import {
-  MAX_DISPLAY_NAME_LENGTH,
-  MAX_PASSAGE_LENGTH,
-  passageLength,
-  validateDisplayName,
-  validatePassage,
-} from "../shared/validation";
+import { MAX_PASSAGE_LENGTH, passageLength, validatePassage } from "../shared/validation";
 import { createStory } from "../client/api";
 import { takeLeftStoryNote } from "../client/leftStoryNote";
-import { describeFailure } from "../client/messages";
+import { NAME_FAILURE_MESSAGES, describeFailure, describeNameProblem } from "../client/messages";
+import { nameIsSettled, nameToSend, nameWasStale } from "../client/userName";
 import { useMyStories } from "../client/useMyStories";
+import { useUserName } from "../client/useUserName";
+import { NameField } from "./NameField";
 import { ContactLink } from "./ContactLink";
 import { SignInStatus } from "./SignInStatus";
 import { MyStories } from "./MyStories";
@@ -34,8 +30,8 @@ import { Wordmark } from "./Wordmark";
 export function NewStory() {
   const router = useRouter();
   const media = useMedia();
-  const nameId = useId();
   const openingId = useId();
+  const { load: userName, reload: reloadUserName } = useUserName();
   const [name, setName] = useState("");
   const [opening, setOpening] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,17 +41,13 @@ export function NewStory() {
   const hasStories = stories.type === "loaded" && stories.stories.length > 0;
   const length = passageLength(opening);
   const tooLong = length > MAX_PASSAGE_LENGTH;
-  const canSubmit = validatePassage(opening).ok && !submitting;
+  const canSubmit = validatePassage(opening).ok && !submitting && nameIsSettled(userName);
 
   const start = (): void => {
-    const checkedName = validateDisplayName(name);
+    const toSend = nameToSend(userName, name);
     const checkedOpening = validatePassage(opening);
-    if (!checkedName.ok) {
-      setError(
-        checkedName.reason === "empty"
-          ? "Enter a name."
-          : `Names can be at most ${MAX_DISPLAY_NAME_LENGTH.toString()} characters.`,
-      );
+    if (!toSend.ok) {
+      setError(describeNameProblem(toSend.problem));
       return;
     }
     if (!checkedOpening.ok || submitting) {
@@ -65,17 +57,23 @@ export function NewStory() {
     setSubmitting(true);
     setError(null);
     void (async () => {
-      const result = await createStory({
-        displayName: checkedName.value,
-        opening: checkedOpening.value,
-      });
+      const result = await createStory({ ...toSend.request, opening: checkedOpening.value });
       if (result.ok) {
         router.push(`/${result.value.storyId}`);
         return;
       }
       setSubmitting(false);
-      setError(describeFailure(result.failure));
+      setError(describeFailure(result.failure, NAME_FAILURE_MESSAGES));
+      if (nameWasStale(result.failure)) {
+        reloadUserName();
+      }
     })();
+  };
+
+  // Signing out changes who the browser is, and so whether it has a name.
+  const reloadAfterSignOut = (): void => {
+    reload();
+    reloadUserName();
   };
 
   return (
@@ -86,7 +84,7 @@ export function NewStory() {
         py={media.md ? "12" : "5"}
       >
         <Wordmark />
-        <SignInStatus onSignedOut={reload} />
+        <SignInStatus onSignedOut={reloadAfterSignOut} />
         {leftAStory && (
           <Paragraph role="status" color="muted" mt="8">
             You left the story.
@@ -131,16 +129,7 @@ export function NewStory() {
           <H2 fontFamily="story" fontSize="3xl" lineHeight="3xl" fontWeight="600">
             {hasStories ? "Start a new story" : "Start a story"}
           </H2>
-          <YStack gap="2">
-            <Label htmlFor={nameId}>Your name</Label>
-            <Input
-              id={nameId}
-              size="xl"
-              autoComplete="nickname"
-              value={name}
-              onChangeText={setName}
-            />
-          </YStack>
+          <NameField load={userName} reload={reloadUserName} value={name} onChange={setName} />
           <YStack gap="2">
             <Label htmlFor={openingId}>Opening passage</Label>
             <TextArea id={openingId} size="xl" value={opening} onChangeText={setOpening} />

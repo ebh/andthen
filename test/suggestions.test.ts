@@ -23,6 +23,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { createFakePushSender } from "./support/fakePushSender";
 import { gateLoads } from "./support/gatedDb";
@@ -108,8 +109,8 @@ describe("POST /api/stories/:storyId/suggestions", () => {
   async function twoPersonStory(): Promise<Pair> {
     clock.now = T0;
     const [ana, ben] = [newBrowser(), newBrowser()];
-    const storyId = await createStory(ana, "Ana", "Opening line.");
-    const benId = await joinStory(ben, storyId, "Ben");
+    const storyId = await createStory(ana, nameInTest("Ana"), "Opening line.");
+    const benId = await joinStory(ben, storyId, nameInTest("Ben"));
 
     return { storyId, ana, ben, benId };
   }
@@ -140,11 +141,12 @@ describe("POST /api/stories/:storyId/suggestions", () => {
     });
 
     it("works with the default fake provider", async () => {
-      const fakeApp = createTestApp(clock);
+      // Its own story ID, apart from the shared app's counter, so test order doesn't matter.
+      const fakeApp = createTestApp(clock, () => "fakep");
       clock.now = T0;
       const [ana, ben] = [createBrowser(fakeApp, testEnv.env), createBrowser(fakeApp, testEnv.env)];
       const storyId = await createStory(ana);
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
 
       const response = await ask(ben, storyId);
 
@@ -156,7 +158,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
     it("shows the provider the story as paragraphs, passages in order", async () => {
       const { storyId, ana, ben } = await twoPersonStory();
       expect((await readStory(ben, storyId)).turn.version).toBe(1);
-      await ben.post(`/api/stories/${storyId}/contributions`, {
+      await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Ben adds this.",
         turnVersion: 1,
         startsParagraph: false,
@@ -170,7 +172,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
     it("separates paragraphs with a blank line in what the provider sees", async () => {
       const { storyId, ana, ben } = await twoPersonStory();
       expect((await readStory(ben, storyId)).turn.version).toBe(1);
-      await ben.post(`/api/stories/${storyId}/contributions`, {
+      await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Ben starts a new one.",
         turnVersion: 1,
         startsParagraph: true,
@@ -196,7 +198,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       const { turn } = await readStory(ben, storyId);
 
       await ask(ben, storyId);
-      const response = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const response = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Mine.",
         turnVersion: turn.version,
         startsParagraph: false,
@@ -239,7 +241,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
     it("refuses a browser that is not in the story, with or without a cookie", async () => {
       const { storyId, ana } = await twoPersonStory();
       const stranger = newBrowser();
-      await createStory(stranger, "Zed");
+      await createStory(stranger, nameInTest("Zed"));
 
       for (const browser of [stranger, newBrowser()]) {
         const response = await ask(browser, storyId);
@@ -279,7 +281,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       // Ben's turn runs out and passes to Cat, the next in turn order (Ana wrote last).
       const { storyId, ben } = await twoPersonStory();
       const cat = newBrowser();
-      await joinStory(cat, storyId, "Cat");
+      await joinStory(cat, storyId, nameInTest("Cat"));
 
       clock.now = T0 + 24 * HOUR;
       const staleHolder = await ask(ben, storyId);
@@ -319,7 +321,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
         await ask(ben, storyId);
       }
-      await ben.post(`/api/stories/${storyId}/contributions`, {
+      await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Mine.",
         turnVersion: 1,
         startsParagraph: false,
@@ -333,8 +335,8 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
         await ask(first.ben, first.storyId);
       }
-      const second = await createStory(first.ana, "Ana");
-      await first.ben.post(`/api/stories/${second}/participants`, { displayName: "Ben" });
+      const second = await createStory(first.ana);
+      await joinStory(first.ben, second);
 
       expect((await ask(first.ben, second)).status).toBe(200);
     });
@@ -541,7 +543,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       const env = envWith(testEnv.env, vars);
       const [ana, ben] = [createBrowser(configured, env), createBrowser(configured, env)];
       const storyId = await createStory(ana);
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
 
       return { ben, storyId, env };
     }

@@ -12,6 +12,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { gateLoads } from "./support/gatedDb";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
@@ -32,7 +33,7 @@ describe("the participant cap", () => {
 
   const newBrowser = () => createBrowser(app, testEnv.env);
 
-  // Ana creates the story; joiners "P1", "P2", ... are written straight to D1 (one batch, as if
+  // Ana creates the story; joiners "P1 <storyId>", "P2 <storyId>", ... are written straight to D1 (one batch, as if
   // each had joined in turn) until it holds `count` participants. Fifty HTTP joins per test made
   // every mutant run in Stryker slow.
   async function storyWithParticipants(count: number): Promise<{ ana: Browser; storyId: string }> {
@@ -44,20 +45,27 @@ describe("the participant cap", () => {
     await db.batch([
       ...joiners.map((position) =>
         db
-          .prepare("INSERT INTO users (id, browser_token_hash, created_at) VALUES (?, ?, ?)")
-          .bind(`${storyId}-${String(position)}`, `${storyId}-${String(position)}`, T0),
+          .prepare(
+            `INSERT INTO users (id, browser_token_hash, display_name, display_name_key, created_at)
+             VALUES (?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            `${storyId}-${String(position)}`,
+            `${storyId}-${String(position)}`,
+            `P${String(position)} ${storyId}`,
+            `p${String(position)} ${storyId}`,
+            T0,
+          ),
       ),
       ...joiners.map((position) =>
         db
           .prepare(
-            `INSERT INTO participants (id, story_id, display_name, display_name_key, position,
-               user_id, joined_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO participants (id, story_id, position, user_id, joined_at)
+             VALUES (?, ?, ?, ?, ?)`,
           )
           .bind(
             `${storyId}-${String(position)}`,
             storyId,
-            `P${String(position)}`,
-            `p${String(position)}`,
             position,
             `${storyId}-${String(position)}`,
             T0,
@@ -82,8 +90,12 @@ describe("the participant cap", () => {
   it("lets the 50th participant join and refuses the 51st with 409 story_full", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS - 1);
 
-    const fiftieth = await newBrowser().post(joinPath(storyId), { displayName: "Last" });
-    const fiftyFirst = await newBrowser().post(joinPath(storyId), { displayName: "Late" });
+    const fiftieth = await newBrowser().post(joinPath(storyId), {
+      displayName: nameInTest("Last"),
+    });
+    const fiftyFirst = await newBrowser().post(joinPath(storyId), {
+      displayName: nameInTest("Late"),
+    });
 
     expect(fiftieth.status).toBe(201);
     expect(fiftyFirst.status).toBe(409);
@@ -97,7 +109,9 @@ describe("the participant cap", () => {
       .bind(T0, `${storyId}-2`)
       .run();
 
-    const response = await newBrowser().post(joinPath(storyId), { displayName: "Newcomer" });
+    const response = await newBrowser().post(joinPath(storyId), {
+      displayName: nameInTest("Newcomer"),
+    });
 
     expect(response.status).toBe(201);
     expect((await readStory(ana, storyId)).participants).toHaveLength(MAX_PARTICIPANTS);
@@ -106,7 +120,7 @@ describe("the participant cap", () => {
   it("refuses a rejoin to a full story with 409 story_full, and changes nothing", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
     await ana.post(`/api/stories/${storyId}/leave`, {});
-    await newBrowser().post(joinPath(storyId), { displayName: "Newcomer" });
+    await newBrowser().post(joinPath(storyId), { displayName: nameInTest("Newcomer") });
 
     const response = await ana.post(`/api/stories/${storyId}/rejoin`, {});
 
@@ -133,7 +147,11 @@ describe("the participant cap", () => {
     };
     const late = newBrowser();
 
-    const response = await late.post(joinPath(storyId), { displayName: "Late" }, { env });
+    const response = await late.post(
+      joinPath(storyId),
+      { displayName: nameInTest("Late") },
+      { env },
+    );
 
     expect(response.status).toBe(409);
     expect(await readStory(ana, storyId)).toEqual(before);
@@ -144,7 +162,7 @@ describe("the participant cap", () => {
   it("reports name_taken, not story_full, for a duplicate name on a full story", async () => {
     const { storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
 
-    const response = await newBrowser().post(joinPath(storyId), { displayName: "p1" });
+    const response = await newBrowser().post(joinPath(storyId), { displayName: `p1 ${storyId}` });
 
     expect(response.status).toBe(409);
     expect(await readError(response)).toBe("name_taken");
@@ -153,7 +171,7 @@ describe("the participant cap", () => {
   it("reports already_joined, not story_full, to a participant who joins again", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
 
-    const response = await ana.post(joinPath(storyId), { displayName: "Again" });
+    const response = await ana.post(joinPath(storyId), {});
 
     expect(await readError(response)).toBe("already_joined");
   });
@@ -182,7 +200,7 @@ describe("the participant cap", () => {
       }),
     };
     const gate = { env: { DB: gateLoads(testEnv.env.DB, 2), STORY_ROOM } };
-    const names = ["Zed", "Zoe"];
+    const names = [nameInTest("Zed"), nameInTest("Zoe")];
     const browsers = names.map(() => newBrowser());
 
     const responses = await Promise.all(
@@ -216,22 +234,21 @@ describe("the participant cap", () => {
         throw new Error("story missing");
       }
 
-      const extraUserId = await insertUser(testEnv.env.DB, "extra-user");
+      const extraUserId = await insertUser(testEnv.env.DB, "extra-user", "Extra");
       const saved = await addParticipant(testEnv.env.DB, {
         storyId,
         loadedVersion: loaded.state.turnVersion,
         next: { ...newStoryState(), turnVersion: loaded.state.turnVersion + 1 },
         participant: {
           id: "extra",
-          displayName: "Extra",
-          displayNameKey: "extra",
           position: MAX_PARTICIPANTS,
           userId: extraUserId,
         },
+        displayName: null,
         joinedAt: T0,
       });
 
-      expect(saved).toBe(false);
+      expect(saved).toBe("refused");
       const after = await loadStory(testEnv.env.DB, storyId);
       expect(after?.participants).toHaveLength(MAX_PARTICIPANTS);
       expect(after?.state).toEqual(loaded.state);

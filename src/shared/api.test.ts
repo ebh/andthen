@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  contributeRequestSchema,
+  createPassageRequestSchema,
   createStoryRequestSchema,
   createStoryResponseSchema,
   emptyRequestSchema,
@@ -17,6 +17,7 @@ import {
   myStoriesResponseSchema,
   skipRequestSchema,
   storyIdSchema,
+  meResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
 } from "./api";
@@ -31,10 +32,10 @@ const turnRejections = {
 } satisfies Record<TurnRejection, true>;
 
 const storyView = {
-  contributions: [
+  passages: [
     {
       id: "c1",
-      authorId: "p1",
+      authorId: "u1",
       authorName: "Ana",
       text: "Once.",
       startsParagraph: true,
@@ -42,8 +43,8 @@ const storyView = {
     },
   ],
   participants: [
-    { id: "p1", displayName: "Ana" },
-    { id: "p2", displayName: "Ben" },
+    { id: "p1", userId: "u1", displayName: "Ana" },
+    { id: "p2", userId: "u2", displayName: "Ben" },
   ],
   turn: { holderId: "p2", endsAt: 86_400_001, version: 1 },
   me: "p1",
@@ -55,35 +56,40 @@ describe("request schemas", () => {
       createStoryRequestSchema.safeParse({ displayName: "Ana", opening: "Once." }).success,
     ).toBe(true);
     expect(joinRequestSchema.safeParse({ displayName: "Ben" }).success).toBe(true);
+    // A user who already has a name sends none.
+    expect(createStoryRequestSchema.safeParse({ opening: "Once." }).success).toBe(true);
+    expect(joinRequestSchema.safeParse({}).success).toBe(true);
     expect(
-      contributeRequestSchema.safeParse({ text: "Then.", turnVersion: 0, startsParagraph: false })
-        .success,
+      createPassageRequestSchema.safeParse({
+        text: "Then.",
+        turnVersion: 0,
+        startsParagraph: false,
+      }).success,
     ).toBe(true);
     expect(skipRequestSchema.safeParse({ turnVersion: 3 }).success).toBe(true);
   });
 
   it.each([
     ["create without an opening", createStoryRequestSchema, { displayName: "Ana" }],
-    ["create without a name", createStoryRequestSchema, { opening: "Once." }],
     ["join with a number name", joinRequestSchema, { displayName: 1 }],
     [
-      "contribute without a version",
-      contributeRequestSchema,
+      "create passage without a version",
+      createPassageRequestSchema,
       { text: "Then.", startsParagraph: false },
     ],
     [
-      "contribute without text",
-      contributeRequestSchema,
+      "create passage without text",
+      createPassageRequestSchema,
       { turnVersion: 1, startsParagraph: false },
     ],
     [
-      "contribute without startsParagraph",
-      contributeRequestSchema,
+      "create passage without startsParagraph",
+      createPassageRequestSchema,
       { text: "Then.", turnVersion: 1 },
     ],
     [
-      "contribute with a string startsParagraph",
-      contributeRequestSchema,
+      "create passage with a string startsParagraph",
+      createPassageRequestSchema,
       { text: "Then.", turnVersion: 1, startsParagraph: "yes" },
     ],
     ["skip with a string version", skipRequestSchema, { turnVersion: "1" }],
@@ -137,21 +143,26 @@ describe("storyViewSchema", () => {
 
   it.each([
     ["no me", { ...storyView, me: undefined }],
-    ["an empty me", { ...storyView, me: "" }],
     [
-      "a contribution without an author name",
+      "a participant without a user ID",
       {
         ...storyView,
-        contributions: [
-          { id: "c1", authorId: "p1", text: "x", startsParagraph: true, createdAt: 1 },
-        ],
+        participants: [{ id: "p1", displayName: "Ana" }],
+      },
+    ],
+    ["an empty me", { ...storyView, me: "" }],
+    [
+      "a passage without an author name",
+      {
+        ...storyView,
+        passages: [{ id: "c1", authorId: "u1", text: "x", startsParagraph: true, createdAt: 1 }],
       },
     ],
     [
-      "a contribution with an empty author ID",
+      "a passage with an empty author ID",
       {
         ...storyView,
-        contributions: [
+        passages: [
           {
             id: "c1",
             authorId: "",
@@ -164,20 +175,20 @@ describe("storyViewSchema", () => {
       },
     ],
     [
-      "a contribution without startsParagraph",
+      "a passage without startsParagraph",
       {
         ...storyView,
-        contributions: [{ id: "c1", authorId: "p1", authorName: "Ana", text: "x", createdAt: 1 }],
+        passages: [{ id: "c1", authorId: "u1", authorName: "Ana", text: "x", createdAt: 1 }],
       },
     ],
     [
-      "a contribution with a fractional time",
+      "a passage with a fractional time",
       {
         ...storyView,
-        contributions: [
+        passages: [
           {
             id: "c1",
-            authorId: "p1",
+            authorId: "u1",
             authorName: "Ana",
             text: "x",
             startsParagraph: true,
@@ -189,6 +200,16 @@ describe("storyViewSchema", () => {
     ["a participant without a name", { ...storyView, participants: [{ id: "p1" }] }],
   ])("rejects a story with %s", (_case, view) => {
     expect(storyViewSchema.safeParse(view).success).toBe(false);
+  });
+});
+
+describe("meResponseSchema", () => {
+  it.each([{ displayName: "Ana" }, { displayName: null }])("accepts %j", (body) => {
+    expect(meResponseSchema.safeParse(body).success).toBe(true);
+  });
+
+  it.each([{}, { displayName: 1 }])("rejects %j", (body) => {
+    expect(meResponseSchema.safeParse(body).success).toBe(false);
   });
 });
 

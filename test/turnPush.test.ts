@@ -15,6 +15,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { putPushSubscription } from "./support/pushSubscriptions";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
@@ -78,9 +79,9 @@ describe("pushing the turn", () => {
       createBrowser(target, env, origin),
       createBrowser(target, env, origin),
     ];
-    const storyId = await createStory(ana, "Ana", OPENING);
-    await joinStory(ben, storyId, "Ben");
-    await joinStory(cy, storyId, "Cy");
+    const storyId = await createStory(ana, nameInTest("Ana"), OPENING);
+    await joinStory(ben, storyId, nameInTest("Ben"));
+    await joinStory(cy, storyId, nameInTest("Cy"));
 
     return { ana, ben, cy, storyId };
   }
@@ -190,7 +191,7 @@ describe("pushing the turn", () => {
       setUp();
       const [ana, ben] = [newBrowser(), newBrowser()];
       const storyId = await createStory(ana);
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
       await subscribe(ana, "ana");
 
       // Ben is the only other writer and Ana wrote last, so when Ben leaves nobody can hold it.
@@ -207,7 +208,7 @@ describe("pushing the turn", () => {
       const { storyId } = await threeWriters();
       const dan = newBrowser();
 
-      await joinStory(dan, storyId, "Dan");
+      await joinStory(dan, storyId, nameInTest("Dan"));
       await settle(dan);
 
       expect(sender.sent).toEqual([]);
@@ -240,7 +241,7 @@ describe("pushing the turn", () => {
       clock.now = T0 + TURN_WINDOW_MS + 1000;
       const dan = newBrowser();
 
-      await joinStory(dan, storyId, "Dan");
+      await joinStory(dan, storyId, nameInTest("Dan"));
       await settle(dan);
 
       expect(sentTo()).not.toContain(endpoints.cy);
@@ -253,11 +254,11 @@ describe("pushing the turn", () => {
       setUp();
       const [ana, ben] = [newBrowser(), newBrowser()];
       // Ben already has a subscription from another story he is in.
-      await createStory(ben, "Ben");
+      await createStory(ben, nameInTest("Ben"));
       await subscribe(ben, "ben");
       const storyId = await createStory(ana);
 
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
       await settle(ana, ben);
 
       expect(await holds(ben, storyId)).toBe(true);
@@ -268,7 +269,7 @@ describe("pushing the turn", () => {
       setUp();
       const [ana, ben] = [newBrowser(), newBrowser()];
       const storyId = await createStory(ana);
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
       await subscribe(ben, "ben");
       await ben.post(`/api/stories/${storyId}/leave`, {});
       expect(await isWaiting(ana, storyId)).toBe(true);
@@ -318,13 +319,13 @@ describe("pushing the turn", () => {
       setUp();
       const [ana, ben, cy] = [newBrowser(), newBrowser(), newBrowser()];
       const storyId = await createStory(ana);
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
       await subscribe(ben, "ben");
       await ben.post(`/api/stories/${storyId}/leave`, {});
       await settle(ana, ben);
 
       // The story waits with Ana alone; Cy joins and takes the turn.
-      await joinStory(cy, storyId, "Cy");
+      await joinStory(cy, storyId, nameInTest("Cy"));
       await settle(cy);
 
       expect(sender.sent).toEqual([]);
@@ -413,7 +414,7 @@ describe("pushing the turn", () => {
       await settle(ben);
       sender.sent.length = 0;
 
-      const response = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const response = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "Again.",
         turnVersion: stale,
         startsParagraph: false,
@@ -445,7 +446,7 @@ describe("pushing the turn", () => {
 
 // The holder writes a passage at the version their page shows.
 async function contribute(browser: Browser, storyId: string): Promise<Response> {
-  return browser.post(`/api/stories/${storyId}/contributions`, {
+  return browser.post(`/api/stories/${storyId}/passages`, {
     text: "And then it lit again.",
     turnVersion: await version(browser, storyId),
     startsParagraph: false,

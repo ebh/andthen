@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { myStoriesResponseSchema } from "../src/shared/api";
+import { canSkipTurn } from "../src/client/storyRules";
+import { meResponseSchema, myStoriesResponseSchema } from "../src/shared/api";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
 import { findUserByClerkUserId } from "../src/worker/db/userRepo";
 import {
@@ -14,6 +15,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { deletePushSubscription, putPushSubscription } from "./support/pushSubscriptions";
 import { createFakePushSender, type FakePushSender } from "./support/fakePushSender";
@@ -100,6 +102,34 @@ describe("PUT /api/users/me/account", () => {
     return z.object({ count: z.number() }).parse(row).count;
   }
 
+  describe("GET /api/users/me", () => {
+    it("reports no name and creates no user or cookie for a browser with none, then the name once it has one", async () => {
+      setUp();
+      const phone = anonymous();
+      const signedIn = await account("user_me_unknown");
+      const users = await count("users");
+
+      const before = await phone.get("/api/users/me");
+      const signedInBefore = await signedIn.get("/api/users/me");
+
+      expect(meResponseSchema.parse(await before.json())).toEqual({ displayName: null });
+      expect(meResponseSchema.parse(await signedInBefore.json())).toEqual({ displayName: null });
+      expect([before.headers.getSetCookie(), signedInBefore.headers.getSetCookie()]).toEqual([
+        [],
+        [],
+      ]);
+      expect(await count("users")).toBe(users);
+      expect(await findUserByClerkUserId(testEnv.env.DB, "user_me_unknown")).toBeNull();
+
+      await createStory(phone, nameInTest("Ana on phone"));
+      const after = await phone.get("/api/users/me");
+
+      expect(meResponseSchema.parse(await after.json())).toEqual({
+        displayName: nameInTest("Ana on phone"),
+      });
+    });
+  });
+
   describe("a first sign-in", () => {
     it("gives the device user the account, keeps its stories and answers 204", async () => {
       setUp();
@@ -174,9 +204,9 @@ describe("PUT /api/users/me/account", () => {
     it("moves the device's stories and push subscriptions to the account user", async () => {
       setUp();
       const laptop = await account("user_merge");
-      const laptopStory = await createStory(laptop, "Ana");
+      const laptopStory = await createStory(laptop, nameInTest("Ana"));
       const phone = anonymous();
-      const phoneStory = await createStory(phone, "Ana on phone");
+      const phoneStory = await createStory(phone, nameInTest("Ana on phone"));
       const endpoint = await subscribe(phone, "phone-merge");
       const deviceUserId = await userIdOf(testEnv.env.DB, phone);
 
@@ -193,12 +223,19 @@ describe("PUT /api/users/me/account", () => {
         .bind(deviceUserId)
         .first();
       expect(stillThere).toBeNull();
+      // The passages move with the user, and the account user's name wins over the device's.
+      const phoneView = await readStory(laptop, phoneStory);
+      expect(phoneView.passages.map(({ authorId, authorName }) => [authorId, authorName])).toEqual([
+        [accountUser?.id, nameInTest("Ana")],
+      ]);
+      expect(phoneView.participants.map(({ userId }) => userId)).toEqual([accountUser?.id]);
+      await createStory(anonymous(), nameInTest("Ana on phone"));
     });
 
     it("merges when another request claims the account while this one attaches it", async () => {
       setUp();
       const phone = anonymous();
-      const phoneStory = await createStory(phone, "Ana on phone");
+      const phoneStory = await createStory(phone, nameInTest("Ana on phone"));
       const deviceUserId = await userIdOf(testEnv.env.DB, phone);
       phone.sessionToken = await signSessionToken("user_raced", ORIGIN);
 
@@ -221,7 +258,7 @@ describe("PUT /api/users/me/account", () => {
       const laptop = await account("user_repeat");
       await createStory(laptop);
       const phone = anonymous();
-      await createStory(phone, "Ana on phone");
+      await createStory(phone, nameInTest("Ana on phone"));
       await signIn(phone, "user_repeat");
       const before = [await count("users"), await count("participants")];
 
@@ -236,11 +273,11 @@ describe("PUT /api/users/me/account", () => {
     it("takes the device out of a story both are in: the turn passes and the row is the account's", async () => {
       setUp();
       const laptop = await account("user_shared");
-      const storyId = await createStory(laptop, "Ana");
+      const storyId = await createStory(laptop, nameInTest("Ana"));
       const phone = anonymous();
-      await joinStory(phone, storyId, "Ana on phone");
+      await joinStory(phone, storyId, nameInTest("Ana on phone"));
       const ben = anonymous();
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
       await subscribe(ben, "ben-shared");
       await settle(laptop, phone, ben);
       const accountUser = await findUserByClerkUserId(testEnv.env.DB, "user_shared");
@@ -269,13 +306,47 @@ describe("PUT /api/users/me/account", () => {
       expect(await storyIds(laptop)).toEqual([storyId]);
     });
 
+    // The device wrote last, then left the story in the merge, so its passage is now the account
+    // user's. Without moving the last contributor to the account user's active row, a skip of Ben
+    // would hand the turn to the account user right after they wrote, while the client (which finds
+    // the last writer by user) offers no skip.
+    it("keeps the device's passage as the last write after a merge into a writer in the story", async () => {
+      setUp();
+      clock.now = T0;
+      const laptop = await account("user_last_writer");
+      const storyId = await createStory(laptop, nameInTest("Ana"));
+      const ben = anonymous();
+      await joinStory(ben, storyId, nameInTest("Ben"));
+      const phone = anonymous();
+      await joinStory(phone, storyId, nameInTest("Ana on phone"));
+      await writeAs(ben, storyId, 2);
+      await writeAs(phone, storyId, 3);
+      // The turn passed to the laptop; the phone skips it on to Ben.
+      expect((await phone.post(`/api/stories/${storyId}/skip`, { turnVersion: 4 })).status).toBe(
+        204,
+      );
+      await settle(laptop, phone, ben);
+
+      expect((await signIn(phone, "user_last_writer")).status).toBe(204);
+      await settle(phone);
+
+      const asAccount = await readStory(laptop, storyId);
+      expect(asAccount.turn.holderId).not.toBe(asAccount.me);
+      expect(canSkipTurn(asAccount)).toBe(false);
+      const skipped = await laptop.post(`/api/stories/${storyId}/skip`, {
+        turnVersion: asAccount.turn.version,
+      });
+      expect(skipped.status).toBe(409);
+      expect(await readError(skipped)).toBe("no_one_to_skip_to");
+    });
+
     it("finishes when the device left the story while the merge was running", async () => {
       setUp();
       const laptop = await account("user_left_meanwhile");
-      const storyId = await createStory(laptop, "Ana");
+      const storyId = await createStory(laptop, nameInTest("Ana"));
       const phone = anonymous();
-      await joinStory(phone, storyId, "Ana on phone");
-      await joinStory(anonymous(), storyId, "Ben");
+      await joinStory(phone, storyId, nameInTest("Ana on phone"));
+      await joinStory(anonymous(), storyId, nameInTest("Ben"));
       const deviceUserId = await userIdOf(testEnv.env.DB, phone);
       phone.sessionToken = await signSessionToken("user_left_meanwhile", ORIGIN);
 
@@ -296,10 +367,10 @@ describe("PUT /api/users/me/account", () => {
     it("answers 409 stale_turn when other writes keep moving the story, and a retry finishes", async () => {
       setUp();
       const laptop = await account("user_stale");
-      const storyId = await createStory(laptop, "Ana");
+      const storyId = await createStory(laptop, nameInTest("Ana"));
       const phone = anonymous();
-      await joinStory(phone, storyId, "Ana on phone");
-      await joinStory(anonymous(), storyId, "Ben");
+      await joinStory(phone, storyId, nameInTest("Ana on phone"));
+      await joinStory(anonymous(), storyId, nameInTest("Ben"));
       const outpaced = outpacedLeaves(env, storyId);
       phone.sessionToken = await signSessionToken("user_stale", ORIGIN);
 
@@ -326,19 +397,19 @@ describe("PUT /api/users/me/account", () => {
     it("lists the stories of both and pushes the turn to both", async () => {
       setUp();
       const laptop = await account("user_devices");
-      const storyId = await createStory(laptop, "Ana");
+      const storyId = await createStory(laptop, nameInTest("Ana"));
       const laptopEndpoint = await subscribe(laptop, "laptop-devices");
       const ben = anonymous();
-      await joinStory(ben, storyId, "Ben");
+      await joinStory(ben, storyId, nameInTest("Ben"));
       const phone = anonymous();
-      const phoneStory = await createStory(phone, "Ana on phone");
+      const phoneStory = await createStory(phone, nameInTest("Ana on phone"));
       const phoneEndpoint = await subscribe(phone, "phone-devices");
       await signIn(phone, "user_devices");
       await settle(laptop, phone, ben);
       sender.sent.length = 0;
       const view = await readStory(ben, storyId);
 
-      const written = await ben.post(`/api/stories/${storyId}/contributions`, {
+      const written = await ben.post(`/api/stories/${storyId}/passages`, {
         text: "And then.",
         turnVersion: view.turn.version,
         startsParagraph: false,
@@ -541,6 +612,15 @@ async function signIn(browser: Browser, clerkUserId: string): Promise<Response> 
   browser.sessionToken = await signSessionToken(clerkUserId, ORIGIN);
 
   return browser.put(PATH, {});
+}
+
+async function writeAs(browser: Browser, storyId: string, turnVersion: number): Promise<void> {
+  const response = await browser.post(`/api/stories/${storyId}/passages`, {
+    text: "And then.",
+    turnVersion,
+    startsParagraph: false,
+  });
+  expect(response.status).toBe(201);
 }
 
 async function storyIds(browser: Browser): Promise<string[]> {

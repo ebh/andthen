@@ -1,7 +1,7 @@
 import type { StoryView, TurnView } from "../shared/api";
 import { resolveTurn, turnEndsAt } from "../shared/turnOrder";
 import type { LoadedStory } from "./db/typeSchemas";
-import type { ContributionRow, ParticipantRow } from "./db/rows";
+import type { ParticipantRow, PassageRow } from "./db/rows";
 
 /**
  * What a participant sees. The turn comes from `resolveTurn(state, now)`, not the stored row:
@@ -9,13 +9,17 @@ import type { ContributionRow, ParticipantRow } from "./db/rows";
  */
 export function buildStoryView(
   loaded: LoadedStory,
-  contributions: ContributionRow[],
+  passages: PassageRow[],
   me: ParticipantRow,
   now: number,
 ): StoryView {
   return {
-    contributions,
-    participants: loaded.activeParticipants.map(({ id, displayName }) => ({ id, displayName })),
+    passages,
+    participants: loaded.activeParticipants.map(({ id, userId, displayName }) => ({
+      id,
+      userId,
+      displayName,
+    })),
     turn: buildTurnView(loaded, now),
     me: me.id,
   };

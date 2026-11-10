@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { PHONE, startStory, turnBanner } from "./writers.ts";
+import { PHONE, names, startStory, turnBanner } from "./writers.ts";
 
 // What these tests prove: the switch in the story rail, and the app's calls to the real Worker
 // (key, PUT, DELETE) with the real service worker registered. What they cannot prove: a push
@@ -37,7 +37,7 @@ async function writerOn(
   if (standIn) {
     await standInForPushService(page);
   }
-  await startStory(page, "Ana", "The lighthouse went dark at noon.");
+  await startStory(page, names.ana, "The lighthouse went dark at noon.");
 
   return page;
 }
@@ -197,7 +197,7 @@ test("with a stand-in for the push service: a browser that cannot subscribe show
   const context = await browser.newContext({ viewport: DESKTOP, serviceWorkers: "allow" });
   const page = await context.newPage();
   await standInForPushService(page, true);
-  await startStory(page, "Ana", "The lighthouse went dark at noon.");
+  await startStory(page, names.ana, "The lighthouse went dark at noon.");
   const sent: string[] = [];
   page.on("request", (request) => {
     if (request.url().endsWith(SUBSCRIPTION_URL)) {

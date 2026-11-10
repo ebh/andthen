@@ -3,7 +3,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ContributionView } from "../shared/api";
+import type { PassageView } from "../shared/api";
 import { StoryText } from "./StoryText";
 import { renderPage } from "./testRender";
 import { setScreen } from "./testScreen";
@@ -29,7 +29,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const turns: ContributionView[] = [
+const turns: PassageView[] = [
   turn("c1", "p1", "Ana", "A fox found a key.", true),
   turn("c2", "p2", "Ben", "It opened nothing.", false),
   turn("c3", "p1", "Ana", "Or so it seemed.", false),
@@ -42,7 +42,7 @@ function turn(
   authorName: string,
   text: string,
   startsParagraph: boolean,
-): ContributionView {
+): PassageView {
   return { id, authorId, authorName, text, startsParagraph, createdAt: 1 };
 }
 
@@ -57,14 +57,14 @@ function highlighted(): string[] {
 describe("StoryText", () => {
   it("renders passage text as plain text, never as markup", () => {
     const hostile = "<img src=x onerror=alert(1)><b>bold</b>";
-    renderPage(<StoryText contributions={[turn("c1", "p1", "Ana", hostile, true)]} />);
+    renderPage(<StoryText passages={[turn("c1", "p1", "Ana", hostile, true)]} />);
 
     expect(within(story()).getByText(hostile)).toBeInTheDocument();
     expect(story().querySelector("img, b")).toBeNull();
   });
 
   it("joins turns that continue a paragraph and starts a new one where asked", () => {
-    renderPage(<StoryText contributions={turns} />);
+    renderPage(<StoryText passages={turns} />);
 
     expect(story().querySelectorAll("p")[0]).toHaveTextContent(
       "A fox found a key. It opened nothing. Or so it seemed.",
@@ -75,7 +75,7 @@ describe("StoryText", () => {
   describe("on a narrow screen", () => {
     it("hides the authors until the reader switches them on, and off again", async () => {
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       const toggle = screen.getByRole("switch", { name: "Show authors" });
 
       expect(toggle).not.toBeChecked();
@@ -94,7 +94,7 @@ describe("StoryText", () => {
     });
 
     it("lists each author of a paragraph once", async () => {
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       await userEvent.setup().click(screen.getByRole("switch", { name: "Show authors" }));
 
       expect(screen.getAllByRole("button", { name: "Ana" })).toHaveLength(1);
@@ -102,7 +102,7 @@ describe("StoryText", () => {
 
     it("pins an author's turns on press and releases them on the next press", async () => {
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       await user.click(screen.getByRole("switch", { name: "Show authors" }));
       const ana = screen.getByRole("button", { name: "Ana" });
       expect(ana).toHaveAttribute("aria-pressed", "false");
@@ -118,7 +118,7 @@ describe("StoryText", () => {
 
     it("moves the pin to another author's turns", async () => {
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       await user.click(screen.getByRole("switch", { name: "Show authors" }));
 
       await user.click(screen.getByRole("button", { name: "Ana" }));
@@ -130,7 +130,7 @@ describe("StoryText", () => {
 
     it("drops a pinned highlight when the authors are switched off", async () => {
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       const toggle = screen.getByRole("switch", { name: "Show authors" });
       await user.click(toggle);
       await user.click(screen.getByRole("button", { name: "Ana" }));
@@ -142,7 +142,7 @@ describe("StoryText", () => {
 
     it("does not highlight on a tap's hover or focus, so the second tap can release", async () => {
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       await user.click(screen.getByRole("switch", { name: "Show authors" }));
 
       await user.hover(screen.getByRole("button", { name: "Ana" }));
@@ -154,7 +154,7 @@ describe("StoryText", () => {
   describe("on a wide screen", () => {
     it("lists the authors beside each paragraph with no toggle", () => {
       setScreen({ wide: true, hover: true });
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
 
       expect(screen.queryByRole("switch")).not.toBeInTheDocument();
       expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
@@ -167,7 +167,7 @@ describe("StoryText", () => {
     it("highlights an author's turns in their paragraph only while a mouse is over the name", async () => {
       setScreen({ wide: true, hover: true });
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
       const ben = screen.getAllByRole("button", { name: "Ben" })[0];
       if (ben === undefined) {
         throw new Error("No author button for Ben");
@@ -184,7 +184,7 @@ describe("StoryText", () => {
       setScreen({ wide: true, hover: true });
       focusIsFromKeyboard(true);
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
 
       await user.tab();
       expect(screen.getAllByRole("button", { name: "Ana" })[0]).toHaveFocus();
@@ -197,7 +197,7 @@ describe("StoryText", () => {
     it("ignores hover on a device that cannot hover", async () => {
       setScreen({ wide: true, hover: false });
       const user = userEvent.setup();
-      renderPage(<StoryText contributions={turns} />);
+      renderPage(<StoryText passages={turns} />);
 
       await user.hover(screen.getAllByRole("button", { name: "Ben" })[0] ?? document.body);
 

@@ -48,8 +48,39 @@ export function validateDisplayName(raw: string): ValidationResult {
   return validateLength(raw, MAX_DISPLAY_NAME_LENGTH);
 }
 
+/** What a request's display name means for the user making it. `value` is null for no change. */
+export type DisplayNameChoice =
+  | { ok: true; value: { displayName: string; displayNameKey: string } | null }
+  | { ok: false; reason: "invalid_display_name" | "bad_request" };
+
 /**
- * The key that makes display names unique within a story, ignoring case.
+ * Decides what a request's display name means. A user has one name in every story, so a user with
+ * none must send a valid one, and a user with one must not send any: sending one would read as a
+ * rename, which rewrites their name on every old passage. `current` is the user's name, or null.
+ */
+export function chooseDisplayName(
+  requested: string | undefined,
+  current: string | null,
+): DisplayNameChoice {
+  if (current !== null) {
+    return requested === undefined
+      ? { ok: true, value: null }
+      : { ok: false, reason: "bad_request" };
+  }
+
+  const name = validateDisplayName(requested ?? "");
+  if (!name.ok) {
+    return { ok: false, reason: "invalid_display_name" };
+  }
+
+  return {
+    ok: true,
+    value: { displayName: name.value, displayNameKey: displayNameKey(name.value) },
+  };
+}
+
+/**
+ * The key that makes display names unique across users, ignoring case.
  *
  * NFKC folds look-alike forms (composed vs decomposed accents, full-width letters).
  * Uppercasing before lowercasing folds characters with no single-letter lowercase pair,

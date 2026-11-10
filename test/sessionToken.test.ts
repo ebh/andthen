@@ -12,6 +12,7 @@ import {
   T0,
   type Browser,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { signSessionToken, type SessionTokenOptions } from "./support/sessionToken";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
@@ -108,7 +109,9 @@ describe("session tokens", () => {
       const second = await signedIn("user_writes");
 
       const storyId = await createStory(first);
-      await createStory(second, "Ana again");
+      // The account user already has a name from the first story, so this one sends none.
+      const again = await second.post("/api/stories", { opening: "Once more." });
+      expect(again.status).toBe(201);
 
       expect(first.cookies.size).toBe(0);
       const users = await testEnv.env.DB.prepare(
@@ -198,7 +201,7 @@ describe("session tokens", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
       const response = await browser.post("/api/stories", {
-        displayName: "Ana",
+        displayName: nameInTest("Ana"),
         opening: "Once upon a time.",
       });
 

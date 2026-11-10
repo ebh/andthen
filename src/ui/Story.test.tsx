@@ -39,6 +39,7 @@ describe("Story", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse(403, { error: "not_participant" }))
+      .mockResolvedValueOnce(jsonResponse(200, { displayName: null }))
       .mockResolvedValueOnce(jsonResponse(201, { participantId: ME }))
       .mockResolvedValueOnce(jsonResponse(200, view));
     vi.stubGlobal("fetch", fetchMock);
@@ -51,6 +52,7 @@ describe("Story", () => {
     expect(await screen.findByLabelText("Invite link")).toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/stories/abc12",
+      "/api/users/me",
       "/api/stories/abc12/participants",
       "/api/stories/abc12",
     ]);

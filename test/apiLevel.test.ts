@@ -2,7 +2,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { API_LEVEL } from "../src/shared/apiLevel";
 import { fakeProvider } from "../src/worker/suggestions/fake";
-import { createBrowser, createTestApp, readError, T0, type Clock } from "./support/browser";
+import {
+  createBrowser,
+  createTestApp,
+  readError,
+  T0,
+  type Clock,
+  nameInTest,
+} from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
 const MIN = 3;
@@ -48,7 +55,7 @@ describe("the API level guard", () => {
 
       const response = await browser.post(
         "/api/stories",
-        { displayName: "Ana", opening: "Once upon a time." },
+        { displayName: nameInTest("Ana"), opening: "Once upon a time." },
         { apiLevel: String(MIN - 1) },
       );
 
@@ -109,7 +116,7 @@ describe("the API level guard", () => {
     it("refuses a stale level before the origin check", async () => {
       const response = await newBrowser().post(
         "/api/stories",
-        { displayName: "Ana", opening: "Once." },
+        { displayName: nameInTest("Ana"), opening: "Once." },
         { origin: "https://evil.example", apiLevel: String(MIN - 1) },
       );
 
@@ -129,7 +136,7 @@ describe("the API level guard", () => {
     it("still reports a bad origin at a current level", async () => {
       const response = await newBrowser().post(
         "/api/stories",
-        { displayName: "Ana", opening: "Once." },
+        { displayName: nameInTest("Ana"), opening: "Once." },
         { origin: "https://evil.example", apiLevel: String(MIN) },
       );
 

@@ -17,7 +17,7 @@
 
 ## Every change bumps the version
 
-Each contribution, skip, expired window, join, rejoin and leave adds one to `turn_version`. A join to a waiting story also starts the turn, but the version still goes up once. So any action that loaded the participant list before a join or leave fails the guard. That includes a contribution the holder was typing, so the composer must keep its text when it gets a 409.
+Each passage, skip, expired window, join, rejoin and leave adds one to `turn_version`. A join to a waiting story also starts the turn, but the version still goes up once. So any action that loaded the participant list before a join or leave fails the guard. That includes a passage the holder was typing, so the composer must keep its text when it gets a 409.
 
 ## Out of scope
 

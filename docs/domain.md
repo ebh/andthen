@@ -5,20 +5,20 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 ## Story and its text
 
 - **Story:** one text that a group writes together, in turns. It has a five-character ID that is also its URL (`/<id>`). Lives in the `stories` table; routes under `/api/stories`.
-- **Passage:** a section of a story's text. It can be part of a sentence, a sentence or a whole paragraph, up to `MAX_PASSAGE_LENGTH` (280 graphemes) in `src/shared/validation.ts`. The error code is `invalid_passage`.
+- **Passage:** a section of a story's text. It can be part of a sentence, a sentence or a whole paragraph, up to `MAX_PASSAGE_LENGTH` (280 graphemes) in `src/shared/validation.ts`. The error code is `invalid_passage`. Lives in the append-only `passages` table; `PassageView` in `src/shared/api.ts`; `POST /api/stories/:storyId/passages`.
 - **Opening:** the first passage of a story, written by its creator when they start it. `opening` in `StorySummary`.
-- **Paragraph start:** whether a passage opens a new paragraph or continues the last one. `startsParagraph` in `ContributionView`; the opening always starts one.
-- **Contribution:** what a participant adds to a story. Today every contribution is a passage, because nothing else can be added yet. Edits, comments and votes are planned and will be contributions too (see "Reserved"). Lives in the append-only `contributions` table; `ContributionView` in `src/shared/api.ts`; `POST /api/stories/:storyId/contributions`.
-- **Author:** the participant who wrote a contribution. `authorId` and `authorName` in `ContributionView`. For who shares in a story's copyright, see Passage author.
-- **Contributor:** a participant who has made at least one contribution of any kind: a passage today, later an edit, comment or vote. It is the author link seen from the participant's side. The last contributor is the participant who made the most recent contribution; the turn passes over them (`lastContributorPosition`).
+- **Paragraph start:** whether a passage opens a new paragraph or continues the last one. `startsParagraph` in `PassageView`; the opening always starts one.
+- **Contribution:** what a user adds to a story. Today every contribution is a passage, because nothing else can be added yet. Edits, comments and votes are planned and will be contributions too (see "Reserved"). Each kind gets its own table, as passages do; there is no `contributions` table.
+- **Author:** the user who wrote a passage. `authorId` (the user's ID, the same in every story) and `authorName` in `PassageView`; `authorId` is `passages.author_id`. For who shares in a story's copyright, see Passage author.
+- **Contributor:** a user who has made at least one contribution of any kind: a passage today, later an edit, comment or vote. The last contributor is the participant whose user made the most recent contribution; the turn passes over them (`lastContributorPosition`).
 - **Suggestion:** an AI-written passage offered to the turn holder. A request returns three; they only fill the text box, and the participant decides what to send. Limited to `SUGGESTION_LIMIT` per participant per hour. `POST /api/stories/:storyId/suggestions`.
 
 ## People
 
-- **User:** one person across stories. A participant and a push subscription each belong to a user. A user is anonymous until it has an account. A user with an account is an account user. Lives in the `users` table.
+- **User:** one person across stories. A passage, a participant and a push subscription each belong to a user, and so does the display name. A user is anonymous until it has an account. A user with an account is an account user. Lives in the `users` table.
 - **Participant:** someone who has joined a story. One row per user per story in the `participants` table; `ParticipantView`; `POST /api/stories/:storyId/participants`. The same person in two stories is two participants.
-- **Writer:** a participant who may write passages. Today every participant is a writer, so the role is not stored. A writer is the author of the passages they write. The word appears in the README, the docs, UI copy and `writerCount` in `StorySummary`.
-- **Display name:** the name shown beside a participant's passages. Chosen per story, up to `MAX_DISPLAY_NAME_LENGTH` (40 graphemes), unique in a story ignoring case (`display_name_key`). A leaver's name stays reserved.
+- **Writer:** a participant who may write passages. Today every participant is a writer, so the role is not stored. A writer's user is the author of the passages they write. The word appears in the README, the docs, UI copy and `writerCount` in `StorySummary`.
+- **Display name:** the name shown beside a user's passages, in every story. A user chooses it once, when they start or join their first story. Up to `MAX_DISPLAY_NAME_LENGTH` (40 graphemes), unique among all users ignoring case (`users.display_name_key`). Sending a name when the user already has one is refused, because a rename would rewrite the name on every old passage. `GET /api/users/me` reports it.
 - **Invite link:** a story's URL, shared so others can join. Anyone with it can join, up to `MAX_PARTICIPANTS` (50).
 - **Device token:** the random secret that identifies an anonymous user on one device: 32 random bytes as 64 lowercase hex characters (`deviceTokenSchema`). A browser carries it in the browser token cookie; a store app makes it on first launch, keeps it in secure storage and sends it as the `X-Device-Token` header. Only its SHA-256 hash is stored, as `users.browser_token_hash`. A user with an account has no device token.
 - **Browser token:** the cookie `__Host-andthen_bt` (`andthen_bt` on `http://localhost`) that carries the device token on the web. The Worker issues it. The code still says "browser token" in places (`hashBrowserToken`, `users.browser_token_hash`).
@@ -28,13 +28,13 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
   - **Signing out:** the device is anonymous again. Its stories are not on it any more, because they belong to the account. Signing out first switches off turn notifications on that device.
   - **In the app:** the home page shows "Use your stories on all your devices" with a "Sign in" link to `/sign-in`. A signed-in user sees their email and a "Sign out" button.
   - `PUT /api/users/me/account`.
-- **Merge:** folding the device user into the account user. Participants and push subscriptions move to the account user, and the device user is deleted. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
+- **Merge:** folding the device user into the account user. Passages, participants and push subscriptions move to the account user, and the device user is deleted. The account user keeps its display name and takes the device user's only when it has none. Only the basic fold ships. When both users are writers in the same story, the device user's participant leaves that story first, and the left row stays tied to the account user. Joining those two participants into one stays in [#48](https://github.com/ebh/andthen/issues/48).
 - **`me`:** the reserved user ID in a path that means the user making the request, as in `/api/users/me/account`. See `.claude/rules/api.md`.
 - **Session token:** the short-lived proof that a request comes from a signed-in account. A signed-in client sends it as `Authorization: Bearer <token>` on every call. The Worker checks it (`src/worker/sessionToken.ts`). A request with a session token never falls back to the browser token. Error code `invalid_session_token`.
 - **My stories:** the stories a user is in and has not left, on every device that user is signed in on. Listed a page at a time. `GET /api/stories`; `StorySummary`.
 - **Page:** the next batch of a user's stories, at most `limit` of them (`MY_STORIES_DEFAULT_LIMIT` 20, `MY_STORIES_MAX_LIMIT` 50). The response carries the cursor for the page after it, or null on the last page. `StoriesPage`.
 - **Cursor:** where a page ended: the sort key of its last story (whose turn it is, newest passage time, story ID). It is opaque to clients, and the next page is every story that sorts after it. `nextCursor`; `StoryCursor`.
-- **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so passages keep an author and the name stays reserved. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:storyId/leave` and `/rejoin`.
+- **Leave and rejoin:** leaving sets `participants.left_at` and keeps the row, so the turn order keeps its places and a rejoin finds the participant. Rejoining clears it and puts the participant last in the turn order. `POST /api/stories/:storyId/leave` and `/rejoin`.
 
 ## Turns
 

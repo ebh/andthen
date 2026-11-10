@@ -1,6 +1,6 @@
 // Fixtures under fixtures/levelN/ are append-only: never edit them. A change that breaks one is a
-// breaking change; bump API_LEVEL and add fixtures/level(N+1)/ instead. Level 2 holds the messages
-// of the current API. Level 1 stays so that this file shows what level 2 changed.
+// breaking change; bump API_LEVEL and add fixtures/level(N+1)/ instead. Level 3 holds the messages
+// of the current API. Level 2 stays so that this file shows what level 3 changed.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
-  contributeRequestSchema,
-  contributeResponseSchema,
+  createPassageRequestSchema,
+  createPassageResponseSchema,
   createStoryRequestSchema,
   createStoryResponseSchema,
   emptyRequestSchema,
@@ -19,6 +19,7 @@ import {
   joinRequestSchema,
   joinResponseSchema,
   liveMessageSchema,
+  meResponseSchema,
   myStoriesResponseSchema,
   pushSubscriptionSchema,
   skipRequestSchema,
@@ -30,7 +31,8 @@ const responseSchemas = {
   health: healthResponseSchema,
   createStory: createStoryResponseSchema,
   join: joinResponseSchema,
-  contribute: contributeResponseSchema,
+  createPassage: createPassageResponseSchema,
+  me: meResponseSchema,
   storyView: storyViewSchema,
   myStories: myStoriesResponseSchema,
   suggestions: suggestionsResponseSchema,
@@ -42,17 +44,17 @@ const responseSchemas = {
 const requestSchemas = {
   createStory: createStoryRequestSchema,
   join: joinRequestSchema,
-  contribute: contributeRequestSchema,
+  createPassage: createPassageRequestSchema,
   skip: skipRequestSchema,
   pushSubscription: pushSubscriptionSchema,
   empty: emptyRequestSchema,
 };
 
-const responseFixtures = readFixture(2, "responses", z.record(z.string(), z.unknown()));
-const requestFixtures = readFixture(2, "requests", z.record(z.string(), z.unknown()));
-const errorFixtures = readFixture(2, "errors", z.array(z.unknown()));
+const responseFixtures = readFixture(3, "responses", z.record(z.string(), z.unknown()));
+const requestFixtures = readFixture(3, "requests", z.record(z.string(), z.unknown()));
+const errorFixtures = readFixture(3, "errors", z.array(z.unknown()));
 
-describe("level 2 responses", () => {
+describe("level 3 responses", () => {
   it("covers every response the schemas list", () => {
     expect(Object.keys(responseFixtures).toSorted()).toEqual(
       Object.keys(responseSchemas).toSorted(),
@@ -78,7 +80,7 @@ describe("level 2 responses", () => {
   });
 });
 
-describe("level 2 errors", () => {
+describe("level 3 errors", () => {
   it("has one fixture per code", () => {
     const codes = errorFixtures.map((body) => errorBodySchema.parse(body).error);
 
@@ -111,7 +113,7 @@ describe("level 2 errors", () => {
   });
 });
 
-describe("level 2 requests", () => {
+describe("level 3 requests", () => {
   it("covers every request the schemas list", () => {
     expect(Object.keys(requestFixtures).toSorted()).toEqual(Object.keys(requestSchemas).toSorted());
   });
@@ -121,31 +123,37 @@ describe("level 2 requests", () => {
   });
 });
 
-describe("what level 2 changed from level 1", () => {
-  const level1Responses = readFixture(1, "responses", z.record(z.string(), z.unknown()));
-  const level1Requests = readFixture(1, "requests", z.record(z.string(), z.unknown()));
-  const level1Errors = readFixture(1, "errors", z.array(z.unknown()));
+describe("what level 3 changed from level 2", () => {
+  // Level 3 renamed the route that adds a passage; its level-2 messages sit under the old name.
+  const level2Name: { [name: string]: string } = { createPassage: "contribute" };
+  const level2Responses = readFixture(2, "responses", z.record(z.string(), z.unknown()));
+  const level2Requests = readFixture(2, "requests", z.record(z.string(), z.unknown()));
+  const level2Errors = readFixture(2, "errors", z.array(z.unknown()));
 
-  it("lists no level-1 response as unreadable except the list of stories, which gained nextCursor", () => {
+  function level2Fixture(fixtures: { [name: string]: unknown }, name: string): unknown {
+    return fixtures[level2Name[name] ?? name];
+  }
+
+  it("lists only the story, which gained passages and userId, and the passage's ID as unreadable", () => {
     const unreadable = Object.entries(responseSchemas)
-      .filter(([name]) => name in level1Responses)
-      .filter(([name, schema]) => !schema.safeParse(level1Responses[name]).success)
+      .filter(([name]) => (level2Name[name] ?? name) in level2Responses)
+      .filter(([name, schema]) => !schema.safeParse(level2Fixture(level2Responses, name)).success)
       .map(([name]) => name);
 
-    expect(unreadable).toEqual(["myStories"]);
+    expect(unreadable.toSorted()).toEqual(["createPassage", "storyView"]);
   });
 
-  it("still accepts every level-1 request", () => {
+  it("still accepts every level-2 request", () => {
     const refused = Object.entries(requestSchemas)
-      .filter(([name]) => name in level1Requests)
-      .filter(([name, schema]) => !schema.safeParse(level1Requests[name]).success)
+      .filter(([name]) => (level2Name[name] ?? name) in level2Requests)
+      .filter(([name, schema]) => !schema.safeParse(level2Fixture(level2Requests, name)).success)
       .map(([name]) => name);
 
     expect(refused).toEqual([]);
   });
 
-  it("still parses every level-1 error", () => {
-    for (const body of level1Errors) {
+  it("still parses every level-2 error", () => {
+    for (const body of level2Errors) {
       expect(errorBodySchema.safeParse(body).success).toBe(true);
     }
   });

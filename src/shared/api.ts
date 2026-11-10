@@ -15,13 +15,21 @@ const turnVersionSchema = z.number().int().nonnegative();
 /** A stored story ID: valid and already lowercase. */
 export const storyIdSchema = z.string().refine((id) => normaliseStoryId(id) === id);
 
-export const createStoryRequestSchema = z.object({ displayName: z.string(), opening: z.string() });
+/**
+ * `displayName` is the user's one name across stories: required while the user has none (see
+ * `GET /api/users/me`) and refused once they have one.
+ */
+export const createStoryRequestSchema = z.object({
+  displayName: z.string().optional(),
+  opening: z.string(),
+});
 export type CreateStoryRequest = z.infer<typeof createStoryRequestSchema>;
 
 export const createStoryResponseSchema = z.object({ storyId: storyIdSchema });
 export type CreateStoryResponse = z.infer<typeof createStoryResponseSchema>;
 
-export const joinRequestSchema = z.object({ displayName: z.string() });
+/** `displayName` follows the same rule as in `createStoryRequestSchema`. */
+export const joinRequestSchema = z.object({ displayName: z.string().optional() });
 export type JoinRequest = z.infer<typeof joinRequestSchema>;
 
 /** The new participant's ID: the `me` the story view will report for this browser. */
@@ -32,16 +40,16 @@ export type JoinResponse = z.infer<typeof joinResponseSchema>;
  * `turnVersion` is the version the page showed; a stale one gets 409 `stale_turn`.
  * `startsParagraph` is true when the passage opens a new paragraph rather than continuing one.
  */
-export const contributeRequestSchema = z.object({
+export const createPassageRequestSchema = z.object({
   text: z.string(),
   turnVersion: turnVersionSchema,
   startsParagraph: z.boolean(),
 });
-export type ContributeRequest = z.infer<typeof contributeRequestSchema>;
+export type CreatePassageRequest = z.infer<typeof createPassageRequestSchema>;
 
-/** The new contribution's ID. */
-export const contributeResponseSchema = z.object({ contributionId: idSchema });
-export type ContributeResponse = z.infer<typeof contributeResponseSchema>;
+/** The new passage's ID. */
+export const createPassageResponseSchema = z.object({ passageId: idSchema });
+export type CreatePassageResponse = z.infer<typeof createPassageResponseSchema>;
 
 /** The body of a route that takes no input. Anything else in it is refused. */
 export const emptyRequestSchema = z.strictObject({});
@@ -56,10 +64,16 @@ export const turnViewSchema = z.union([
 ]);
 export type TurnView = z.infer<typeof turnViewSchema>;
 
-export const participantViewSchema = z.object({ id: idSchema, displayName: z.string() });
+/** `userId` is the ID a passage's `authorId` holds, so a client can match authors to participants. */
+export const participantViewSchema = z.object({
+  id: idSchema,
+  userId: idSchema,
+  displayName: z.string(),
+});
 export type ParticipantView = z.infer<typeof participantViewSchema>;
 
-export const contributionViewSchema = z.object({
+/** `authorId` is the author's user ID, the same in every story. */
+export const passageViewSchema = z.object({
   id: idSchema,
   authorId: idSchema,
   authorName: z.string(),
@@ -67,16 +81,20 @@ export const contributionViewSchema = z.object({
   startsParagraph: z.boolean(),
   createdAt: timestampSchema,
 });
-export type ContributionView = z.infer<typeof contributionViewSchema>;
+export type PassageView = z.infer<typeof passageViewSchema>;
 
-/** Contributions oldest first; participants in turn order; `me` is the caller's participant ID. */
+/** Passages oldest first; participants in turn order; `me` is the caller's participant ID. */
 export const storyViewSchema = z.object({
-  contributions: z.array(contributionViewSchema),
+  passages: z.array(passageViewSchema),
   participants: z.array(participantViewSchema),
   turn: turnViewSchema,
   me: idSchema,
 });
 export type StoryView = z.infer<typeof storyViewSchema>;
+
+/** The requesting user, as `GET /api/users/me` reports them. `displayName` is null until they have one. */
+export const meResponseSchema = z.object({ displayName: z.string().nullable() });
+export type MeResponse = z.infer<typeof meResponseSchema>;
 
 /**
  * A story the caller is in, as the list of their stories shows it. `opening` is the first passage

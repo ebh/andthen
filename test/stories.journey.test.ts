@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-  contributeResponseSchema,
+  createPassageResponseSchema,
   createStoryResponseSchema,
   joinResponseSchema,
 } from "../src/shared/api";
@@ -17,6 +17,7 @@ import {
   readStory,
   T0,
   type Clock,
+  nameInTest,
 } from "./support/browser";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -39,22 +40,24 @@ describe("story journeys", () => {
     clock.now = T0;
     const ana = newBrowser();
 
-    const storyId = await createStory(ana, "  Ana  ", "  Once upon a time.  ");
+    const storyId = await createStory(ana, `  ${nameInTest("Ana")}  `, "  Once upon a time.  ");
 
     expect(storyId).toMatch(/^[a-z0-9]{5}$/);
     const view = await readStory(ana, storyId);
-    const [opening] = view.contributions;
-    expect(view.contributions).toHaveLength(1);
+    const [opening] = view.passages;
+    expect(view.passages).toHaveLength(1);
     expect(opening).toEqual({
       id: opening?.id,
-      authorId: view.me,
-      authorName: "Ana",
+      authorId: view.participants[0]?.userId,
+      authorName: nameInTest("Ana"),
       text: "Once upon a time.",
       startsParagraph: true,
       createdAt: T0,
     });
     expect(opening?.id).not.toBe("");
-    expect(view.participants).toEqual([{ id: view.me, displayName: "Ana" }]);
+    expect(view.participants).toEqual([
+      { id: view.me, userId: opening?.authorId, displayName: nameInTest("Ana") },
+    ]);
     expect(view.turn).toEqual({ holderId: null, endsAt: null, version: 0 });
   });
 
@@ -63,9 +66,14 @@ describe("story journeys", () => {
     const ana = newBrowser();
     const ben = newBrowser();
 
-    const created = await ana.post("/api/stories", { displayName: "Ana", opening: "Once." });
+    const created = await ana.post("/api/stories", {
+      displayName: nameInTest("Ana"),
+      opening: "Once.",
+    });
     const { storyId } = createStoryResponseSchema.parse(await created.json());
-    const joined = await ben.post(`/api/stories/${storyId}/participants`, { displayName: "Ben" });
+    const joined = await ben.post(`/api/stories/${storyId}/participants`, {
+      displayName: nameInTest("Ben"),
+    });
     const { participantId } = joinResponseSchema.parse(await joined.json());
 
     expect(created.headers.get("Location")).toBe(`/api/stories/${storyId}`);
@@ -78,35 +86,36 @@ describe("story journeys", () => {
     clock.now = T0;
     const ana = newBrowser();
     const ben = newBrowser();
-    const storyId = await createStory(ana);
+    const storyId = await createStory(ana, nameInTest("Ana"));
 
-    const benId = await joinStory(ben, storyId, "Ben");
+    const benId = await joinStory(ben, storyId, nameInTest("Ben"));
 
     const joined = await readStory(ben, storyId);
     expect(joined.me).toBe(benId);
-    expect(joined.participants.map((p) => p.displayName)).toEqual(["Ana", "Ben"]);
+    expect(joined.participants.map((p) => p.displayName)).toEqual([
+      nameInTest("Ana"),
+      nameInTest("Ben"),
+    ]);
     expect(joined.turn).toEqual({ holderId: benId, endsAt: T0 + TURN_WINDOW_MS, version: 1 });
 
     clock.now = T0 + 1000;
-    const written = await ben.post(`/api/stories/${storyId}/contributions`, {
+    const written = await ben.post(`/api/stories/${storyId}/passages`, {
       text: " And then Ben wrote. ",
       turnVersion: 1,
       startsParagraph: false,
     });
 
     expect(written.status).toBe(201);
-    const { contributionId } = contributeResponseSchema.parse(await written.json());
-    expect(written.headers.get("Location")).toBe(
-      `/api/stories/${storyId}/contributions/${contributionId}`,
-    );
+    const { passageId } = createPassageResponseSchema.parse(await written.json());
+    expect(written.headers.get("Location")).toBe(`/api/stories/${storyId}/passages/${passageId}`);
     const after = await readStory(ana, storyId);
     expect(
-      after.contributions.map((c) => [c.authorName, c.text, c.startsParagraph, c.createdAt]),
+      after.passages.map((c) => [c.authorName, c.text, c.startsParagraph, c.createdAt]),
     ).toEqual([
-      ["Ana", "Once upon a time.", true, T0],
-      ["Ben", "And then Ben wrote.", false, T0 + 1000],
+      [nameInTest("Ana"), "Once upon a time.", true, T0],
+      [nameInTest("Ben"), "And then Ben wrote.", false, T0 + 1000],
     ]);
-    expect(after.contributions.at(-1)?.id).toBe(contributionId);
+    expect(after.passages.at(-1)?.id).toBe(passageId);
     expect(after.turn).toEqual({
       holderId: after.participants[0]?.id,
       endsAt: T0 + 1000 + TURN_WINDOW_MS,
@@ -119,29 +128,29 @@ describe("story journeys", () => {
     const ana = newBrowser();
     const ben = newBrowser();
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
+    await joinStory(ben, storyId, nameInTest("Ben"));
 
-    await ben.post(`/api/stories/${storyId}/contributions`, {
+    await ben.post(`/api/stories/${storyId}/passages`, {
       text: "A new beginning.",
       turnVersion: 1,
       startsParagraph: true,
     });
 
     const view = await readStory(ana, storyId);
-    expect(view.contributions.map((c) => c.startsParagraph)).toEqual([true, true]);
+    expect(view.passages.map((c) => c.startsParagraph)).toEqual([true, true]);
   });
 
   it("lets a third person skip the holder, and the turn passes over the last writer", async () => {
     clock.now = T0;
     const [ana, ben, cat] = [newBrowser(), newBrowser(), newBrowser()];
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
-    await ben.post(`/api/stories/${storyId}/contributions`, {
+    await joinStory(ben, storyId, nameInTest("Ben"));
+    await ben.post(`/api/stories/${storyId}/passages`, {
       text: "Ben's turn.",
       turnVersion: 1,
       startsParagraph: false,
     });
-    const catId = await joinStory(cat, storyId, "Cat");
+    const catId = await joinStory(cat, storyId, nameInTest("Cat"));
     expect((await readStory(cat, storyId)).turn.version).toBe(3);
 
     clock.now = T0 + 5000;
@@ -156,8 +165,8 @@ describe("story journeys", () => {
     clock.now = T0;
     const [ana, ben, cat] = [newBrowser(), newBrowser(), newBrowser()];
     const storyId = await createStory(ana);
-    const benId = await joinStory(ben, storyId, "Ben");
-    const catId = await joinStory(cat, storyId, "Cat");
+    const benId = await joinStory(ben, storyId, nameInTest("Ben"));
+    const catId = await joinStory(cat, storyId, nameInTest("Cat"));
     expect((await readStory(ana, storyId)).turn.holderId).toBe(benId);
     const before = await testEnv.env.DB.prepare("SELECT * FROM stories WHERE id = ?")
       .bind(storyId)
@@ -186,16 +195,16 @@ describe("story journeys", () => {
     clock.now = T0;
     const [ana, ben, cat] = [newBrowser(), newBrowser(), newBrowser()];
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
-    await joinStory(cat, storyId, "Cat");
+    await joinStory(ben, storyId, nameInTest("Ben"));
+    await joinStory(cat, storyId, nameInTest("Cat"));
 
     clock.now = T0 + TURN_WINDOW_MS + 5;
-    const stale = await ben.post(`/api/stories/${storyId}/contributions`, {
+    const stale = await ben.post(`/api/stories/${storyId}/passages`, {
       text: "Too late.",
       turnVersion: 2,
       startsParagraph: false,
     });
-    const late = await cat.post(`/api/stories/${storyId}/contributions`, {
+    const late = await cat.post(`/api/stories/${storyId}/passages`, {
       text: "Cat takes over.",
       turnVersion: 3,
       startsParagraph: false,
@@ -218,8 +227,8 @@ describe("story journeys", () => {
     clock.now = T0;
     const [ana, ben, cat] = [newBrowser(), newBrowser(), newBrowser()];
     const storyId = await createStory(ana);
-    await joinStory(ben, storyId, "Ben");
-    await joinStory(cat, storyId, "Cat");
+    await joinStory(ben, storyId, nameInTest("Ben"));
+    await joinStory(cat, storyId, nameInTest("Cat"));
 
     return { ana, ben, cat, storyId };
   }
@@ -258,7 +267,7 @@ describe("story journeys", () => {
 
     clock.now = T0 + TURN_WINDOW_MS + 5;
     const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
-      displayName: "Dee",
+      displayName: nameInTest("Dee"),
     });
 
     expect(response.status).toBe(201);
@@ -271,7 +280,7 @@ describe("story journeys", () => {
 
     clock.now = T0 + 2 * TURN_WINDOW_MS + 5;
     const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
-      displayName: "Dee",
+      displayName: nameInTest("Dee"),
     });
 
     expect(response.status).toBe(201);
@@ -298,7 +307,7 @@ describe("story journeys", () => {
     await createStory(ana);
     const token = ana.cookies.get("andthen_bt");
 
-    const second = await createStory(ana, "Ana again", "Another one.");
+    const second = await createStory(ana, nameInTest("Ana"), "Another one.");
 
     expect(ana.cookies.get("andthen_bt")).toBe(token);
     expect((await readStory(ana, second)).participants).toHaveLength(1);
@@ -322,7 +331,7 @@ describe("story IDs", () => {
     const first = await createStory(createBrowser(app, testEnv.env));
     const second = createBrowser(app, testEnv.env);
 
-    const storyId = await createStory(second);
+    const storyId = await createStory(second, nameInTest("Ben"));
 
     expect(first).toBe("taken");
     expect(storyId).toBe("fresh");
@@ -331,16 +340,24 @@ describe("story IDs", () => {
   });
 
   it("fails with a 500 and writes nothing when every ID is taken", async () => {
-    const app = createTestApp({ now: T0 }, () => "taken");
+    await createStory(
+      createBrowser(
+        createTestApp({ now: T0 }, () => "full0"),
+        testEnv.env,
+      ),
+    );
+    const app = createTestApp({ now: T0 }, () => "full0");
     const response = await createBrowser(app, testEnv.env).post("/api/stories", {
-      displayName: "Zed",
+      displayName: nameInTest("Zed"),
       opening: "Hi.",
     });
 
     expect(response.status).toBe(500);
     const count = await testEnv.env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM participants WHERE display_name = 'Zed'",
-    ).first();
+      "SELECT COUNT(*) AS n FROM users WHERE display_name = ?",
+    )
+      .bind(nameInTest("Zed"))
+      .first();
     expect(count).toEqual({ n: 0 });
   });
 
@@ -352,7 +369,7 @@ describe("story IDs", () => {
     });
 
     const response = await createBrowser(app, testEnv.env).post("/api/stories", {
-      displayName: "Zed",
+      displayName: nameInTest("Zed"),
       opening: "Hi.",
     });
 
@@ -376,7 +393,10 @@ describe("cookies", () => {
   it("sends a plain, non-Secure cookie on http://localhost", async () => {
     const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env);
 
-    const response = await browser.post("/api/stories", { displayName: "Ana", opening: "Hi." });
+    const response = await browser.post("/api/stories", {
+      displayName: nameInTest("Ana"),
+      opening: "Hi.",
+    });
 
     const cookie = response.headers.get("Set-Cookie") ?? "";
     expect(cookie).toMatch(/^andthen_bt=[0-9a-f]{64};/);
@@ -391,7 +411,10 @@ describe("cookies", () => {
     const origin = "https://app.andthen.page";
     const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env, origin);
 
-    const response = await browser.post("/api/stories", { displayName: "Ana", opening: "Hi." });
+    const response = await browser.post("/api/stories", {
+      displayName: nameInTest("Ana"),
+      opening: "Hi.",
+    });
 
     const cookie = response.headers.get("Set-Cookie") ?? "";
     expect(cookie).toMatch(/^__Host-andthen_bt=[0-9a-f]{64};/);
@@ -405,7 +428,10 @@ describe("cookies", () => {
   it("treats http on another host as needing the __Host- cookie", async () => {
     const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env, "http://example.test");
 
-    const response = await browser.post("/api/stories", { displayName: "Ana", opening: "Hi." });
+    const response = await browser.post("/api/stories", {
+      displayName: nameInTest("Ana"),
+      opening: "Hi.",
+    });
 
     expect(response.headers.get("Set-Cookie")).toMatch(/^__Host-andthen_bt=/);
   });
@@ -413,7 +439,10 @@ describe("cookies", () => {
   it("treats https on localhost as needing the __Host- cookie", async () => {
     const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env, "https://localhost");
 
-    const response = await browser.post("/api/stories", { displayName: "Ana", opening: "Hi." });
+    const response = await browser.post("/api/stories", {
+      displayName: nameInTest("Ana"),
+      opening: "Hi.",
+    });
 
     expect(response.headers.get("Set-Cookie")).toMatch(/^__Host-andthen_bt=/);
   });
@@ -452,11 +481,11 @@ describe("the default app", () => {
     const other = createBrowser(defaultApp, testEnv.env);
 
     const first = await createStory(ana);
-    const second = await createStory(other);
+    const second = await createStory(other, nameInTest("Ben"));
 
     const view = await readStory(ana, first);
-    expect(view.contributions[0]?.createdAt).toBeGreaterThanOrEqual(before);
-    expect(view.contributions[0]?.createdAt).toBeLessThanOrEqual(Date.now());
+    expect(view.passages[0]?.createdAt).toBeGreaterThanOrEqual(before);
+    expect(view.passages[0]?.createdAt).toBeLessThanOrEqual(Date.now());
     expect(first).not.toBe(second);
     expect(first).toMatch(/^[a-z0-9]{5}$/);
   });

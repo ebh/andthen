@@ -37,11 +37,6 @@ export const participantsTableSchema = z
   .object({
     id: idSchema.meta({ description: "Opaque ID of the participant." }),
     storyId: storyIdSchema.meta({ description: "The story the participant joined." }),
-    displayName: z.string().meta({ description: "Name shown beside the participant's passages." }),
-    displayNameKey: z.string().meta({
-      description:
-        "The display name trimmed, NFKC-normalised and case-folded; unique in the story, leavers included.",
-    }),
     position: countSchema.meta({
       description:
         "Place in the turn order, unique in the story; a leaver keeps theirs, and a rejoin gets a new last one.",
@@ -56,14 +51,14 @@ export const participantsTableSchema = z
   })
   .meta({
     description:
-      "One row per user who joins a story. A leaver's row stays, so their passages keep an author and their display name stays reserved. After a merge, a user can also hold a left row in a story they are in.",
+      "One row per user who joins a story. A leaver's row stays, so the story keeps its turn order and the user keeps their place if they rejoin. After a merge, a user can also hold a left row in a story they are in.",
   });
 
-export const contributionsTableSchema = z
+export const passagesTableSchema = z
   .object({
-    id: idSchema.meta({ description: "Opaque ID of the contribution." }),
-    storyId: storyIdSchema.meta({ description: "The story the contribution belongs to." }),
-    participantId: idSchema.meta({ description: "The participant who wrote it, its author." }),
+    id: idSchema.meta({ description: "Opaque ID of the passage." }),
+    storyId: storyIdSchema.meta({ description: "The story the passage belongs to." }),
+    authorId: idSchema.meta({ description: "The user who wrote it, its author." }),
     seq: countSchema.meta({
       description: "Place in the story, 1 for the opening, unique within the story.",
     }),
@@ -71,11 +66,11 @@ export const contributionsTableSchema = z
     startsParagraph: z.union([z.literal(0), z.literal(1)]).meta({
       description: "1 if the passage begins a new paragraph, 0 if it continues the last one.",
     }),
-    createdAt: countSchema.meta({ description: "When the contribution was written, in epoch ms." }),
+    createdAt: countSchema.meta({ description: "When the passage was written, in epoch ms." }),
   })
   .meta({
     description:
-      "Every contribution to a story; today each one is a passage. Append-only: the app never updates or deletes rows.",
+      "Every passage of a story. Append-only: the app never edits or deletes the text, and author_id changes only when two users merge.",
   });
 
 export const suggestionRequestsTableSchema = z
@@ -98,11 +93,19 @@ export const usersTableSchema = z
     browserTokenHash: z.string().nullable().meta({
       description: "Hex SHA-256 hash of the device token; null for an account user.",
     }),
+    displayName: z.string().nullable().meta({
+      description:
+        "Name shown beside the user's passages in every story; null until the user starts or joins a story.",
+    }),
+    displayNameKey: z.string().nullable().meta({
+      description:
+        "The display name trimmed, NFKC-normalised and case-folded; unique across users. Null exactly when the display name is.",
+    }),
     createdAt: countSchema.meta({ description: "When the user was created, in epoch ms." }),
   })
   .meta({
     description:
-      "One row per user, found by the hash of its device token or by its Clerk user ID. Participants and push subscriptions belong to a user.",
+      "One row per user, found by the hash of its device token or by its Clerk user ID. Passages, participants and push subscriptions belong to a user, and so does the display name.",
   });
 
 export const pushSubscriptionsTableSchema = z
@@ -128,7 +131,7 @@ export const pushSubscriptionsTableSchema = z
 export const TABLE_SCHEMAS = {
   stories: storiesTableSchema,
   participants: participantsTableSchema,
-  contributions: contributionsTableSchema,
+  passages: passagesTableSchema,
   suggestion_requests: suggestionRequestsTableSchema,
   users: usersTableSchema,
   push_subscriptions: pushSubscriptionsTableSchema,

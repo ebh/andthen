@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import type { TextInputInstance } from "react-native";
 import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 
-import { contribute, leaveStory, skipTurn, type ApiFailure } from "../client/api";
+import { createPassage, leaveStory, skipTurn, type ApiFailure } from "../client/api";
 import { describeFailure } from "../client/messages";
 import { setLeftStoryNote } from "../client/leftStoryNote";
 import { isMyTurn, turnAfterLeaving } from "../client/storyRules";
@@ -88,7 +88,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     setSending(true);
     setNotice(null);
     void (async () => {
-      const result = await contribute(storyId, {
+      const result = await createPassage(storyId, {
         text: draft,
         turnVersion: view.turn.version,
         startsParagraph,
@@ -187,7 +187,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           )}
         </YStack>
       )}
-      <StoryText contributions={view.contributions} />
+      <StoryText passages={view.passages} />
       {isMyTurn(view) && (
         <YourTurn
           storyId={storyId}

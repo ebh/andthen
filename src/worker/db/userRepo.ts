@@ -4,13 +4,15 @@ import { participantStoryIdRowSchema, userRowSchema, type UserRow } from "./rows
 import type { Db } from "./storyRepo";
 import type { NewAccountUser, NewAnonymousUser } from "./typeSchemas";
 
+const USER_COLUMNS = "id, display_name AS displayName, display_name_key AS displayNameKey";
+
 /** The user whose browser has this token hash, or null when it names none. */
 export async function findUserByBrowserTokenHash(
   db: Db,
   browserTokenHash: string,
 ): Promise<UserRow | null> {
   const result = await db
-    .prepare("SELECT id FROM users WHERE browser_token_hash = ?")
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE browser_token_hash = ?`)
     .bind(browserTokenHash)
     .all();
   const [row] = z.array(userRowSchema).parse(result.results);
@@ -42,7 +44,7 @@ export async function createAnonymousUser(db: Db, input: NewAnonymousUser): Prom
 /** The user who holds this Clerk user id, or null when nobody does. */
 export async function findUserByClerkUserId(db: Db, clerkUserId: string): Promise<UserRow | null> {
   const result = await db
-    .prepare("SELECT id FROM users WHERE clerk_user_id = ?")
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE clerk_user_id = ?`)
     .bind(clerkUserId)
     .all();
   const [row] = z.array(userRowSchema).parse(result.results);
@@ -69,6 +71,20 @@ export async function createAccountUser(db: Db, input: NewAccountUser): Promise<
   }
 
   return user;
+}
+
+/** The user who holds this display name key, or null when nobody does. */
+export async function findUserByDisplayNameKey(
+  db: Db,
+  displayNameKey: string,
+): Promise<UserRow | null> {
+  const result = await db
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE display_name_key = ?`)
+    .bind(displayNameKey)
+    .all();
+  const [row] = z.array(userRowSchema).parse(result.results);
+
+  return row ?? null;
 }
 
 /**
@@ -113,18 +129,70 @@ export async function storiesWithBothActive(
 }
 
 /**
- * Hands everything `fromUserId` has to `intoUserId` and deletes `fromUserId`, in one batch. The
- * two users must not both be active in one story: a user has one active participant per story,
- * and the batch fails whole if that would break. Repeating it after it succeeded changes nothing.
+ * Hands everything `from` has to `intoUserId` and deletes `from`, in one batch. The two users must
+ * not both be active in one story: a user has one active participant per story, and the batch fails
+ * whole if that would break. The display name of `intoUserId` stays; it takes the name of `from`
+ * only when it has none. Repeating it after it succeeded changes nothing.
+ *
+ * In a story where `from` has left and `intoUserId` is active, a passage by `from` becomes a passage
+ * by the active participant, so the last contributor moves to that participant too. Otherwise the
+ * turn could pass straight back to the person who just wrote.
+ *
+ * `from` is the row as read before the batch: its name is cleared first, because the key is unique,
+ * and then handed on from the values read. False when `from` no longer has the name it was read
+ * with, or is gone; nothing is written then, and the caller reads `from` again.
  */
-export async function mergeUserInto(db: Db, fromUserId: string, intoUserId: string): Promise<void> {
-  await db.batch([
+export async function mergeUserInto(db: Db, from: UserRow, intoUserId: string): Promise<boolean> {
+  // Every step before the name moves runs only while `from` still has the name it was read with.
+  // A user's name only ever goes from none to one, so the race this catches is `from` being named
+  // by a join or start that ran after the read. The steps after it run only once the name is gone.
+  const nameAsRead = "EXISTS (SELECT 1 FROM users WHERE id = ? AND display_name_key IS ?)";
+  const nameCleared = "EXISTS (SELECT 1 FROM users WHERE id = ? AND display_name_key IS NULL)";
+
+  const results = await db.batch([
     db
-      .prepare("UPDATE participants SET user_id = ? WHERE user_id = ?")
-      .bind(intoUserId, fromUserId),
+      .prepare(
+        `UPDATE stories SET last_contributor_position = (
+           SELECT position FROM participants
+           WHERE story_id = stories.id AND user_id = ? AND left_at IS NULL)
+         WHERE EXISTS (
+             SELECT 1 FROM participants
+             WHERE story_id = stories.id AND user_id = ? AND left_at IS NULL)
+           AND EXISTS (
+             SELECT 1 FROM participants
+             WHERE story_id = stories.id AND user_id = ? AND left_at IS NOT NULL
+               AND position = stories.last_contributor_position)
+           AND ${nameAsRead}`,
+      )
+      .bind(intoUserId, intoUserId, from.id, from.id, from.displayNameKey),
     db
-      .prepare("UPDATE push_subscriptions SET user_id = ? WHERE user_id = ?")
-      .bind(intoUserId, fromUserId),
-    db.prepare("DELETE FROM users WHERE id = ?").bind(fromUserId),
+      .prepare(`UPDATE passages SET author_id = ? WHERE author_id = ? AND ${nameAsRead}`)
+      .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    db
+      .prepare(`UPDATE participants SET user_id = ? WHERE user_id = ? AND ${nameAsRead}`)
+      .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    db
+      .prepare(`UPDATE push_subscriptions SET user_id = ? WHERE user_id = ? AND ${nameAsRead}`)
+      .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    db
+      .prepare(
+        `UPDATE users SET display_name = NULL, display_name_key = NULL
+         WHERE id = ? AND display_name_key IS ?`,
+      )
+      .bind(from.id, from.displayNameKey),
+    db
+      .prepare(
+        `UPDATE users SET display_name = ?, display_name_key = ?
+         WHERE id = ? AND display_name IS NULL AND ${nameCleared}`,
+      )
+      .bind(from.displayName, from.displayNameKey, intoUserId, from.id),
+    db.prepare(`DELETE FROM users WHERE id = ? AND ${nameCleared}`).bind(from.id, from.id),
   ]);
+
+  const deleted = results.at(-1);
+  if (deleted === undefined) {
+    throw new Error("D1 batch returned no result for the delete");
+  }
+
+  return deleted.meta.changes === 1;
 }

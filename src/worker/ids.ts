@@ -22,7 +22,7 @@ export function newStoryId(randomBytes: RandomBytes = cryptoBytes): string {
   return id;
 }
 
-/** An opaque ID for a participant or a contribution. */
+/** An opaque ID for a participant or a passage. */
 export function newId(): string {
   return crypto.randomUUID();
 }

@@ -4,6 +4,7 @@ import {
   PHONE,
   expectPageNotReloaded,
   joinStory,
+  names,
   newWriter,
   startStory,
   storyText,
@@ -15,8 +16,8 @@ test("a writer finds and switches between their stories without remembering a li
   browser,
 }) => {
   const ana = await newWriter(browser);
-  const firstLink = await startStory(ana, "Ana", "The lighthouse went dark at noon.");
-  const secondLink = await startStory(ana, "Ana", "Rain fell on the empty market.");
+  const firstLink = await startStory(ana, names.ana, "The lighthouse went dark at noon.");
+  const secondLink = await startStory(ana, names.ana, "Rain fell on the empty market.");
 
   await ana.getByRole("link", { name: "← Your stories" }).click();
   const stories = ana.getByRole("region", { name: "Your stories" });
@@ -37,39 +38,39 @@ test("a writer who holds the turn can leave, the turn moves on live, and they ca
   const ana = await newWriter(browser);
   const ben = await newWriter(browser);
   const cy = await newWriter(browser);
-  const inviteLink = await startStory(ana, "Ana", "The train stopped between stations.");
-  await joinStory(ben, inviteLink, "Ben");
-  await joinStory(cy, inviteLink, "Cy");
+  const inviteLink = await startStory(ana, names.ana, "The train stopped between stations.");
+  await joinStory(ben, inviteLink, names.ben);
+  await joinStory(cy, inviteLink, names.cy);
   await expect(turnBanner(ben)).toContainText("It's your turn");
   await tagPage(cy);
 
   await ben.getByRole("button", { name: "Leave story" }).click();
   const dialog = ben.getByRole("alertdialog", { name: "Leave this story?" });
-  await expect(dialog).toContainText("it passes to Cy");
+  await expect(dialog).toContainText(`it passes to ${names.cy}`);
   await dialog.getByRole("button", { name: "Leave story" }).click();
 
   await expect(ben).toHaveURL("/");
   await expect(ben.getByText("You left the story.")).toBeVisible();
   await expect(ben.getByRole("region", { name: "Your stories" })).toHaveCount(0);
   await expect(turnBanner(cy)).toContainText("It's your turn");
-  await expect(turnBanner(ana)).toContainText("It's Cy's turn");
-  await expect(turnBanner(cy)).not.toContainText("Ben");
+  await expect(turnBanner(ana)).toContainText(`It's ${names.cy}'s turn`);
+  await expect(turnBanner(cy)).not.toContainText(names.ben);
   await expectPageNotReloaded(cy);
 
   await ben.goto(inviteLink);
   await expect(ben.getByRole("heading", { name: "You left this story" })).toBeVisible();
-  await ben.getByRole("button", { name: "Rejoin as Ben" }).click();
+  await ben.getByRole("button", { name: `Rejoin as ${names.ben}` }).click();
 
-  await expect(turnBanner(ben)).toContainText("Ben (you)");
-  await expect(turnBanner(cy)).toContainText("Ben");
+  await expect(turnBanner(ben)).toContainText(`${names.ben} (you)`);
+  await expect(turnBanner(cy)).toContainText(names.ben);
 });
 
 test("on a phone, a writer sees their stories, leaves one and comes back", async ({ browser }) => {
   const ana = await newWriter(browser);
   const ben = await newWriter(browser, PHONE);
-  const inviteLink = await startStory(ana, "Ana", "The bridge hummed at dusk.");
-  await joinStory(ben, inviteLink, "Ben");
-  await startStory(ben, "Ben", "A kettle whistled upstairs.");
+  const inviteLink = await startStory(ana, names.ana, "The bridge hummed at dusk.");
+  await joinStory(ben, inviteLink, names.ben);
+  await startStory(ben, names.ben, "A kettle whistled upstairs.");
 
   await ben.getByRole("link", { name: "← Your stories" }).click();
   const stories = ben.getByRole("region", { name: "Your stories" });
@@ -86,6 +87,6 @@ test("on a phone, a writer sees their stories, leaves one and comes back", async
   await expect(stories.getByRole("link")).toHaveCount(1);
 
   await ben.goto(inviteLink);
-  await ben.getByRole("button", { name: "Rejoin as Ben" }).click();
+  await ben.getByRole("button", { name: `Rejoin as ${names.ben}` }).click();
   await expect(turnBanner(ben)).toContainText("It's your turn");
 });

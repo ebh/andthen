@@ -10,24 +10,22 @@
 
 ```mermaid
 erDiagram
-  contributions {
-    TEXT id PK
-    TEXT story_id FK
-    TEXT participant_id FK
-    INTEGER seq
-    TEXT text
-    INTEGER created_at
-    INTEGER starts_paragraph
-  }
   participants {
     TEXT id PK
     TEXT story_id FK
-    TEXT display_name
-    TEXT display_name_key
     INTEGER position
     TEXT user_id FK
     INTEGER joined_at
     INTEGER left_at
+  }
+  passages {
+    TEXT id PK
+    TEXT story_id FK
+    TEXT author_id FK
+    INTEGER seq
+    TEXT text
+    INTEGER created_at
+    INTEGER starts_paragraph
   }
   push_subscriptions {
     TEXT endpoint PK
@@ -54,81 +52,40 @@ erDiagram
     TEXT clerk_user_id UK
     TEXT browser_token_hash UK
     INTEGER created_at
+    TEXT display_name
+    TEXT display_name_key UK
   }
-  contributions }o--|| participants : "participant_id"
-  contributions }o--|| stories : "story_id"
   participants }o--|| stories : "story_id"
   participants }o--|| users : "user_id"
+  passages }o--|| users : "author_id"
+  passages }o--|| stories : "story_id"
   push_subscriptions }o--|| users : "user_id"
   suggestion_requests }o--|| participants : "participant_id"
 ```
 
-## contributions
-
-Every contribution to a story; today each one is a passage. Append-only: the app never updates or deletes rows.
-
-### Columns
-
-| Column             | Type    | Required | Default | Description                                                              |
-| ------------------ | ------- | -------- | ------- | ------------------------------------------------------------------------ |
-| `id`               | TEXT    | yes      |         | Opaque ID of the contribution.                                           |
-| `story_id`         | TEXT    | yes      |         | The story the contribution belongs to.                                   |
-| `participant_id`   | TEXT    | yes      |         | The participant who wrote it, its author.                                |
-| `seq`              | INTEGER | yes      |         | Place in the story, 1 for the opening, unique within the story.          |
-| `text`             | TEXT    | yes      |         | The text of the passage.                                                 |
-| `created_at`       | INTEGER | yes      |         | When the contribution was written, in epoch ms.                          |
-| `starts_paragraph` | INTEGER | yes      | `1`     | 1 if the passage begins a new paragraph, 0 if it continues the last one. |
-
-### Indexes
-
-| Name                               | Kind              | Columns       | Condition |
-| ---------------------------------- | ----------------- | ------------- | --------- |
-| `sqlite_autoindex_contributions_1` | primary key       | id            |           |
-| `sqlite_autoindex_contributions_2` | unique constraint | story_id, seq |           |
-
-<details>
-<summary>CREATE TABLE statement</summary>
-
-```sql
-CREATE TABLE contributions (
-  id TEXT PRIMARY KEY,
-  story_id TEXT NOT NULL REFERENCES stories (id),
-  participant_id TEXT NOT NULL REFERENCES participants (id),
-  seq INTEGER NOT NULL,
-  text TEXT NOT NULL,
-  created_at INTEGER NOT NULL, starts_paragraph INTEGER NOT NULL DEFAULT 1 CHECK (starts_paragraph IN (0, 1)),
-  UNIQUE (story_id, seq)
-)
-```
-
-</details>
-
 ## participants
 
-One row per user who joins a story. A leaver's row stays, so their passages keep an author and their display name stays reserved. After a merge, a user can also hold a left row in a story they are in.
+One row per user who joins a story. A leaver's row stays, so the story keeps its turn order and the user keeps their place if they rejoin. After a merge, a user can also hold a left row in a story they are in.
 
 ### Columns
 
-| Column             | Type    | Required | Default | Description                                                                                            |
-| ------------------ | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `id`               | TEXT    | yes      |         | Opaque ID of the participant.                                                                          |
-| `story_id`         | TEXT    | yes      |         | The story the participant joined.                                                                      |
-| `display_name`     | TEXT    | yes      |         | Name shown beside the participant's passages.                                                          |
-| `display_name_key` | TEXT    | yes      |         | The display name trimmed, NFKC-normalised and case-folded; unique in the story, leavers included.      |
-| `position`         | INTEGER | yes      |         | Place in the turn order, unique in the story; a leaver keeps theirs, and a rejoin gets a new last one. |
-| `user_id`          | TEXT    | yes      |         | The user this participant belongs to.                                                                  |
-| `joined_at`        | INTEGER | yes      |         | When the participant first joined, in epoch ms; a rejoin keeps it.                                     |
-| `left_at`          | INTEGER | no       |         | When the participant left the story, in epoch ms; null while they are in it.                           |
+| Column      | Type    | Required | Default | Description                                                                                            |
+| ----------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| `id`        | TEXT    | yes      |         | Opaque ID of the participant.                                                                          |
+| `story_id`  | TEXT    | yes      |         | The story the participant joined.                                                                      |
+| `position`  | INTEGER | yes      |         | Place in the turn order, unique in the story; a leaver keeps theirs, and a rejoin gets a new last one. |
+| `user_id`   | TEXT    | yes      |         | The user this participant belongs to.                                                                  |
+| `joined_at` | INTEGER | yes      |         | When the participant first joined, in epoch ms; a rejoin keeps it.                                     |
+| `left_at`   | INTEGER | no       |         | When the participant left the story, in epoch ms; null while they are in it.                           |
 
 ### Indexes
 
-| Name                              | Kind              | Columns                    | Condition         |
-| --------------------------------- | ----------------- | -------------------------- | ----------------- |
-| `participants_active_by_user`     | unique index      | story_id, user_id          | `left_at IS NULL` |
-| `participants_by_user`            | index             | user_id                    |                   |
-| `sqlite_autoindex_participants_1` | primary key       | id                         |                   |
-| `sqlite_autoindex_participants_2` | unique constraint | story_id, position         |                   |
-| `sqlite_autoindex_participants_3` | unique constraint | story_id, display_name_key |                   |
+| Name                              | Kind              | Columns            | Condition         |
+| --------------------------------- | ----------------- | ------------------ | ----------------- |
+| `participants_active_by_user`     | unique index      | story_id, user_id  | `left_at IS NULL` |
+| `participants_by_user`            | index             | user_id            |                   |
+| `sqlite_autoindex_participants_1` | primary key       | id                 |                   |
+| `sqlite_autoindex_participants_2` | unique constraint | story_id, position |                   |
 
 <details>
 <summary>CREATE TABLE statement</summary>
@@ -137,14 +94,53 @@ One row per user who joins a story. A leaver's row stays, so their passages keep
 CREATE TABLE participants (
   id TEXT PRIMARY KEY,
   story_id TEXT NOT NULL REFERENCES stories (id),
-  display_name TEXT NOT NULL,
-  display_name_key TEXT NOT NULL,
   position INTEGER NOT NULL,
   user_id TEXT NOT NULL REFERENCES users (id),
   joined_at INTEGER NOT NULL,
   left_at INTEGER,
-  UNIQUE (story_id, position),
-  UNIQUE (story_id, display_name_key)
+  UNIQUE (story_id, position)
+)
+```
+
+</details>
+
+## passages
+
+Every passage of a story. Append-only: the app never edits or deletes the text, and author_id changes only when two users merge.
+
+### Columns
+
+| Column             | Type    | Required | Default | Description                                                              |
+| ------------------ | ------- | -------- | ------- | ------------------------------------------------------------------------ |
+| `id`               | TEXT    | yes      |         | Opaque ID of the passage.                                                |
+| `story_id`         | TEXT    | yes      |         | The story the passage belongs to.                                        |
+| `author_id`        | TEXT    | yes      |         | The user who wrote it, its author.                                       |
+| `seq`              | INTEGER | yes      |         | Place in the story, 1 for the opening, unique within the story.          |
+| `text`             | TEXT    | yes      |         | The text of the passage.                                                 |
+| `created_at`       | INTEGER | yes      |         | When the passage was written, in epoch ms.                               |
+| `starts_paragraph` | INTEGER | yes      | `1`     | 1 if the passage begins a new paragraph, 0 if it continues the last one. |
+
+### Indexes
+
+| Name                          | Kind              | Columns       | Condition |
+| ----------------------------- | ----------------- | ------------- | --------- |
+| `passages_by_author`          | index             | author_id     |           |
+| `sqlite_autoindex_passages_1` | primary key       | id            |           |
+| `sqlite_autoindex_passages_2` | unique constraint | story_id, seq |           |
+
+<details>
+<summary>CREATE TABLE statement</summary>
+
+```sql
+CREATE TABLE passages (
+  id TEXT PRIMARY KEY,
+  story_id TEXT NOT NULL REFERENCES stories (id),
+  author_id TEXT NOT NULL REFERENCES users (id),
+  seq INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  starts_paragraph INTEGER NOT NULL DEFAULT 1 CHECK (starts_paragraph IN (0, 1)),
+  UNIQUE (story_id, seq)
 )
 ```
 
@@ -259,24 +255,27 @@ CREATE TABLE suggestion_requests (
 
 ## users
 
-One row per user, found by the hash of its device token or by its Clerk user ID. Participants and push subscriptions belong to a user.
+One row per user, found by the hash of its device token or by its Clerk user ID. Passages, participants and push subscriptions belong to a user, and so does the display name.
 
 ### Columns
 
-| Column               | Type    | Required | Default | Description                                                      |
-| -------------------- | ------- | -------- | ------- | ---------------------------------------------------------------- |
-| `id`                 | TEXT    | yes      |         | Opaque ID of the user.                                           |
-| `clerk_user_id`      | TEXT    | no       |         | Clerk user ID of the user's account; null for an anonymous user. |
-| `browser_token_hash` | TEXT    | no       |         | Hex SHA-256 hash of the device token; null for an account user.  |
-| `created_at`         | INTEGER | yes      |         | When the user was created, in epoch ms.                          |
+| Column               | Type    | Required | Default | Description                                                                                                            |
+| -------------------- | ------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `id`                 | TEXT    | yes      |         | Opaque ID of the user.                                                                                                 |
+| `clerk_user_id`      | TEXT    | no       |         | Clerk user ID of the user's account; null for an anonymous user.                                                       |
+| `browser_token_hash` | TEXT    | no       |         | Hex SHA-256 hash of the device token; null for an account user.                                                        |
+| `created_at`         | INTEGER | yes      |         | When the user was created, in epoch ms.                                                                                |
+| `display_name`       | TEXT    | no       |         | Name shown beside the user's passages in every story; null until the user starts or joins a story.                     |
+| `display_name_key`   | TEXT    | no       |         | The display name trimmed, NFKC-normalised and case-folded; unique across users. Null exactly when the display name is. |
 
 ### Indexes
 
-| Name                       | Kind              | Columns            | Condition |
-| -------------------------- | ----------------- | ------------------ | --------- |
-| `sqlite_autoindex_users_1` | primary key       | id                 |           |
-| `sqlite_autoindex_users_2` | unique constraint | clerk_user_id      |           |
-| `sqlite_autoindex_users_3` | unique constraint | browser_token_hash |           |
+| Name                        | Kind              | Columns            | Condition |
+| --------------------------- | ----------------- | ------------------ | --------- |
+| `sqlite_autoindex_users_1`  | primary key       | id                 |           |
+| `sqlite_autoindex_users_2`  | unique constraint | clerk_user_id      |           |
+| `sqlite_autoindex_users_3`  | unique constraint | browser_token_hash |           |
+| `users_by_display_name_key` | unique index      | display_name_key   |           |
 
 <details>
 <summary>CREATE TABLE statement</summary>
@@ -286,7 +285,8 @@ CREATE TABLE users (
   id TEXT PRIMARY KEY,
   clerk_user_id TEXT UNIQUE,
   browser_token_hash TEXT UNIQUE,
-  created_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL, display_name TEXT, display_name_key TEXT
+  CHECK ((display_name IS NULL) = (display_name_key IS NULL)),
   CHECK (clerk_user_id IS NOT NULL OR browser_token_hash IS NOT NULL)
 )
 ```

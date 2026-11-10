@@ -4,24 +4,25 @@ Routes live in `src/worker/routes/stories.ts`, `src/worker/routes/pushSubscripti
 
 ## Routes
 
-| Route                                                | Success                            | Notes                                                                                                                       |
-| ---------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/stories`                                   | 200 `{stories: [...], nextCursor}` | One page of the stories this user is in and has not left. Query `limit`, `cursor`. See "Your stories".                      |
-| `POST /api/stories`                                  | 201 `{storyId}`                    | `Location` is the story. Creates the user if there is none. An anonymous browser gets the cookie. See "Identity".           |
-| `GET /api/stories/:storyId`                          | 200 `StoryView`                    | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.                                        |
-| `POST /api/stories/:storyId/participants`            | 201 `{participantId}`              | `Location` is the participant. Creates the user if there is none. An anonymous browser gets the cookie.                     |
-| `POST /api/stories/:storyId/contributions`           | 201 `{contributionId}`             | `Location` is the contribution. Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph. |
-| `POST /api/stories/:storyId/skip`                    | 204                                | Body `{turnVersion}`.                                                                                                       |
-| `POST /api/stories/:storyId/leave`                   | 204                                | Body `{}`. See "Leaving and rejoining".                                                                                     |
-| `POST /api/stories/:storyId/rejoin`                  | 204                                | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                                           |
-| `POST /api/stories/:storyId/suggestions`             | 200 `{suggestions: [s, s, s]}`     | Turn holder only. No body needed. See "Suggestions".                                                                        |
-| `GET /api/stories/:storyId/live`                     | 101 (WebSocket)                    | Participants only. See "Live updates".                                                                                      |
-| `PUT /api/push-subscriptions/:pushSubscriptionId`    | 204                                | Body is a `PushSubscription.toJSON()`; the ID is the hash of its endpoint. See "Web Push".                                  |
-| `PUT /api/users/me/account`                          | 204                                | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts".                            |
-| `DELETE /api/push-subscriptions/:pushSubscriptionId` | 204                                | No body. See "Web Push".                                                                                                    |
-| `GET /api/vapid-public-key`                          | 200 `{publicKey}`                  | The VAPID public key. See "Web Push".                                                                                       |
+| Route                                                | Success                            | Notes                                                                                                                                 |
+| ---------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/stories`                                   | 200 `{stories: [...], nextCursor}` | One page of the stories this user is in and has not left. Query `limit`, `cursor`. See "Your stories".                                |
+| `POST /api/stories`                                  | 201 `{storyId}`                    | `Location` is the story. Creates the user if there is none. An anonymous browser gets the cookie. See "Display names" and "Identity". |
+| `GET /api/stories/:storyId`                          | 200 `StoryView`                    | 404 unknown ID, then 403 `not_participant` or `left_story`. Turn from `resolveTurn`.                                                  |
+| `POST /api/stories/:storyId/participants`            | 201 `{participantId}`              | `Location` is the participant. Creates the user if there is none. An anonymous browser gets the cookie. See "Display names".          |
+| `POST /api/stories/:storyId/passages`                | 201 `{passageId}`                  | `Location` is the passage. Body `{text, turnVersion, startsParagraph}`. The opening passage always starts a paragraph.                |
+| `POST /api/stories/:storyId/skip`                    | 204                                | Body `{turnVersion}`.                                                                                                                 |
+| `POST /api/stories/:storyId/leave`                   | 204                                | Body `{}`. See "Leaving and rejoining".                                                                                               |
+| `POST /api/stories/:storyId/rejoin`                  | 204                                | Body `{}`. Only for a user who left. See "Leaving and rejoining".                                                                     |
+| `POST /api/stories/:storyId/suggestions`             | 200 `{suggestions: [s, s, s]}`     | Turn holder only. No body needed. See "Suggestions".                                                                                  |
+| `GET /api/stories/:storyId/live`                     | 101 (WebSocket)                    | Participants only. See "Live updates".                                                                                                |
+| `PUT /api/push-subscriptions/:pushSubscriptionId`    | 204                                | Body is a `PushSubscription.toJSON()`; the ID is the hash of its endpoint. See "Web Push".                                            |
+| `GET /api/users/me`                                  | 200 `{displayName}`                | The requesting user's display name, null until they have one. Only reads. See "Display names".                                        |
+| `PUT /api/users/me/account`                          | 204                                | Body `{}`. Needs a session token. Attaches the account to this device or merges. See "Accounts".                                      |
+| `DELETE /api/push-subscriptions/:pushSubscriptionId` | 204                                | No body. See "Web Push".                                                                                                              |
+| `GET /api/vapid-public-key`                          | 200 `{publicKey}`                  | The VAPID public key. See "Web Push".                                                                                                 |
 
-Every route resolves who is asking as described under "Identity". Routes that create a story, participant or contribution answer 201 with the new ID. The other mutating routes send no body back, except suggestions, which is a read. The `Location` of a participant or a contribution names a path with no `GET` route yet. Clients refetch `GET /api/stories/:storyId`; the live socket tells them when.
+Every route resolves who is asking as described under "Identity". Routes that create a story, participant or passage answer 201 with the new ID. The other mutating routes send no body back, except suggestions, which is a read. The `Location` of a participant or a passage names a path with no `GET` route yet. Clients refetch `GET /api/stories/:storyId`; the live socket tells them when.
 
 ## Error statuses
 
@@ -45,10 +46,10 @@ Order of checks on a mutating route: API level (400 malformed, 426 too low), Ori
 ## Things a client or reviewer might not expect
 
 - **Story existence leaks.** An unknown ID is 404 and a known story you aren't in is 403, so anyone can probe whether a story exists. This is an accepted risk of short story IDs; see "Accepted risks" in `deployment.md`.
-- **Taken names leak.** A join to a story you aren't in answers `name_taken` for a name in use, so a link holder can learn the participants' names (a name can't be checked without joining).
+- **Taken names leak.** `POST /api/stories` and the join route answer `name_taken` for a name any user holds, so anyone can learn whether a name is in use (a name can't be checked without starting or joining a story).
 - **Body parsing comes before the story lookup.** A malformed body is 400 even for a story that doesn't exist or that you aren't in.
-- **A rejected join still creates the user.** An anonymous browser with no cookie gets one, and a user row, before the join is checked, and keeps both after a `name_taken` or `stale_turn`. It is harmless: the user is in no story until a join succeeds, and a retry with another name reuses it.
-- **A waiting story answers contribute and skip differently.** A contribution is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
+- **A rejected join still creates the user.** An anonymous browser with no cookie gets one, and a user row, before the join is checked, and keeps both after a `name_taken` or `stale_turn`. It is harmless: the user is in no story until a join succeeds, and a retry reuses it. The user has no name until a join or a new story succeeds.
+- **A waiting story answers a passage and a skip differently.** A passage is 403 `not_your_turn` (nobody holds the turn); a skip is 409 `stale_turn` (the page showed a turn that is gone).
 - **A cookie is ignored when the header is present.** A client that sends `X-Device-Token` is identified by it alone, even if it also sends a cookie that names another user.
 - **A store app's device token is made by the client.** The Worker issues nothing for it, so the first request already carries it, and a `GET` before the first write works.
 - **Plain cookie only on `http://localhost`.** `127.0.0.1` and LAN hosts get the `__Host-` Secure cookie, which browsers drop over plain HTTP, so dev must use `localhost`.
@@ -65,13 +66,24 @@ Order of checks on a mutating route: API level (400 malformed, 426 too low), Ori
 - **The cursor** is the sort key of the page's last story (caller's turn, newest passage time, ID), encoded as base64url (`src/worker/storyCursor.ts`). Clients treat it as opaque. The next page is every story that sorts after that key, so it stays right when the story at the key has left the list.
 - **Not bounded in the query:** the Worker still reads every story of the user and cuts the page afterwards, because the order depends on the clock (whose turn it is after `resolveTurn`). A response is bounded; the work is not. A story can be skipped or shown twice when a turn changes or a passage is written between two page loads. See "Accepted risks" in `deployment.md`.
 
+## Display names
+
+A user has one display name for every story, set when they start or join their first story. `GET /api/users/me` says whether they have one.
+
+- **No name yet:** `displayName` is required in `POST /api/stories` and the join body. A missing or invalid one is 400 `invalid_display_name`.
+- **Already named:** sending `displayName` is 400 `bad_request`, because a rename would rewrite the name on every old passage in every story. A client omits it.
+- **Unique across users:** a name another user holds, ignoring case, is 409 `name_taken` (`users.display_name_key`).
+- **Checks run in this order for `POST /api/stories`:** the body, then the name rule above (a read that creates no user), then `invalid_passage` for the opening, then `name_taken`, and only then is the user created.
+- **Checks run in this order for a join:** `not_found` for the story ID, the body, `not_found` for the story, the name rule above, then the user is created, then `already_joined`, `name_taken` and `story_full`.
+- **Both writes check the name again.** A name another request took after the check is still 409 `name_taken`, and nothing is written.
+
 ## Leaving and rejoining
 
-Leaving is soft. `POST /api/stories/:storyId/leave` sets `participants.left_at` and keeps the row, because passages join to their author and a name stays reserved in its story.
+Leaving is soft. `POST /api/stories/:storyId/leave` sets `participants.left_at` and keeps the row, so the turn order keeps its places and a rejoin finds the participant.
 
 - **Turn:** `onLeave` takes the position out of the turn order and bumps the version. If the leaver held the turn it passes to the next eligible writer with a fresh window. If nobody else is eligible (the leaver was alone, or the one writer left wrote last) the story waits. A story with no writers left stays open: anyone with the link can join and take the turn.
-- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the name the writer had there and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the old name and user stay on the row, so a leaver gets back only through rejoin.
-- **Names:** a leaver's name stays taken in that story, so a new joiner can't reuse it.
+- **After leaving:** every route that needs a participant answers 403 `left_story` with `{error, displayName, opening}`: the writer's display name and the story's opening, so the page can offer "Rejoin as <name>". A second leave is the same. The join route still answers `already_joined`, because the user stays on the row, so a leaver gets back only through rejoin.
+- **Names:** a display name belongs to the user, so leaving frees nothing: the name stays on the user and on their passages.
 - **Rejoin:** `POST /api/stories/:storyId/rejoin` clears `left_at` and gives the row the position at the end of the turn order (`LoadedStory.nextPosition`, one past the highest position ever held, a leaver's included, so it never collides with the unique `(story_id, position)`). `onRejoin` keeps a writer who wrote last as the last contributor under their new position, so coming back never earns two turns in a row, and a waiting story stays waiting for them. 403 `not_participant` for a user who was never in the story, 409 `already_joined` for one who is in it, 409 `story_full` when the story filled while they were away.
 - **Races:** both routes are guarded by the loaded `turn_version` like every write, so one that loses a race answers 409 `stale_turn`.
 - **Body:** `{}` and nothing else; a body with anything in it is 400 `bad_request` (`emptyRequestSchema`).
@@ -80,7 +92,7 @@ Leaving is soft. `POST /api/stories/:storyId/leave` sets `participants.left_at` 
 
 A story holds at most `MAX_PARTICIPANTS` (50, creator included), because anyone with the link can join and each joiner can hold the turn for 24 hours. Only writers who are still in the story count: one who left frees their place. A join to a full story is 409 `story_full`, and so is a rejoin. Creating a story and reading it are not affected.
 
-- **Which error wins:** `already_joined`, then `name_taken`, then `story_full`. A duplicate name or a repeat join on a full story keeps its own code. Only a join that would otherwise succeed gets `story_full`.
+- **Which error wins:** `already_joined`, then `name_taken`, then `story_full`. A name another user holds, or a repeat join on a full story, keeps its own code. Only a join that would otherwise succeed gets `story_full`.
 - **The version guard already serialises joins.** Every join bumps `turn_version`, so of two joins racing at 49 only one passes the `turn_version` guard (see "Writes and races").
 - **The count guard is a second defence in the write.** The join `INSERT` and the rejoin `UPDATE` also need `(SELECT COUNT(*) FROM participants WHERE story_id = ? AND left_at IS NULL) < MAX_PARTICIPANTS`, so a call with a current version still can't add a 51st. The turn `UPDATE` needs the participant to be in the story (the row exists and `left_at` is null), so a refused insert or rejoin never moves the turn.
 - **A refused write is explained by a re-read.** When `addParticipant` or `rejoinStory` returns false, the route reloads the story: 50 participants is `story_full`, anything else is `stale_turn`. Two joins racing at 49 therefore end as one 201 and one `story_full`.
@@ -109,10 +121,12 @@ The token check lives in `src/worker/sessionToken.ts`. It verifies the signature
 
 The device user is the user the cookie names. With no cookie, or a cookie that names no user, there is nothing to do and the route answers 204.
 
-- **No account user yet:** the account is attached to the device user (`attachAccount` in `src/worker/db/userRepo.ts`). The user keeps its participants and push subscriptions, gains the Clerk user ID and loses its browser token hash.
+- **No account user yet:** the account is attached to the device user (`attachAccount` in `src/worker/db/userRepo.ts`). The user keeps its passages, participants, display name and push subscriptions, gains the Clerk user ID and loses its browser token hash.
 - **The account already has a user:** the device user is merged into it, in two steps.
   - **First,** for each story where both users are writers who have not left, the device user's participant leaves, as a leave does (`leaveAsParticipant` in `src/worker/leave.ts`: the turn passes on and the room and the new holder are told). A leave that loses a race with another write on the story is retried with a fresh load, up to `MERGE_LEAVE_ATTEMPTS` (3) times, then the route answers 409 `stale_turn`.
-  - **Then** one `db.batch()` points the device user's participants and push subscriptions at the account user and deletes the device user (`mergeUserInto`).
+  - **Then** one `db.batch()` points the device user's passages, participants and push subscriptions at the account user, hands on the display name and deletes the device user (`mergeUserInto`). The account user keeps its own display name. It takes the device user's only when it has none, which is why the device user's name is cleared first: the key is unique.
+    - **The last contributor follows the passage.** In a story where the device user's participant has left and wrote last, and the account user is active, the batch moves `last_contributor_position` to the account user's active participant. The device user's passages are now the account user's, so the turn must not pass straight back to them. The client finds the last writer by user, and agrees.
+    - **A name given in between.** The batch hands on the name read before it. Every step runs only while the device user still has that name, so a join that named the device user after the read makes the batch write nothing. The route then reads the device user again and merges once more, up to `MERGE_ATTEMPTS` (2) times, then answers 409 `stale_turn`.
 - **Safe to repeat.** After a success the cookie names no user, so a second call finds none and answers 204. A call cut short by a failure or a 409 finishes on the next one.
 - **Same story, two writers.** The device user's participant has left and keeps its row, now tied to the account user. Joining the two participants into one is not built (issue #48).
 
@@ -147,7 +161,8 @@ The API level is a whole number, `API_LEVEL` in `src/shared/apiLevel.ts`. It is 
 - **Live sockets** carry no `X-Api-Level` header, because a browser's WebSocket can't set one. The upgrade is checked like any other `/api/*` request, but a socket that is already open is not. What carries the check is the refetch the client makes on every open: it is an ordinary request with the header.
 - **The client's reaction:** `call` turns a `client_outdated` answer into the failure `{type: "client_outdated"}` and sets the flag in `src/client/clientOutdated.ts`. The root layout then shows `UpdateRequired` (heading "Update to continue", one "Update now" button that calls `applyUpdate` from `useAppUpdate` in `src/client/appUpdate.ts`: it hands over to a waiting service worker and reloads, or, with none waiting, removes the service worker and the caches and reloads) in place of the routed page. Unmounting the page closes its live socket, so nothing keeps retrying.
 - **Only add.** A change that keeps `API_LEVEL` may add an optional response field, a route or an error code, and nothing else. A client ignores a field it doesn't know. An error code it doesn't know becomes the failure `{type: "unknown_code", status, code}` with the generic message, and a live message of a shape it doesn't know still triggers a refetch.
-- **Fixtures:** `src/shared/fixtures/level1/` holds a frozen sample of every message of level 1, and `src/shared/compat.test.ts` checks that the current schemas still parse them. The fixtures are append-only: never edit one to make a test pass.
+- **Fixtures:** each `src/shared/fixtures/level<N>/` holds a frozen sample of every message of level N. `src/shared/compat.test.ts` checks that the current schemas still parse the newest one and pins what the latest change did to the one before. The fixtures are append-only: never edit one to make a test pass.
+- **Level 3** raised `MIN_API_LEVEL` along with `API_LEVEL`, so a level-2 client gets 426 `client_outdated`. It renamed the contribution to a passage. A level-2 client reads `contributions` in the story view, `authorId` as a participant ID, and posts to `/contributions`: the story view now has `passages`, `authorId` is a user ID, participants carry `userId`, `POST /api/stories/:storyId/passages` answers `{passageId}`, and `displayName` is optional in the create and join bodies.
 - **Level 2** raised `MIN_API_LEVEL` along with `API_LEVEL`, so a level-1 client gets 426 `client_outdated`. It changed four things a level-1 client reads: `POST /api/stories/:storyId/contributions` answers 201 `{contributionId}` instead of 204, the push subscription routes moved to `/api/push-subscriptions/:pushSubscriptionId`, the public key moved to `GET /api/vapid-public-key`, and `GET /api/stories` answers a page with `nextCursor`.
 - **Shipping a break:** raise `API_LEVEL`, add a `src/shared/fixtures/level2/` folder with the new messages (keep `level1/`, so the test still shows what changed), and set `MIN_API_LEVEL` to the new level only once old clients must be locked out. See "Raising `MIN_API_LEVEL`" in `deployment.md`.
 
@@ -243,7 +258,7 @@ All three calls go through `src/client/api.ts` (`fetchVapidPublicKey`, `savePush
 
 ## Writes and races
 
-Each write is one `db.batch()`. Every statement is guarded by `turn_version = <loaded version>`, so a write that lost a race changes nothing and the route answers 409 `stale_turn`. A join or contribution inserts its row _before_ the story update, so both test the same unchanged snapshot. Unique constraints (`display_name_key`, and one active participant per user per story) are a backstop only: routes check names and users against the loaded participants first, and any change to those rows bumps the version.
+Each write is one `db.batch()`. Every statement is guarded by `turn_version = <loaded version>`, so a write that lost a race changes nothing and the route answers 409 `stale_turn`. A join or passage inserts its row _before_ the story update, so both test the same unchanged snapshot. Unique constraints (`users.display_name_key`, and one active participant per user per story) are a backstop only: routes check users against the loaded participants and names against `findUserByDisplayNameKey` first, and any change to those rows bumps the version. A name taken in the gap fails the batch whole, and the repo answers `name_taken`.
 
 Story creation retries with a new ID when the ID is taken (up to `STORY_ID_ATTEMPTS`). A failed create batch leaves nothing behind (it is atomic), so `createStory` asks `SELECT 1 FROM stories WHERE id = ?` to tell a collision from any other error. It does not read the constraint error text, whose wording differs between Miniflare and real D1 and is untested against real D1.
 

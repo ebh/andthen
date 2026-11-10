@@ -15,7 +15,7 @@ import {
 import type { Db } from "./storyRepo";
 
 /** The Zod object that describes one table, with each column key typed. */
-export type TableSchema = z.ZodObject<Record<string, z.core.$ZodType>>;
+type TableSchema = z.ZodObject<Record<string, z.core.$ZodType>>;
 
 /** A map from SQL table name to its table schema. */
 export type TableSchemas = Readonly<Record<string, TableSchema>>;
@@ -73,15 +73,6 @@ export async function readForeignKeys(db: Db): Promise<ForeignKeyRow[]> {
   return foreignKeys;
 }
 
-/** Every index, in table-name then index-name order, with its columns in index order. */
-export async function readIndexes(db: Db): Promise<IndexRow[]> {
-  const result = await db.prepare(INDEX_COLUMNS_QUERY).all();
-  const columnRows = z.array(indexColumnRowSchema).parse(result.results);
-  const rowsByIndex = Map.groupBy(columnRows, (row) => `${row.tableName}.${row.name}`);
-
-  return [...rowsByIndex.values()].map(indexFromColumnRows);
-}
-
 /** The reference lists one column per foreign key, so a composite key is refused, not misdrawn. */
 export function assertSimpleForeignKey(foreignKey: ForeignKeyRow): void {
   if (foreignKey.seq > 0) {
@@ -89,6 +80,15 @@ export function assertSimpleForeignKey(foreignKey: ForeignKeyRow): void {
       `foreign key ${foreignKey.tableName}.${foreignKey.fromColumn} is part of a composite key, which is not supported`,
     );
   }
+}
+
+/** Every index, in table-name then index-name order, with its columns in index order. */
+export async function readIndexes(db: Db): Promise<IndexRow[]> {
+  const result = await db.prepare(INDEX_COLUMNS_QUERY).all();
+  const columnRows = z.array(indexColumnRowSchema).parse(result.results);
+  const rowsByIndex = Map.groupBy(columnRows, (row) => `${row.tableName}.${row.name}`);
+
+  return [...rowsByIndex.values()].map(indexFromColumnRows);
 }
 
 /**

@@ -52,7 +52,7 @@ The D1 schema is described once, in Zod, and every database type in the code is 
 
 These checks run in CI and fail the build.
 
-- **An ESLint `no-restricted-syntax` rule**, scoped to `src/worker/db/**`, bans `interface`, object type literals, and `z.object`, `z.strictObject` and `z.looseObject` outside the three schema files.
+- **An ESLint `no-restricted-syntax` rule**, scoped to `src/worker/db/**` (test files excepted), bans `interface`, object type literals and mapped types. In every file except `rows.ts`, `tableSchemas.ts` and `typeSchemas.ts` it also bans `z.object`, `z.strictObject` and `z.looseObject` (called through `z` or imported by name from `zod`), and any call to `.extend`, `.safeExtend` or `.merge`.
 - **A drift test** checks that the tables and columns in Zod equal those in the migrated database. It also compares `NOT NULL` (SQLite allows NULL in a non-INTEGER primary key; the check treats every primary key as required) with `.nullable()`, and the SQLite column type with the Zod base type (INTEGER with a number or number literals, TEXT with a string, a string enum or string literals).
-- **A description test** checks that every table schema and column has a description.
+- **A description test** (`src/worker/db/tableSchemas.test.ts`) checks that every table schema and column has a non-empty description, read the way the generator reads it.
 - **A stale-doc check** fails when `docs/database.md` differs from what `pnpm db:docs` generates.

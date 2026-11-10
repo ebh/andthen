@@ -5,6 +5,8 @@
 > Descriptions come from the table schemas; columns, types, keys and indexes come from the migrated database.
 >
 > Required counts a primary key as required, as the app does; SQLite lets a non-INTEGER primary key hold NULL.
+>
+> Times are integer milliseconds since the Unix epoch (epoch ms).
 
 ```mermaid
 erDiagram
@@ -63,17 +65,19 @@ erDiagram
 
 ## contributions
 
+Every contribution to a story; today each one is a passage. Append-only: the app never updates or deletes rows.
+
 ### Columns
 
-| Column             | Type    | Required | Default | Description |
-| ------------------ | ------- | -------- | ------- | ----------- |
-| `id`               | TEXT    | yes      |         |             |
-| `story_id`         | TEXT    | yes      |         |             |
-| `participant_id`   | TEXT    | yes      |         |             |
-| `seq`              | INTEGER | yes      |         |             |
-| `text`             | TEXT    | yes      |         |             |
-| `created_at`       | INTEGER | yes      |         |             |
-| `starts_paragraph` | INTEGER | yes      | `1`     |             |
+| Column             | Type    | Required | Default | Description                                                              |
+| ------------------ | ------- | -------- | ------- | ------------------------------------------------------------------------ |
+| `id`               | TEXT    | yes      |         | Opaque ID of the contribution.                                           |
+| `story_id`         | TEXT    | yes      |         | The story the contribution belongs to.                                   |
+| `participant_id`   | TEXT    | yes      |         | The participant who wrote it, its author.                                |
+| `seq`              | INTEGER | yes      |         | Place in the story, 1 for the opening, unique within the story.          |
+| `text`             | TEXT    | yes      |         | The text of the passage.                                                 |
+| `created_at`       | INTEGER | yes      |         | When the contribution was written, in epoch ms.                          |
+| `starts_paragraph` | INTEGER | yes      | `1`     | 1 if the passage begins a new paragraph, 0 if it continues the last one. |
 
 ### Indexes
 
@@ -101,18 +105,20 @@ CREATE TABLE contributions (
 
 ## participants
 
+One row per user who joins a story. A leaver's row stays, so their passages keep an author and their display name stays reserved. After a merge, a user can also hold a left row in a story they are in.
+
 ### Columns
 
-| Column             | Type    | Required | Default | Description |
-| ------------------ | ------- | -------- | ------- | ----------- |
-| `id`               | TEXT    | yes      |         |             |
-| `story_id`         | TEXT    | yes      |         |             |
-| `display_name`     | TEXT    | yes      |         |             |
-| `display_name_key` | TEXT    | yes      |         |             |
-| `position`         | INTEGER | yes      |         |             |
-| `user_id`          | TEXT    | yes      |         |             |
-| `joined_at`        | INTEGER | yes      |         |             |
-| `left_at`          | INTEGER | no       |         |             |
+| Column             | Type    | Required | Default | Description                                                                                            |
+| ------------------ | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| `id`               | TEXT    | yes      |         | Opaque ID of the participant.                                                                          |
+| `story_id`         | TEXT    | yes      |         | The story the participant joined.                                                                      |
+| `display_name`     | TEXT    | yes      |         | Name shown beside the participant's passages.                                                          |
+| `display_name_key` | TEXT    | yes      |         | The display name trimmed, NFKC-normalised and case-folded; unique in the story, leavers included.      |
+| `position`         | INTEGER | yes      |         | Place in the turn order, unique in the story; a leaver keeps theirs, and a rejoin gets a new last one. |
+| `user_id`          | TEXT    | yes      |         | The user this participant belongs to.                                                                  |
+| `joined_at`        | INTEGER | yes      |         | When the participant first joined, in epoch ms; a rejoin keeps it.                                     |
+| `left_at`          | INTEGER | no       |         | When the participant left the story, in epoch ms; null while they are in it.                           |
 
 ### Indexes
 
@@ -146,15 +152,17 @@ CREATE TABLE participants (
 
 ## push_subscriptions
 
+A browser's Web Push subscription, one per push service endpoint. It belongs to a user, not a story, and covers every story the user is in.
+
 ### Columns
 
-| Column       | Type    | Required | Default | Description |
-| ------------ | ------- | -------- | ------- | ----------- |
-| `endpoint`   | TEXT    | yes      |         |             |
-| `user_id`    | TEXT    | yes      |         |             |
-| `p256dh`     | TEXT    | yes      |         |             |
-| `auth`       | TEXT    | yes      |         |             |
-| `created_at` | INTEGER | yes      |         |             |
+| Column       | Type    | Required | Default | Description                                                        |
+| ------------ | ------- | -------- | ------- | ------------------------------------------------------------------ |
+| `endpoint`   | TEXT    | yes      |         | Web Push endpoint of the subscription.                             |
+| `user_id`    | TEXT    | yes      |         | The user the subscription belongs to.                              |
+| `p256dh`     | TEXT    | yes      |         | The browser's public key, used to encrypt each message, base64url. |
+| `auth`       | TEXT    | yes      |         | Authentication secret used to encrypt each message, base64url.     |
+| `created_at` | INTEGER | yes      |         | When the subscription was first stored, in epoch ms.               |
 
 ### Indexes
 
@@ -181,16 +189,18 @@ CREATE TABLE "push_subscriptions" (
 
 ## stories
 
+One row per story. The turn fields hold the turn as last saved: an expired window moves the turn only on the next write, so read them through resolveTurn. A waiting story has no turn holder, so its current position and turn start are null.
+
 ### Columns
 
-| Column                      | Type    | Required | Default | Description |
-| --------------------------- | ------- | -------- | ------- | ----------- |
-| `id`                        | TEXT    | yes      |         |             |
-| `created_at`                | INTEGER | yes      |         |             |
-| `current_position`          | INTEGER | no       |         |             |
-| `turn_started_at`           | INTEGER | no       |         |             |
-| `turn_version`              | INTEGER | yes      | `0`     |             |
-| `last_contributor_position` | INTEGER | no       |         |             |
+| Column                      | Type    | Required | Default | Description                                                                                                      |
+| --------------------------- | ------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `id`                        | TEXT    | yes      |         | Five-character story ID of lowercase letters and digits, also its URL path (/<id>).                              |
+| `created_at`                | INTEGER | yes      |         | When the story was created, in epoch ms.                                                                         |
+| `current_position`          | INTEGER | no       |         | Position of the turn holder; null while the story is waiting.                                                    |
+| `turn_started_at`           | INTEGER | no       |         | When the current turn began, in epoch ms; null while the story is waiting.                                       |
+| `turn_version`              | INTEGER | yes      | `0`     | Starts at 0 and goes up by one on each contribution, skip, expired window, join, rejoin and leave.               |
+| `last_contributor_position` | INTEGER | no       |         | Position of the last contributor, whom the turn passes over. Set from the opening on, so never null in practice. |
 
 ### Indexes
 
@@ -217,13 +227,15 @@ CREATE TABLE stories (
 
 ## suggestion_requests
 
+One row per suggestion request. Rows newer than SUGGESTION_WINDOW_MS count towards the participant's SUGGESTION_LIMIT. The app deletes a row only when the AI provider errors; a timeout or unusable reply still counts.
+
 ### Columns
 
-| Column           | Type    | Required | Default | Description |
-| ---------------- | ------- | -------- | ------- | ----------- |
-| `id`             | TEXT    | yes      |         |             |
-| `participant_id` | TEXT    | yes      |         |             |
-| `created_at`     | INTEGER | yes      |         |             |
+| Column           | Type    | Required | Default | Description                                |
+| ---------------- | ------- | -------- | ------- | ------------------------------------------ |
+| `id`             | TEXT    | yes      |         | Opaque ID of the request.                  |
+| `participant_id` | TEXT    | yes      |         | The participant who asked for suggestions. |
+| `created_at`     | INTEGER | yes      |         | When the request was made, in epoch ms.    |
 
 ### Indexes
 
@@ -247,14 +259,16 @@ CREATE TABLE suggestion_requests (
 
 ## users
 
+One row per user, found by the hash of its device token or by its Clerk user ID. Participants and push subscriptions belong to a user.
+
 ### Columns
 
-| Column               | Type    | Required | Default | Description |
-| -------------------- | ------- | -------- | ------- | ----------- |
-| `id`                 | TEXT    | yes      |         |             |
-| `clerk_user_id`      | TEXT    | no       |         |             |
-| `browser_token_hash` | TEXT    | no       |         |             |
-| `created_at`         | INTEGER | yes      |         |             |
+| Column               | Type    | Required | Default | Description                                                      |
+| -------------------- | ------- | -------- | ------- | ---------------------------------------------------------------- |
+| `id`                 | TEXT    | yes      |         | Opaque ID of the user.                                           |
+| `clerk_user_id`      | TEXT    | no       |         | Clerk user ID of the user's account; null for an anonymous user. |
+| `browser_token_hash` | TEXT    | no       |         | Hex SHA-256 hash of the device token; null for an account user.  |
+| `created_at`         | INTEGER | yes      |         | When the user was created, in epoch ms.                          |
 
 ### Indexes
 

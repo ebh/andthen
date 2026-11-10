@@ -14,6 +14,8 @@ const HEADER = [
   "> Descriptions come from the table schemas; columns, types, keys and indexes come from the migrated database.",
   ">",
   "> Required counts a primary key as required, as the app does; SQLite lets a non-INTEGER primary key hold NULL.",
+  ">",
+  "> Times are integer milliseconds since the Unix epoch (epoch ms).",
 ].join("\n");
 
 function column(
@@ -89,7 +91,7 @@ describe("renderDatabaseDoc", () => {
     );
   });
 
-  it("marks keys, requiredness, defaults and descriptions", () => {
+  it("marks keys, requiredness and defaults, and keeps descriptions out of the diagram", () => {
     const schemas: TableSchemas = {
       things: z.object({
         id: z.string().meta({ description: 'The "id"\nof a thing | really' }),
@@ -112,13 +114,9 @@ describe("renderDatabaseDoc", () => {
     );
 
     expect(doc).toContain(
-      [
-        "  things {",
-        "    TEXT id PK \"The 'id' of a thing | really\"",
-        "    TEXT owner_id FK",
-        "    TEXT slug UK",
-        "  }",
-      ].join("\n"),
+      ["  things {", "    TEXT id PK", "    TEXT owner_id FK", "    TEXT slug UK", "  }"].join(
+        "\n",
+      ),
     );
     expect(doc).toContain(
       [
@@ -357,7 +355,6 @@ describe("renderDatabaseDoc", () => {
       schemas,
     );
 
-    expect(doc).toContain('    TEXT id "The id."\n');
     expect(doc).toContain("| `id`   | TEXT | yes      |         | The id.     |\n");
   });
 
@@ -404,6 +401,6 @@ describe("renderDatabaseDoc", () => {
       schemas,
     );
 
-    expect(doc).toContain('"a b c"');
+    expect(doc).toContain("| `id`   | TEXT | yes      |         | a b c       |\n");
   });
 });

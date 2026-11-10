@@ -15,6 +15,8 @@ const HEADER = [
   "> Descriptions come from the table schemas; columns, types, keys and indexes come from the migrated database.",
   ">",
   "> Required counts a primary key as required, as the app does; SQLite lets a non-INTEGER primary key hold NULL.",
+  ">",
+  "> Times are integer milliseconds since the Unix epoch (epoch ms).",
 ].join("\n");
 
 /**
@@ -27,22 +29,16 @@ export function renderDatabaseDoc(input: DatabaseDocInput, tableSchemas: TableSc
   );
   const sections = [
     HEADER,
-    renderDiagram(input, tableSchemas, tableNames),
+    renderDiagram(input, tableNames),
     ...tableNames.map((tableName) => renderTable(input, tableSchemas, tableName)),
   ];
 
   return `${sections.join("\n\n")}\n`;
 }
 
-function renderDiagram(
-  input: DatabaseDocInput,
-  tableSchemas: TableSchemas,
-  tableNames: string[],
-): string {
+function renderDiagram(input: DatabaseDocInput, tableNames: string[]): string {
   const entities = tableNames.flatMap((tableName) => {
-    const attributes = columnsOf(input, tableName).map((column) =>
-      renderAttribute(input, tableSchemas, column),
-    );
+    const attributes = columnsOf(input, tableName).map((column) => renderAttribute(input, column));
 
     return [`  ${tableName} {`, ...attributes, "  }"];
   });
@@ -55,11 +51,7 @@ function renderDiagram(
   return ["```mermaid", "erDiagram", ...entities, ...relationships, "```"].join("\n");
 }
 
-function renderAttribute(
-  input: DatabaseDocInput,
-  tableSchemas: TableSchemas,
-  column: DatabaseColumnRow,
-): string {
+function renderAttribute(input: DatabaseDocInput, column: DatabaseColumnRow): string {
   const keys = [
     column.primaryKey > 0 ? "PK" : undefined,
     input.foreignKeys.some(
@@ -70,13 +62,7 @@ function renderAttribute(
       : undefined,
     isUnique(input.indexes, column) ? "UK" : undefined,
   ].filter((key) => key !== undefined);
-  const description = columnDescription(tableSchemas, column);
-  const parts = [
-    column.type,
-    column.name,
-    keys.join(", "),
-    description === "" ? "" : `"${description.replaceAll('"', "'")}"`,
-  ].filter((part) => part !== "");
+  const parts = [column.type, column.name, keys.join(", ")].filter((part) => part !== "");
 
   return `    ${parts.join(" ")}`;
 }

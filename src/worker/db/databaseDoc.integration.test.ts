@@ -67,3 +67,21 @@ describe("the migrated database", () => {
     expect(await readFile(DOC_PATH, "utf8")).toBe(doc);
   });
 });
+
+describe("readForeignKeys", () => {
+  it("refuses a composite foreign key, naming its table and column", async () => {
+    const testEnv = await createTestEnv();
+    try {
+      await testEnv.env.DB.exec(
+        "CREATE TABLE composite_parents (a TEXT, b TEXT, PRIMARY KEY (a, b)); " +
+          "CREATE TABLE composite_children (a TEXT, b TEXT, FOREIGN KEY (a, b) REFERENCES composite_parents (a, b));",
+      );
+
+      await expect(readForeignKeys(testEnv.env.DB)).rejects.toThrow(
+        "foreign key composite_children.b is part of a composite key, which is not supported",
+      );
+    } finally {
+      await testEnv.dispose();
+    }
+  });
+});

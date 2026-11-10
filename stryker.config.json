@@ -16,7 +16,6 @@
     "!src/client/testSetup.ts",
     "!src/worker/index.ts",
     "!src/worker/storyRoom.ts",
-    "!src/worker/db/tableSchemas.ts",
     "!src/worker/db/typeSchemas.ts"
   ],
   "coverageAnalysis": "perTest",

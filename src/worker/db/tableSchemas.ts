@@ -127,6 +127,20 @@ export const pushSubscriptionsTableSchema = z
       "A browser's Web Push subscription, one per push service endpoint. It belongs to a user, not a story, and covers every story the user is in.",
   });
 
+export const blocksTableSchema = z
+  .object({
+    id: idSchema.meta({ description: "Opaque ID of the block." }),
+    userId: idSchema.meta({ description: "The user who blocks." }),
+    blockedUserId: idSchema.meta({
+      description: "The user who is blocked; never the same user as the one who blocks.",
+    }),
+    createdAt: countSchema.meta({ description: "When the block was made, in epoch ms." }),
+  })
+  .meta({
+    description:
+      "One row per user blocked by another user, for every story the two share. A block hides the blocked user's passages from the user who blocks and from no one else. Deleting the row unblocks. A merge moves a user's blocks, in both directions, to the account user.",
+  });
+
 /** Every table schema, under its SQL table name. */
 export const TABLE_SCHEMAS = {
   stories: storiesTableSchema,
@@ -135,4 +149,5 @@ export const TABLE_SCHEMAS = {
   suggestion_requests: suggestionRequestsTableSchema,
   users: usersTableSchema,
   push_subscriptions: pushSubscriptionsTableSchema,
+  blocks: blocksTableSchema,
 };

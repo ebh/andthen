@@ -207,9 +207,10 @@ test("with a stand-in for the push service: a browser that cannot subscribe show
 
   await notifySwitch(page).click();
 
-  await expect(page.getByRole("alert")).toHaveText(
-    "Notifications couldn't be turned on in this browser.",
-  );
+  // The story page also holds an empty alert for a failed Block or Unblock, so this one is found by its text.
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Notifications couldn't be turned on" }),
+  ).toHaveText("Notifications couldn't be turned on in this browser.");
   await expect(notifySwitch(page)).not.toBeChecked();
   await expect(notifySwitch(page)).toBeEnabled();
   expect(sent).toEqual([]);

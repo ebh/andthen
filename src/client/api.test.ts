@@ -5,7 +5,10 @@ import { API_LEVEL } from "../shared/apiLevel";
 import { pushSubscriptionIdOf } from "../shared/pushSubscriptionId";
 import { getClientOutdated, setClientOutdated } from "./clientOutdated";
 import {
+  blockUser,
   createPassage,
+  listBlocks,
+  unblockUser,
   fetchMe,
   fetchVapidPublicKey,
   createStory,
@@ -88,12 +91,38 @@ describe("error mapping", () => {
 
   it("maps 403 left_story to the name and the opening passage", async () => {
     stubFetch(
+      jsonResponse(403, {
+        error: "left_story",
+        displayName: "Ana",
+        opening: "Once upon a time.",
+        openingAuthorId: "u1",
+      }),
+    );
+
+    expect(await fetchStory("abc12")).toEqual({
+      ok: false,
+      failure: {
+        type: "left_story",
+        displayName: "Ana",
+        opening: "Once upon a time.",
+        openingAuthorId: "u1",
+      },
+    });
+  });
+
+  it("maps 403 left_story from an older Worker to a failure with no opening author", async () => {
+    stubFetch(
       jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once upon a time." }),
     );
 
     expect(await fetchStory("abc12")).toEqual({
       ok: false,
-      failure: { type: "left_story", displayName: "Ana", opening: "Once upon a time." },
+      failure: {
+        type: "left_story",
+        displayName: "Ana",
+        opening: "Once upon a time.",
+        openingAuthorId: undefined,
+      },
     });
   });
 
@@ -212,6 +241,84 @@ describe("API level header", () => {
   });
 });
 
+describe("blocking", () => {
+  it("lists the blocks", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, { blocks: [{ id: "b1", blockedUserId: "u2" }] }));
+
+    expect(await listBlocks()).toEqual({
+      ok: true,
+      value: { blocks: [{ id: "b1", blockedUserId: "u2" }] },
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/users/me/blocks", {
+      method: "GET",
+      headers: { "X-Api-Level": String(API_LEVEL) },
+    });
+  });
+
+  it("treats a list in the wrong shape as unreadable", async () => {
+    stubFetch(jsonResponse(200, { blocks: [{ id: "b1" }] }));
+
+    expect(await listBlocks()).toEqual({ ok: false, failure: { type: "unreadable", status: 200 } });
+  });
+
+  it("posts the blocked user and parses the block ID from the 201", async () => {
+    const fetchMock = stubFetch(jsonResponse(201, { blockId: "b1" }));
+
+    expect(await blockUser({ blockedUserId: "u2" })).toEqual({
+      ok: true,
+      value: { blockId: "b1" },
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/users/me/blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Api-Level": String(API_LEVEL) },
+      body: JSON.stringify({ blockedUserId: "u2" }),
+    });
+  });
+
+  it("counts the 200 a repeat answers as success", async () => {
+    stubFetch(jsonResponse(200, { blockId: "b1" }));
+
+    expect(await blockUser({ blockedUserId: "u2" })).toEqual({
+      ok: true,
+      value: { blockId: "b1" },
+    });
+  });
+
+  it("returns a refusal as a value", async () => {
+    stubFetch(jsonResponse(400, { error: "cannot_block_self" }));
+
+    const result = await blockUser({ blockedUserId: "u1" });
+
+    expect(!result.ok && result.failure).toEqual({
+      type: "rejected",
+      status: 400,
+      code: "cannot_block_self",
+    });
+  });
+
+  it("deletes the block with no body and accepts a 204", async () => {
+    const fetchMock = stubFetch(noContentResponse());
+
+    expect(await unblockUser("b1")).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/users/me/blocks/b1", {
+      method: "DELETE",
+      headers: { "X-Api-Level": String(API_LEVEL) },
+    });
+  });
+
+  it("returns a missing block as a value", async () => {
+    stubFetch(jsonResponse(404, { error: "not_found" }));
+
+    const result = await unblockUser("gone");
+
+    expect(!result.ok && result.failure).toEqual({
+      type: "rejected",
+      status: 404,
+      code: "not_found",
+    });
+  });
+});
+
 describe("success", () => {
   it("parses the story view", async () => {
     const view = storyView({ participants: [ME, OTHER], holderId: OTHER, lastWriterId: ME });
@@ -251,6 +358,7 @@ describe("my stories, leaving and rejoining", () => {
   const summary = {
     id: "abc12",
     opening: "Once.",
+    openingAuthorId: "u1",
     holderName: null,
     isMyTurn: false,
     endsAt: null,

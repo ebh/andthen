@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { API_LEVEL, API_LEVEL_HEADER } from "../shared/apiLevel";
 import {
+  blocksResponseSchema,
+  blockUserResponseSchema,
   createPassageResponseSchema,
   createStoryResponseSchema,
   errorBodySchema,
@@ -12,6 +14,9 @@ import {
   vapidPublicKeyResponseSchema,
   storyViewSchema,
   suggestionsResponseSchema,
+  type BlocksResponse,
+  type BlockUserRequest,
+  type BlockUserResponse,
   type CreatePassageRequest,
   type CreatePassageResponse,
   type CreateStoryRequest,
@@ -41,9 +46,16 @@ export type ApiFailure =
   // 426: the Worker no longer accepts this build's API level, so the app must be reloaded.
   | { type: "client_outdated" }
   // 403 `left_story`: this browser was in the story and left it.
-  | { type: "left_story"; displayName: string; opening: string };
+  | {
+      type: "left_story";
+      displayName: string;
+      opening: string;
+      openingAuthorId: string | undefined;
+    };
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; failure: ApiFailure };
+
+type Init = Omit<RequestInit, "headers"> & { headers?: Record<string, string> };
 
 /** One page of the user's stories: the first, or the one after `cursor`. */
 export function listMyStories(cursor?: string): Promise<ApiResult<MyStoriesResponse>> {
@@ -110,6 +122,24 @@ export async function removePushSubscription(endpoint: string): Promise<ApiResul
   return call(await pushSubscriptionPath(endpoint), { method: "DELETE" }, noBodySchema);
 }
 
+/** The users the requester has blocked, oldest block first. Empty for a requester with no user. */
+export function listBlocks(): Promise<ApiResult<BlocksResponse>> {
+  return call("/api/users/me/blocks", { method: "GET" }, blocksResponseSchema);
+}
+
+/** A new block answers 201 and a repeat 200, both with the block's ID, so any success counts. */
+export function blockUser(request: BlockUserRequest): Promise<ApiResult<BlockUserResponse>> {
+  return call("/api/users/me/blocks", postJson(request), blockUserResponseSchema);
+}
+
+export function unblockUser(blockId: string): Promise<ApiResult<null>> {
+  return call(
+    `/api/users/me/blocks/${encodeURIComponent(blockId)}`,
+    { method: "DELETE" },
+    noBodySchema,
+  );
+}
+
 /** Brings this device's stories into the signed-in account. Needs a session token; safe to repeat. */
 export function requestAddDeviceUserToAccount(): Promise<ApiResult<null>> {
   return call("/api/users/me/account", jsonRequest("PUT", {}), noBodySchema);
@@ -119,8 +149,6 @@ export function requestAddDeviceUserToAccount(): Promise<ApiResult<null>> {
 const noBodySchema = z.null();
 
 const anyErrorBodySchema = z.object({ error: z.string() });
-
-type Init = Omit<RequestInit, "headers"> & { headers?: Record<string, string> };
 
 // A token that expired between being fetched and arriving is rejected once; a fresh one fixes it.
 async function call<T>(path: string, init: Init, schema: z.ZodType<T>): Promise<ApiResult<T>> {
@@ -182,9 +210,12 @@ async function send<T>(
       return { ok: false, failure: { type: "client_outdated" } };
     }
     if (data.error === "left_story") {
-      const { displayName, opening } = data;
+      const { displayName, opening, openingAuthorId } = data;
 
-      return { ok: false, failure: { type: "left_story", displayName, opening } };
+      return {
+        ok: false,
+        failure: { type: "left_story", displayName, opening, openingAuthorId },
+      };
     }
 
     return { ok: false, failure: { type: "rejected", status: response.status, code: data.error } };

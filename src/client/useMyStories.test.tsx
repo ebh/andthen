@@ -25,6 +25,7 @@ afterEach(() => {
 const story: StorySummary = {
   id: "abc12",
   opening: "The lighthouse keeper found a letter.",
+  openingAuthorId: "u1",
   holderName: null,
   isMyTurn: false,
   endsAt: null,

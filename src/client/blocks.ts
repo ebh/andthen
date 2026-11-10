@@ -1,0 +1,47 @@
+import type { BlocksResponse } from "../shared/api";
+
+/**
+ * Where the user's list of blocks stands. `failed` means the last load did not arrive, so who is
+ * blocked is unknown.
+ */
+export type BlocksStatus = "loading" | "ready" | "failed";
+
+export type Block = BlocksResponse["blocks"][number];
+
+/** The ID of the user's block on `userId`, or null when they have none. */
+export function blockIdFor(blocks: readonly Block[], userId: string): string | null {
+  return blocks.find((block) => block.blockedUserId === userId)?.id ?? null;
+}
+
+/**
+ * Whether an opening is shown as an obscured stand-in. An opening whose author is unknown, because
+ * an older Worker sent no `openingAuthorId`, is obscured too: the page cannot tell whether it is
+ * blocked, so it fails closed.
+ */
+export function isOpeningObscured(
+  blocks: { status: BlocksStatus; blockIdFor: (userId: string) => string | null },
+  openingAuthorId: string | undefined,
+): boolean {
+  if (openingAuthorId === undefined) {
+    return true;
+  }
+
+  return isObscured(blocks.status, blocks.blockIdFor(openingAuthorId), false);
+}
+
+/**
+ * Whether a passage by this author is shown as an obscured stand-in. It fails closed: until the
+ * list has loaded, nobody else's passage is shown, so a blocked author's text never flashes. The
+ * user's own passages are never hidden, because no one blocks themselves.
+ */
+export function isObscured(
+  status: BlocksStatus,
+  blockId: string | null,
+  authorIsUser: boolean,
+): boolean {
+  if (authorIsUser) {
+    return false;
+  }
+
+  return status !== "ready" || blockId !== null;
+}

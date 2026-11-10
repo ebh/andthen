@@ -9,6 +9,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const leftStoryBody = {
+  error: "left_story",
+  displayName: "Ana",
+  opening: "Once.",
+  openingAuthorId: "u1",
+};
+const left = {
+  type: "left",
+  displayName: "Ana",
+  opening: "Once.",
+  openingAuthorId: "u1",
+};
+
 const view = storyView({ participants: [ME, OTHER], holderId: OTHER, lastWriterId: ME });
 
 describe("useStory", () => {
@@ -41,6 +54,15 @@ describe("useStory", () => {
   });
 
   it("reports a writer who left the story, with the name and opening to rejoin with", async () => {
+    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, leftStoryBody)));
+    const { result } = renderHook(() => useStory("abc12"));
+
+    await waitFor(() => {
+      expect(result.current.load).toEqual(left);
+    });
+  });
+
+  it("reports a writer who left with no opening author when an older Worker sends none", async () => {
     vi.stubGlobal("fetch", () =>
       Promise.resolve(
         jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
@@ -49,7 +71,12 @@ describe("useStory", () => {
     const { result } = renderHook(() => useStory("abc12"));
 
     await waitFor(() => {
-      expect(result.current.load).toEqual({ type: "left", displayName: "Ana", opening: "Once." });
+      expect(result.current.load).toEqual({
+        type: "left",
+        displayName: "Ana",
+        opening: "Once.",
+        openingAuthorId: undefined,
+      });
     });
   });
 
@@ -57,9 +84,7 @@ describe("useStory", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse(200, view))
-      .mockResolvedValueOnce(
-        jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
-      );
+      .mockResolvedValueOnce(jsonResponse(403, leftStoryBody));
     vi.stubGlobal("fetch", fetchMock);
     const { result } = renderHook(() => useStory("abc12"));
     await waitFor(() => {
@@ -71,7 +96,7 @@ describe("useStory", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.load).toEqual({ type: "left", displayName: "Ana", opening: "Once." });
+      expect(result.current.load).toEqual(left);
     });
   });
 

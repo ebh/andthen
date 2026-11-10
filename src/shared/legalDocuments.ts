@@ -26,7 +26,7 @@ export const LEGAL_DOCUMENTS = {
     title: "Privacy policy",
     versions: [
       { version: 1, effectiveOn: "2026-11-09" },
-      { version: 2, effectiveOn: "2026-11-10" },
+      { version: 2, effectiveOn: "2026-11-17" },
     ],
   },
   "copyright-terms/equal-shares": {

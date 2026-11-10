@@ -471,7 +471,12 @@ describe("a writer who left in another tab", () => {
       "fetch",
       vi.fn<typeof fetch>(() =>
         Promise.resolve(
-          jsonResponse(403, { error: "left_story", displayName: "Me", opening: "Once." }),
+          jsonResponse(403, {
+            error: "left_story",
+            displayName: "Me",
+            opening: "Once.",
+            openingAuthorId: "u1",
+          }),
         ),
       ),
     );

@@ -52,6 +52,7 @@ function LoadedStory({ storyId }: { storyId: string }) {
           storyId={storyId}
           displayName={load.displayName}
           opening={load.opening}
+          openingAuthorId={load.openingAuthorId}
           onRejoined={refetch}
         />
       </SimplePage>

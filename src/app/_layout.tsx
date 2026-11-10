@@ -17,6 +17,7 @@ import { tamaguiConfig } from "../../tamagui.config";
 import { startAppInstall } from "../client/appInstall";
 import { startAppUpdates } from "../client/appUpdate";
 import { startTurnAlerts } from "../client/turnAlerts";
+import { BlocksProvider } from "../client/useBlocks";
 import { AddDeviceUserOnLoad } from "../ui/AddDeviceUserOnLoad";
 import { ShareClerkSessionToken } from "../ui/ShareClerkSessionToken";
 import { UpdateGate } from "../ui/UpdateGate";
@@ -52,12 +53,14 @@ export default function Layout() {
           (https://docs.expo.dev/router/reference/static-rendering/#root-html). flexGrow lets a short
           page fill the height; a page root must use `grow={1}`, because `flex={1}` has a zero basis
           and is clamped to the screen height while its content overflows. */}
-        <YStack flex={1}>
-          <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
-            <UpdateGate />
-          </ScrollView>
-          <UpdateReady />
-        </YStack>
+        <BlocksProvider>
+          <YStack flex={1}>
+            <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+              <UpdateGate />
+            </ScrollView>
+            <UpdateReady />
+          </YStack>
+        </BlocksProvider>
       </TamaguiProvider>
     </ClerkProvider>
   );

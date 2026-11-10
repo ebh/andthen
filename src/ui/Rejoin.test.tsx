@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { jsonResponse, noContentResponse } from "../client/testFixtures";
 import { Rejoin } from "./Rejoin";
-import { renderPage } from "./testRender";
+import type { BlocksValue } from "../client/useBlocks";
+import { fakeBlocks, renderPage } from "./testRender";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
 
@@ -13,15 +14,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderRejoin() {
+function renderRejoin(blocks: BlocksValue = fakeBlocks(), openingAuthorId: string | null = "u2") {
   const onRejoined = vi.fn<() => void>();
   renderPage(
     <Rejoin
       storyId="abc12"
       displayName="Ana"
       opening="The bell rang once."
+      openingAuthorId={openingAuthorId ?? undefined}
       onRejoined={onRejoined}
     />,
+    blocks,
   );
 
   return onRejoined;
@@ -42,6 +45,33 @@ describe("Rejoin", () => {
     expect(screen.getByText("“The bell rang once.”")).toBeInTheDocument();
     expect(screen.getByText(/Rejoin as Ana\. You’ll take the last place/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← Your stories" })).toHaveAttribute("href", "/");
+  });
+
+  it.each([
+    [
+      "the user blocks the opening's author",
+      fakeBlocks({ blocked: [{ id: "b1", blockedUserId: "u2" }] }),
+    ],
+    ["the user's blocks have not loaded", fakeBlocks({ status: "loading" })],
+  ])(
+    "keeps the opening out of the page, as a stand-in that cannot be pressed, when %s",
+    (_when, blocks) => {
+      renderRejoin(blocks);
+
+      expect(screen.queryByText(/The bell rang once/)).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("img", { name: "Opening passage, hidden because you blocked its author" }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("keeps the opening out of the page when its author is unknown, because an older Worker sent none", () => {
+    renderRejoin(fakeBlocks(), null);
+
+    expect(screen.queryByText(/The bell rang once/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Opening passage, hidden because you blocked its author" }),
+    ).toBeInTheDocument();
   });
 
   it("rejoins and reports success", async () => {

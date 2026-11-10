@@ -6,7 +6,7 @@ import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 import { createPassage, leaveStory, skipTurn, type ApiFailure } from "../client/api";
 import { describeFailure } from "../client/messages";
 import { setLeftStoryNote } from "../client/leftStoryNote";
-import { isMyTurn, turnAfterLeaving } from "../client/storyRules";
+import { isMyTurn, myUserId, turnAfterLeaving } from "../client/storyRules";
 import { useNow } from "../client/useNow";
 import { useStoryLive } from "../client/useStoryLive";
 import type { StoryView } from "../shared/api";
@@ -187,7 +187,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           )}
         </YStack>
       )}
-      <StoryText passages={view.passages} />
+      <StoryText passages={view.passages} myUserId={myUserId(view)} />
       {isMyTurn(view) && (
         <YourTurn
           storyId={storyId}

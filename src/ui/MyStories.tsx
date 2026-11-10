@@ -1,10 +1,13 @@
 import { Link } from "expo-router";
 import { Anchor, Button, H2, Paragraph, YStack, useMedia } from "tamagui";
 
+import { isOpeningObscured } from "../client/blocks";
 import { describeTimeLeft } from "../client/format";
+import { useBlocks } from "../client/useBlocks";
 import type { MoreStoriesStatus } from "../client/useMyStories";
 import { useNow } from "../client/useNow";
 import type { StorySummary } from "../shared/api";
+import { ObscuredPassage } from "./ObscuredPassage";
 
 interface MyStoriesProps {
   /** The stories to list, in the order to show them. */
@@ -21,6 +24,7 @@ const CLOCK_TICK_MS = 10_000;
 export function MyStories({ stories, hasMore, moreStatus, onShowMore }: MyStoriesProps) {
   const now = useNow(CLOCK_TICK_MS);
   const media = useMedia();
+  const blocks = useBlocks();
 
   return (
     <YStack role="region" aria-label="Your stories" gap={media.md ? "10" : "6"}>
@@ -44,7 +48,14 @@ export function MyStories({ stories, hasMore, moreStatus, onShowMore }: MyStorie
                   lineHeight={media.md ? "2xl" : "lg"}
                   numberOfLines={2}
                 >
-                  {story.opening}
+                  {isOpeningObscured(blocks, story.openingAuthorId) ? (
+                    <ObscuredPassage
+                      text={story.opening}
+                      label="Opening passage, hidden because you blocked its author"
+                    />
+                  ) : (
+                    story.opening
+                  )}
                 </Paragraph>
                 <Paragraph
                   fontSize="sm"

@@ -62,7 +62,12 @@ describe("Story", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
+        jsonResponse(403, {
+          error: "left_story",
+          displayName: "Ana",
+          opening: "Once.",
+          openingAuthorId: "u1",
+        }),
       )
       .mockResolvedValueOnce(noContentResponse())
       .mockResolvedValueOnce(jsonResponse(200, view));

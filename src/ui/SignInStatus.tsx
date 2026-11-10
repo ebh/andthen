@@ -3,6 +3,7 @@ import { Link } from "expo-router";
 import { useState } from "react";
 import { Anchor, Button, Paragraph, XStack, YStack } from "tamagui";
 
+import { announceSignedOut } from "../client/account";
 import { useTurnAlerts } from "../client/turnAlerts";
 
 interface SignInStatusProps {
@@ -45,6 +46,7 @@ export function SignInStatus({ onSignedOut }: SignInStatusProps) {
       try {
         await turnOff();
         await signOut();
+        announceSignedOut();
         onSignedOut();
       } catch {
         setFailed(true);

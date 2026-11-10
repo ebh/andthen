@@ -3,6 +3,8 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { jsonResponse } from "../client/testFixtures";
+import { BlocksProvider, useBlocks } from "../client/useBlocks";
 import { SignInStatus } from "./SignInStatus";
 import { clerk, resetClerk } from "./clerkStub";
 import { renderPage } from "./testRender";
@@ -23,6 +25,16 @@ beforeEach(() => {
   resetClerk();
   alerts.turnOff.mockReset().mockResolvedValue(undefined);
 });
+
+function BlockedProbe() {
+  const blocks = useBlocks();
+
+  return (
+    <p>
+      {blocks.status}; u2 blocked: {blocks.blockIdFor("u2") === null ? "no" : "yes"}
+    </p>
+  );
+}
 
 function signedIn() {
   clerk.isSignedIn = true;
@@ -83,6 +95,30 @@ describe("SignInStatus signed in", () => {
     await waitFor(() => {
       expect(order).toEqual(["alerts off", "sign out", "page told"]);
     });
+  });
+
+  it("drops the account's blocked users on sign-out, and shows the anonymous user's once they load", async () => {
+    signedIn();
+    const relist = Promise.withResolvers<Response>();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(200, { blocks: [{ id: "b1", blockedUserId: "u2" }] }))
+      .mockReturnValueOnce(relist.promise);
+    vi.stubGlobal("fetch", fetchMock);
+    renderPage(
+      <BlocksProvider>
+        <BlockedProbe />
+        <SignInStatus onSignedOut={vi.fn<() => void>()} />
+      </BlocksProvider>,
+    );
+    expect(await screen.findByText("ready; u2 blocked: yes")).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(await screen.findByText("loading; u2 blocked: no")).toBeInTheDocument();
+
+    relist.resolve(jsonResponse(200, { blocks: [] }));
+    expect(await screen.findByText("ready; u2 blocked: no")).toBeInTheDocument();
   });
 
   it("does not sign out until the alerts are off", async () => {

@@ -1,12 +1,29 @@
-import { useId, useState } from "react";
-import type { FocusEvent } from "react";
-import { Button, Label, Paragraph, Switch, Text, XStack, YStack, styled, useMedia } from "tamagui";
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  Label,
+  Paragraph,
+  Switch,
+  Text,
+  type TamaguiTextElement,
+  XStack,
+  YStack,
+  styled,
+  useMedia,
+} from "tamagui";
 
+import { isObscured } from "../client/blocks";
+import { blocksNotice } from "../client/blockMessages";
+import { blockOffer } from "../client/storyRules";
+import { useBlocks, type BlocksValue } from "../client/useBlocks";
 import type { PassageView } from "../shared/api";
 import { groupParagraphs } from "../shared/paragraphs";
+import { AuthorMenu } from "./AuthorMenu";
+import { ObscuredPassage } from "./ObscuredPassage";
 
 interface StoryTextProps {
   passages: readonly PassageView[];
+  /** The viewer's user ID: their own passages are never obscured, and the menu never offers to block them. */
+  myUserId: string;
 }
 
 /** One author of one paragraph: the name beside it, and whose turns to highlight. */
@@ -16,6 +33,8 @@ interface AuthorInParagraph {
 }
 
 interface ParagraphViewProps {
+  myUserId: string;
+  blocks: BlocksValue;
   turns: readonly PassageView[];
   paragraph: number;
   showAuthors: boolean;
@@ -33,12 +52,15 @@ const HighlightedTurn = styled(Text, { render: "mark", bg: "highlight", color: "
  * The story as paragraphs, oldest first. Authors are there for accountability, not reading, so
  * they stay out of the prose: each paragraph lists its authors once in a margin beside it from
  * `md` up, and behind a toggle below it, where there is no room for a margin. Pointing at an
- * author highlights their turns in the paragraph: hovering with a mouse, keyboard focus, or a
- * press, which pins the highlight until the next one. Text is rendered as plain text.
+ * author highlights their turns in the paragraph: hovering with a mouse or keyboard focus
+ * previews it, and the author's menu pins it until the next pin. The menu also blocks and unblocks
+ * the author; a blocked author's passages show as obscured stand-ins, and so do everyone else's
+ * until the user's blocks have loaded. Text is rendered as plain text.
  */
-export function StoryText({ passages }: StoryTextProps) {
+export function StoryText({ passages, myUserId }: StoryTextProps) {
   const media = useMedia();
   const toggleId = useId();
+  const blocks = useBlocks();
   const [showAuthors, setShowAuthors] = useState(false);
   const [previewed, setPreviewed] = useState<AuthorInParagraph | null>(null);
   const [pinned, setPinned] = useState<AuthorInParagraph | null>(null);
@@ -62,10 +84,13 @@ export function StoryText({ passages }: StoryTextProps) {
           </Switch>
         </XStack>
       )}
+      <BlocksNotice blocks={blocks} />
       <YStack role="region" aria-label="The story so far" gap="8">
         {groupParagraphs(passages).map((turns, paragraph) => (
           <ParagraphView
             key={turns[0]?.id}
+            myUserId={myUserId}
+            blocks={blocks}
             turns={turns}
             paragraph={paragraph}
             showAuthors={media.md || showAuthors}
@@ -80,7 +105,28 @@ export function StoryText({ passages }: StoryTextProps) {
   );
 }
 
+function BlocksNotice({ blocks }: { blocks: BlocksValue }) {
+  // One row for the whole story, across the full column so a message wraps as little as possible.
+  // Both regions are always mounted and keep their role, because a screen reader skips text that
+  // arrives in the same render as a role change. At most one has text, and the messages fit one
+  // row, so the row holds its height and the story does not move.
+  const { progress, failure } = blocksNotice(blocks);
+
+  return (
+    <YStack minH="6">
+      <Paragraph role="status" color="muted">
+        {progress}
+      </Paragraph>
+      <Paragraph role="alert" color="error">
+        {failure}
+      </Paragraph>
+    </YStack>
+  );
+}
+
 function ParagraphView({
+  myUserId,
+  blocks,
   turns,
   paragraph,
   showAuthors,
@@ -110,6 +156,8 @@ function ParagraphView({
           <Turn
             key={turn.id}
             turn={turn}
+            myUserId={myUserId}
+            blocks={blocks}
             separated={index > 0}
             highlighted={isSame(highlighted, { paragraph, authorId: turn.authorId })}
           />
@@ -128,18 +176,34 @@ function ParagraphView({
         >
           {uniqueAuthors(turns).map(({ authorId, authorName }) => {
             const author = { paragraph, authorId };
+            const offer = blockOffer({
+              authorId,
+              authorName,
+              myUserId,
+              blockId: blocks.blockIdFor(authorId),
+            });
 
             return (
               <YStack key={authorId} role="listitem" items="flex-start">
-                <AuthorButton
+                <AuthorMenu
                   name={authorName}
+                  offer={offer}
+                  busy={blocks.working !== null}
+                  onBlockChange={() => {
+                    const user = { id: authorId, name: authorName };
+                    if (offer.type === "block") {
+                      blocks.block(user);
+                    } else {
+                      blocks.unblock(user);
+                    }
+                  }}
                   highlighted={isSame(highlighted, author)}
                   pinned={isSame(pinned, author)}
                   hoverable={hoverable}
                   onPreview={(on) => {
                     onPreview(on ? author : null);
                   }}
-                  onPress={() => {
+                  onTogglePin={() => {
                     onTogglePin(author);
                   }}
                 />
@@ -152,69 +216,54 @@ function ParagraphView({
   );
 }
 
-interface AuthorButtonProps {
-  name: string;
-  highlighted: boolean;
-  pinned: boolean;
-  /** Whether the device has a pointer that hovers; touch devices fire emulated hovers on tap. */
-  hoverable: boolean;
-  onPreview: (on: boolean) => void;
-  onPress: () => void;
-}
-
-function AuthorButton({
-  name,
-  highlighted,
-  pinned,
-  hoverable,
-  onPreview,
-  onPress,
-}: AuthorButtonProps) {
-  const preview = (on: boolean) =>
-    hoverable
-      ? () => {
-          onPreview(on);
-        }
-      : undefined;
-
-  return (
-    <Button
-      size="xl"
-      px="0"
-      variant="quiet"
-      aria-pressed={pinned}
-      onPress={onPress}
-      onMouseEnter={preview(true)}
-      onMouseLeave={preview(false)}
-      onFocus={(event) => {
-        // A press also focuses the button; only keyboard focus previews, or the press would
-        // find the highlight already on and its second press could not switch it off.
-        if (isKeyboardFocus(event)) {
-          onPreview(true);
-        }
-      }}
-      onBlur={() => {
-        onPreview(false);
-      }}
-    >
-      <Button.Text textDecorationLine={highlighted ? "underline" : "none"}>{name}</Button.Text>
-    </Button>
-  );
-}
-
 function Turn({
   turn,
+  myUserId,
+  blocks,
   separated,
   highlighted,
 }: {
   turn: PassageView;
+  myUserId: string;
+  blocks: BlocksValue;
   separated: boolean;
   highlighted: boolean;
 }) {
+  const blockId = blocks.blockIdFor(turn.authorId);
+  const [reveal, setReveal] = useState({ blockId, shown: false });
+  const revealedText = useRef<TamaguiTextElement>(null);
+
+  // A new block, or none, starts hidden again; a reload that keeps the same block keeps the reveal.
+  if (reveal.blockId !== blockId) {
+    setReveal({ blockId, shown: false });
+  }
+  const shown = reveal.blockId === blockId && reveal.shown;
+
+  // Pressing the stand-in removes the focused element; the text that replaces it takes the focus.
+  useEffect(() => {
+    if (shown) {
+      revealedText.current?.focus();
+    }
+  }, [shown]);
+
+  const text = shown ? { ref: revealedText, tabIndex: -1 } : {};
+
   return (
     <>
       {separated && " "}
-      {highlighted ? <HighlightedTurn>{turn.text}</HighlightedTurn> : <Text>{turn.text}</Text>}
+      {!shown && isObscured(blocks.status, blockId, turn.authorId === myUserId) ? (
+        <ObscuredPassage
+          text={turn.text}
+          label={`Passage by ${turn.authorName}, hidden because you blocked them`}
+          onReveal={() => {
+            setReveal({ blockId, shown: true });
+          }}
+        />
+      ) : highlighted ? (
+        <HighlightedTurn {...text}>{turn.text}</HighlightedTurn>
+      ) : (
+        <Text {...text}>{turn.text}</Text>
+      )}
     </>
   );
 }
@@ -230,10 +279,4 @@ function uniqueAuthors(turns: readonly PassageView[]): { authorId: string; autho
 
 function isSame(a: AuthorInParagraph | null, b: AuthorInParagraph): boolean {
   return a !== null && a.paragraph === b.paragraph && a.authorId === b.authorId;
-}
-
-function isKeyboardFocus(event: FocusEvent): boolean {
-  return (
-    event.currentTarget instanceof HTMLElement && event.currentTarget.matches(":focus-visible")
-  );
 }

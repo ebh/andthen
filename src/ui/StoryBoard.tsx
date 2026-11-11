@@ -10,9 +10,11 @@ import {
   editDraft,
   leaveOutcome,
   sendOutcome,
+  shownNotice,
   skipOutcome,
   undoSuggestion,
   type DraftState,
+  type RaisedNotice,
 } from "../client/storyBoard";
 import { isMyTurn, turnAfterLeaving } from "../client/storyRules";
 import { useNow } from "../client/useNow";
@@ -61,9 +63,8 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   const now = useNow(CLOCK_TICK_MS);
   const [{ draft, replacedDraft }, setDraftState] = useState<DraftState>(editDraft(""));
   const [startsParagraph, setStartsParagraph] = useState(false);
-  // A notice belongs to the turn version it was raised on: once the story moves on it is stale.
-  const [raised, setRaised] = useState<{ text: string; turnVersion: number } | null>(null);
-  const notice = raised?.turnVersion === view.turn.version ? raised.text : null;
+  const [raised, setRaised] = useState<RaisedNotice | null>(null);
+  const notice = shownNotice(raised, view.turn.version);
   const [sending, setSending] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [leaving, setLeaving] = useState(false);

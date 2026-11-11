@@ -7,6 +7,7 @@ import {
   isStoryOutOfDate,
   leaveOutcome,
   sendOutcome,
+  shownNotice,
   skipOutcome,
   undoSuggestion,
 } from "./storyBoard";
@@ -186,5 +187,16 @@ describe("undoSuggestion", () => {
 
     expect(undoSuggestion(editDraft("Two.!"))).toEqual({ draft: "Two.!", replacedDraft: null });
     expect(applied.replacedDraft).toBe("Mine");
+  });
+});
+
+describe("shownNotice", () => {
+  it.each<[string, { text: string; turnVersion: number } | null, number, string | null]>([
+    ["no notice raised", null, 3, null],
+    ["a notice raised on the shown version", { text: "Hello", turnVersion: 3 }, 3, "Hello"],
+    ["a notice raised on an older version", { text: "Hello", turnVersion: 2 }, 3, null],
+    ["a notice raised on a newer version", { text: "Hello", turnVersion: 4 }, 3, null],
+  ])("shows %s as %j", (_name, raised, turnVersion, shown) => {
+    expect(shownNotice(raised, turnVersion)).toBe(shown);
   });
 });

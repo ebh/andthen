@@ -24,6 +24,11 @@ export interface DraftState {
   replacedDraft: string | null;
 }
 
+export interface RaisedNotice {
+  text: string;
+  turnVersion: number;
+}
+
 export function sendOutcome(result: ApiResult<unknown>): SendOutcome {
   if (result.ok) {
     return { type: "sent" };
@@ -68,6 +73,11 @@ export function applySuggestion(state: DraftState, text: string): DraftState {
 
 export function undoSuggestion(state: DraftState): DraftState {
   return { draft: state.replacedDraft ?? state.draft, replacedDraft: null };
+}
+
+/** A notice belongs to the turn version it was raised on: once the story moves on it is stale. */
+export function shownNotice(raised: RaisedNotice | null, turnVersion: number): string | null {
+  return raised?.turnVersion === turnVersion ? raised.text : null;
 }
 
 // Each of these means the page's picture of the story is out of date. `not_participant` sends

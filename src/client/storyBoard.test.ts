@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { ApiFailure } from "./api";
-import { isStoryOutOfDate, leaveOutcome, sendOutcome, skipOutcome } from "./storyBoard";
+import {
+  applySuggestion,
+  editDraft,
+  isStoryOutOfDate,
+  leaveOutcome,
+  sendOutcome,
+  skipOutcome,
+  undoSuggestion,
+} from "./storyBoard";
 
 const GENERIC = "Something went wrong. Please try again.";
 const OFFLINE = "Can't reach the server. Check your connection and try again.";
@@ -111,5 +119,72 @@ describe("leaveOutcome", () => {
     ["left_story", { type: "left_story", displayName: "Sam", opening: "Once." }, true, GENERIC],
   ])("fails on %s", (_name, failure, refetch, error) => {
     expect(leaveOutcome({ ok: false, failure })).toEqual({ type: "failed", refetch, error });
+  });
+});
+
+describe("editDraft", () => {
+  it("sets the text and drops any replaced draft", () => {
+    expect(editDraft("Hello")).toEqual({ draft: "Hello", replacedDraft: null });
+  });
+});
+
+describe("applySuggestion", () => {
+  it.each<[string, string, string | null]>([
+    ["an empty draft", "", null],
+    ["a whitespace-only draft", "  \n ", null],
+    ["a draft equal to the suggestion", "Two.", null],
+    ["an ordinary draft", "My own words", "My own words"],
+    ["a draft that differs from the suggestion only in spacing", "Two. ", "Two. "],
+  ])(
+    "with %s, replaces it with the suggestion and offers Undo for %j",
+    (_name, draft, replaced) => {
+      expect(applySuggestion({ draft, replacedDraft: null }, "Two.")).toEqual({
+        draft: "Two.",
+        replacedDraft: replaced,
+      });
+    },
+  );
+
+  it("forgets an earlier replaced draft when the new one is blank", () => {
+    expect(applySuggestion({ draft: "", replacedDraft: "Old words" }, "Two.")).toEqual({
+      draft: "Two.",
+      replacedDraft: null,
+    });
+  });
+});
+
+describe("undoSuggestion", () => {
+  it("restores the replaced draft and drops the Undo", () => {
+    expect(undoSuggestion({ draft: "Two.", replacedDraft: "My own words" })).toEqual({
+      draft: "My own words",
+      replacedDraft: null,
+    });
+  });
+
+  it("leaves the draft alone when nothing was replaced", () => {
+    expect(undoSuggestion({ draft: "Two.", replacedDraft: null })).toEqual({
+      draft: "Two.",
+      replacedDraft: null,
+    });
+  });
+
+  it("restores a replaced blank-looking draft as it was", () => {
+    expect(undoSuggestion({ draft: "Two.", replacedDraft: "" })).toEqual({
+      draft: "",
+      replacedDraft: null,
+    });
+  });
+
+  it("does nothing the second time", () => {
+    const once = undoSuggestion({ draft: "Two.", replacedDraft: "My own words" });
+
+    expect(undoSuggestion(once)).toEqual({ draft: "My own words", replacedDraft: null });
+  });
+
+  it("is dropped by the next edit", () => {
+    const applied = applySuggestion({ draft: "Mine", replacedDraft: null }, "Two.");
+
+    expect(undoSuggestion(editDraft("Two.!"))).toEqual({ draft: "Two.!", replacedDraft: null });
+    expect(applied.replacedDraft).toBe("Mine");
   });
 });

@@ -18,6 +18,12 @@ export interface SkipOutcome {
  */
 export type LeaveOutcome = { type: "left" } | { type: "failed"; refetch: boolean; error: string };
 
+export interface DraftState {
+  draft: string;
+  /** The draft a suggestion replaced, until the next edit. */
+  replacedDraft: string | null;
+}
+
 export function sendOutcome(result: ApiResult<unknown>): SendOutcome {
   if (result.ok) {
     return { type: "sent" };
@@ -48,6 +54,20 @@ export function leaveOutcome(result: ApiResult<unknown>): LeaveOutcome {
     refetch: isStoryOutOfDate(result.failure),
     error: describeFailure(result.failure, LEAVE_MESSAGES),
   };
+}
+
+export function editDraft(text: string): DraftState {
+  return { draft: text, replacedDraft: null };
+}
+
+export function applySuggestion(state: DraftState, text: string): DraftState {
+  const replaced = state.draft.trim() === "" || state.draft === text ? null : state.draft;
+
+  return { draft: text, replacedDraft: replaced };
+}
+
+export function undoSuggestion(state: DraftState): DraftState {
+  return { draft: state.replacedDraft ?? state.draft, replacedDraft: null };
 }
 
 // Each of these means the page's picture of the story is out of date. `not_participant` sends

@@ -5,7 +5,15 @@ import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 
 import { createPassage, leaveStory, skipTurn } from "../client/api";
 import { setLeftStoryNote } from "../client/leftStoryNote";
-import { leaveOutcome, sendOutcome, skipOutcome } from "../client/storyBoard";
+import {
+  applySuggestion,
+  editDraft,
+  leaveOutcome,
+  sendOutcome,
+  skipOutcome,
+  undoSuggestion,
+  type DraftState,
+} from "../client/storyBoard";
 import { isMyTurn, turnAfterLeaving } from "../client/storyRules";
 import { useNow } from "../client/useNow";
 import { useStoryLive } from "../client/useStoryLive";
@@ -51,10 +59,8 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   const media = useMedia();
   const router = useRouter();
   const now = useNow(CLOCK_TICK_MS);
-  const [draft, setDraft] = useState("");
+  const [{ draft, replacedDraft }, setDraftState] = useState<DraftState>(editDraft(""));
   const [startsParagraph, setStartsParagraph] = useState(false);
-  // The draft a suggestion replaced, until the next edit.
-  const [replacedDraft, setReplacedDraft] = useState<string | null>(null);
   // A notice belongs to the turn version it was raised on: once the story moves on it is stale.
   const [raised, setRaised] = useState<{ text: string; turnVersion: number } | null>(null);
   const notice = raised?.turnVersion === view.turn.version ? raised.text : null;
@@ -68,20 +74,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   };
 
   const edit = (text: string): void => {
-    setDraft(text);
-    setReplacedDraft(null);
-  };
-
-  const applySuggestion = (text: string): void => {
-    setReplacedDraft(draft.trim() === "" || draft === text ? null : draft);
-    setDraft(text);
-  };
-
-  const undoSuggestion = (): void => {
-    if (replacedDraft !== null) {
-      setDraft(replacedDraft);
-    }
-    setReplacedDraft(null);
+    setDraftState(editDraft(text));
   };
 
   const send = (): void => {
@@ -199,8 +192,12 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           startsParagraph={startsParagraph}
           onStartsParagraphChange={setStartsParagraph}
           replacedDraft={replacedDraft}
-          onUndo={undoSuggestion}
-          onUseSuggestion={applySuggestion}
+          onUndo={() => {
+            setDraftState(undoSuggestion);
+          }}
+          onUseSuggestion={(text) => {
+            setDraftState((state) => applySuggestion(state, text));
+          }}
           onTurnLost={refetch}
         />
       )}

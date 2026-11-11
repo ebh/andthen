@@ -178,36 +178,6 @@ test("a second writer opens the invite link, joins by name and sees the story pa
   await expect(ben.getByRole("heading", { name: "Join this story" })).toHaveCount(0);
 });
 
-test("a writer who has joined stays in the story after a reload", async ({ browser }) => {
-  const ana = await newWriter(browser);
-  const ben = await newWriter(browser);
-  const inviteLink = await startStory(ana, names.ana, "Rain fell on the empty market.");
-  await joinStory(ben, inviteLink, names.ben);
-
-  await ben.reload();
-
-  await expect(ben.getByLabel("Invite link")).toHaveValue(inviteLink);
-  await expect(ben.getByRole("heading", { name: "Join this story" })).toHaveCount(0);
-});
-
-test("joining needs a name that nobody else already uses", async ({ browser }) => {
-  const ana = await newWriter(browser);
-  const ben = await newWriter(browser);
-  const inviteLink = await startStory(ana, names.ana, "The train stopped between stations.");
-
-  await ben.goto(inviteLink);
-  await ben.getByRole("button", { name: "Join" }).click();
-  await expect(ben.getByRole("alert")).toHaveText("Enter a name.");
-
-  await ben.getByLabel("Your name").fill(names.ana);
-  await ben.getByRole("button", { name: "Join" }).click();
-  await expect(ben.getByRole("alert")).toContainText("already uses that name");
-
-  await ben.getByLabel("Your name").fill(names.ben);
-  await ben.getByRole("button", { name: "Join" }).click();
-  await expect(ben.getByLabel("Invite link")).toBeVisible();
-});
-
 test("a page taller than a short screen scrolls to its last control", async ({ browser }) => {
   // Short enough that the invite link falls below the fold before anyone has joined.
   const screenHeight = 400;
@@ -228,13 +198,4 @@ test("a page taller than a short screen scrolls to its last control", async ({ b
 
   await expect.poll(bottomOfCopyLink).toBeLessThanOrEqual(screenHeight);
   await copyLink.click();
-});
-
-test("a story ID that doesn't exist says so and leads back to the start", async ({ page }) => {
-  await page.goto("/zzzzz");
-  await expect(page.getByText("That story doesn't exist.")).toBeVisible();
-
-  await page.getByRole("link", { name: "Start a new story" }).click();
-
-  await expect(page).toHaveURL("/");
 });

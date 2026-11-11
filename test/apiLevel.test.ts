@@ -83,8 +83,10 @@ describe("the API level guard", () => {
       expect(response.status).toBe(200);
     });
 
-    it.each(["abc", "", "0", "-1", "1.5", "03"])("refuses %j as bad_request", async (value) => {
-      const response = await newBrowser().get("/api/stories", { apiLevel: value });
+    // The malformed values are rows of the table in src/shared/apiLevel.test.ts; this proves the
+    // refusal reaches the client as 400 bad_request.
+    it("refuses a malformed level as bad_request", async () => {
+      const response = await newBrowser().get("/api/stories", { apiLevel: "abc" });
 
       expect(response.status).toBe(400);
       expect(await readError(response)).toBe("bad_request");

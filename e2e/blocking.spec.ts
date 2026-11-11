@@ -5,18 +5,6 @@ import { joinStory, names, newWriter, startStory, storyText } from "./writers.ts
 const DESKTOP = { width: 1280, height: 800 };
 const HIDDEN_PASSAGE = /^Passage by .*, hidden because you blocked them$/;
 
-async function chooseFromAuthorMenu(page: Page, item: string): Promise<void> {
-  await storyText(page).getByRole("button", { name: names.ben, exact: true }).click();
-  await page.getByRole("menuitem", { name: item }).click();
-  // Opening the menu again while it is still closing shuts it instead.
-  await expect(page.getByRole("menuitem", { name: item })).toHaveCount(0);
-}
-
-// The real text must be gone from the page itself, not only hidden by CSS, so this reads the HTML.
-async function expectNoTextInPage(page: Page, text: string): Promise<void> {
-  await expect.poll(() => page.content()).not.toContain(text);
-}
-
 test("a writer blocks another, sees their passages hidden in every story after a reload, and unblocks them", async ({
   browser,
 }) => {
@@ -48,3 +36,15 @@ test("a writer blocks another, sees their passages hidden in every story after a
   await expect(storyText(ana)).toContainText(secondOpening);
   await expect(ana.getByRole("button", { name: HIDDEN_PASSAGE })).toHaveCount(0);
 });
+
+async function chooseFromAuthorMenu(page: Page, item: string): Promise<void> {
+  await storyText(page).getByRole("button", { name: names.ben, exact: true }).click();
+  await page.getByRole("menuitem", { name: item }).click();
+  // Opening the menu again while it is still closing shuts it instead.
+  await expect(page.getByRole("menuitem", { name: item })).toHaveCount(0);
+}
+
+// The real text must be gone from the page itself, not only hidden by CSS, so this reads the HTML.
+async function expectNoTextInPage(page: Page, text: string): Promise<void> {
+  await expect.poll(() => page.content()).not.toContain(text);
+}

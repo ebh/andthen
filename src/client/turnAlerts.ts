@@ -255,6 +255,21 @@ export function availabilityOf(facts: BrowserFacts): TurnAlertsAvailability {
   return facts.hasPushApi ? "available" : "unavailable";
 }
 
+/** What the switch shows for a state: whether it is blocked, on, waiting on a request, or failed. */
+export function switchFlags(state: TurnAlertsState): {
+  blocked: boolean;
+  on: boolean;
+  busy: boolean;
+  failed: boolean;
+} {
+  return {
+    blocked: state.type === "blocked",
+    on: state.type === "ready" && state.on,
+    busy: state.type === "ready" && state.busy,
+    failed: state.type === "ready" && state.failed,
+  };
+}
+
 /** Re-checks the browser's subscription, in a production build of a browser that has the Push API. */
 export function startTurnAlerts(): Promise<void> {
   return browserTurnAlerts().start();

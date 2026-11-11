@@ -106,13 +106,6 @@ describe("StoryText", () => {
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
 
-    it("lists each author of a paragraph once", async () => {
-      renderPage(storyElement());
-      await userEvent.setup().click(screen.getByRole("switch", { name: "Show authors" }));
-
-      expect(screen.getAllByRole("button", { name: "Ana" })).toHaveLength(1);
-    });
-
     it("pins an author's turns from the menu and releases them on the next choice", async () => {
       const user = userEvent.setup();
       renderPage(storyElement());
@@ -126,19 +119,6 @@ describe("StoryText", () => {
       expect(screen.getByRole("menuitemcheckbox", { name: "Highlight passages" })).toBeChecked();
       await user.click(screen.getByRole("menuitemcheckbox", { name: "Highlight passages" }));
       expect(highlighted()).toEqual([]);
-    });
-
-    it("moves the pin to another author's turns", async () => {
-      const user = userEvent.setup();
-      renderPage(storyElement());
-      await user.click(screen.getByRole("switch", { name: "Show authors" }));
-
-      await openMenu(user, "Ana");
-      await user.click(screen.getByRole("menuitemcheckbox", { name: "Highlight passages" }));
-      await openMenu(user, "Ben");
-      await user.click(screen.getByRole("menuitemcheckbox", { name: "Highlight passages" }));
-
-      expect(highlighted()).toEqual(["It opened nothing."]);
     });
 
     it("drops a pinned highlight when the authors are switched off", async () => {

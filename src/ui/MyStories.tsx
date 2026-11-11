@@ -2,7 +2,7 @@ import { Link } from "expo-router";
 import { Anchor, Button, H2, Paragraph, YStack, useMedia } from "tamagui";
 
 import { isOpeningObscured } from "../client/blocks";
-import { describeTimeLeft } from "../client/format";
+import { describeStatus } from "../client/format";
 import { useBlocks } from "../client/useBlocks";
 import type { MoreStoriesStatus } from "../client/useMyStories";
 import { useNow } from "../client/useNow";
@@ -87,15 +87,4 @@ export function MyStories({ stories, hasMore, moreStatus, onShowMore }: MyStorie
       )}
     </YStack>
   );
-}
-
-function describeStatus(story: StorySummary, now: number): string {
-  if (story.holderName === null || story.endsAt === null) {
-    return "Waiting for someone to join";
-  }
-  if (story.isMyTurn) {
-    return `Your turn · ${describeTimeLeft(story.endsAt, now)}`;
-  }
-
-  return `${story.holderName}’s turn · ${story.writerCount.toString()} writers`;
 }

@@ -3,9 +3,19 @@ import { useRef, useState } from "react";
 import type { TextInputInstance } from "react-native";
 import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 
-import { createPassage, leaveStory, skipTurn, type ApiFailure } from "../client/api";
-import { describeFailure } from "../client/messages";
+import { createPassage, leaveStory, skipTurn } from "../client/api";
 import { setLeftStoryNote } from "../client/leftStoryNote";
+import {
+  applySuggestion,
+  editDraft,
+  leaveOutcome,
+  sendOutcome,
+  shownNotice,
+  skipOutcome,
+  undoSuggestion,
+  type DraftState,
+  type RaisedNotice,
+} from "../client/storyBoard";
 import { isMyTurn, myUserId, turnAfterLeaving } from "../client/storyRules";
 import { useNow } from "../client/useNow";
 import { useStoryLive } from "../client/useStoryLive";
@@ -51,13 +61,10 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   const media = useMedia();
   const router = useRouter();
   const now = useNow(CLOCK_TICK_MS);
-  const [draft, setDraft] = useState("");
+  const [{ draft, replacedDraft }, setDraftState] = useState<DraftState>(editDraft(""));
   const [startsParagraph, setStartsParagraph] = useState(false);
-  // The draft a suggestion replaced, until the next edit.
-  const [replacedDraft, setReplacedDraft] = useState<string | null>(null);
-  // A notice belongs to the turn version it was raised on: once the story moves on it is stale.
-  const [raised, setRaised] = useState<{ text: string; turnVersion: number } | null>(null);
-  const notice = raised?.turnVersion === view.turn.version ? raised.text : null;
+  const [raised, setRaised] = useState<RaisedNotice | null>(null);
+  const notice = shownNotice(raised, view.turn.version);
   const [sending, setSending] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -68,20 +75,7 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
   };
 
   const edit = (text: string): void => {
-    setDraft(text);
-    setReplacedDraft(null);
-  };
-
-  const applySuggestion = (text: string): void => {
-    setReplacedDraft(draft.trim() === "" || draft === text ? null : draft);
-    setDraft(text);
-  };
-
-  const undoSuggestion = (): void => {
-    if (replacedDraft !== null) {
-      setDraft(replacedDraft);
-    }
-    setReplacedDraft(null);
+    setDraftState(editDraft(text));
   };
 
   const send = (): void => {
@@ -94,17 +88,17 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
         startsParagraph,
       });
       setSending(false);
-      if (result.ok) {
+      const outcome = sendOutcome(result);
+      if (outcome.type === "sent") {
         edit("");
         setStartsParagraph(false);
         refetch();
         return;
       }
-      // The draft stays: after a 409 or 403 the turn may come back, and the text took effort.
-      if (isStoryOutOfDate(result.failure)) {
+      if (outcome.refetch) {
         refetch();
       }
-      setNotice(describeFailure(result.failure, CONTRIBUTE_MESSAGES));
+      setNotice(outcome.notice);
     })();
   };
 
@@ -115,8 +109,9 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
       const result = await skipTurn(storyId, view.turn.version);
       setSkipping(false);
       refetch();
-      if (!result.ok) {
-        setNotice(describeFailure(result.failure, SKIP_MESSAGES));
+      const { notice: skipNotice } = skipOutcome(result);
+      if (skipNotice !== null) {
+        setNotice(skipNotice);
       }
     })();
   };
@@ -126,17 +121,17 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     setLeaveError(null);
     void (async () => {
       const result = await leaveStory(storyId);
-      if (result.ok) {
+      const outcome = leaveOutcome(result);
+      if (outcome.type === "left") {
         setLeftStoryNote();
         router.replace("/");
         return;
       }
       setLeaving(false);
-      if (isStoryOutOfDate(result.failure)) {
-        // The dialog says who gets the turn; the story it was worked out from has moved on.
+      if (outcome.refetch) {
         refetch();
       }
-      setLeaveError(describeFailure(result.failure, LEAVE_MESSAGES));
+      setLeaveError(outcome.error);
     })();
   };
 
@@ -198,8 +193,12 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
           startsParagraph={startsParagraph}
           onStartsParagraphChange={setStartsParagraph}
           replacedDraft={replacedDraft}
-          onUndo={undoSuggestion}
-          onUseSuggestion={applySuggestion}
+          onUndo={() => {
+            setDraftState(undoSuggestion);
+          }}
+          onUseSuggestion={(text) => {
+            setDraftState((state) => applySuggestion(state, text));
+          }}
           onTurnLost={refetch}
         />
       )}
@@ -285,35 +284,3 @@ function YourTurn(props: YourTurnProps) {
     </YStack>
   );
 }
-
-// Each of these means the page's picture of the story is out of date. `not_participant` sends
-// the refetch to a 403, which swaps the page for the join form.
-const REFETCH_CODES = new Set(["stale_turn", "not_your_turn", "not_participant"]);
-
-// `left_story` is the same, with the refetch swapping the page for the rejoin screen.
-function isStoryOutOfDate(failure: ApiFailure): boolean {
-  return (
-    failure.type === "left_story" ||
-    (failure.type === "rejected" && REFETCH_CODES.has(failure.code))
-  );
-}
-
-const CONTRIBUTE_MESSAGES = {
-  stale_turn:
-    "The story changed while you were writing. Your text is kept. Check whose turn it is, then send again.",
-  not_your_turn: "It's no longer your turn. Your text is kept in case the turn comes back to you.",
-  not_participant: "You're not part of this story. Join it to write.",
-  invalid_passage: "That passage can't be sent. Check that it isn't empty or too long.",
-};
-
-const LEAVE_MESSAGES = {
-  stale_turn: "The story changed just now. Check who has the turn, then try again.",
-  not_participant: "You're not part of this story.",
-};
-
-const SKIP_MESSAGES = {
-  stale_turn: "The turn had already moved on, so nothing was skipped.",
-  no_one_to_skip_to: "There's no one else to take the turn.",
-  not_participant: "You're not part of this story. Join it to write.",
-  cannot_skip_self: "You can't skip your own turn.",
-};

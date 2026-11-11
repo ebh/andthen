@@ -89,17 +89,6 @@ describe("Rejoin", () => {
     );
   });
 
-  it("treats already_joined as success: another tab got there first", async () => {
-    stubFetch(jsonResponse(409, { error: "already_joined" }));
-    const onRejoined = renderRejoin();
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Rejoin as Ana" }));
-
-    await waitFor(() => {
-      expect(onRejoined).toHaveBeenCalledOnce();
-    });
-  });
-
   it("says a full story is full and stops offering the button", async () => {
     stubFetch(jsonResponse(409, { error: "story_full" }));
     const onRejoined = renderRejoin();

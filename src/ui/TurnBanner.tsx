@@ -1,7 +1,7 @@
 import { Button, Paragraph, YStack, useMedia } from "tamagui";
 
 import { describeTimeLeft } from "../client/format";
-import { canSkipTurn, isMyTurn, turnHolder } from "../client/storyRules";
+import { canSkipTurn, headline, isMyTurn, skipLabel, turnHolder } from "../client/storyRules";
 import type { StoryView } from "../shared/api";
 
 interface TurnBannerProps {
@@ -58,17 +58,9 @@ export function TurnBanner({ view, now, skipping, onSkip }: TurnBannerProps) {
       </YStack>
       {canSkipTurn(view) && (
         <Button size="xl" variant="outlined" disabled={skipping} onPress={onSkip}>
-          {skipping ? "Skipping…" : `Skip ${holder?.displayName ?? "this turn"}`}
+          {skipLabel(skipping, holder?.displayName ?? null)}
         </Button>
       )}
     </YStack>
   );
-}
-
-function headline(view: StoryView, holderName: string | null): string {
-  if (holderName === null) {
-    return "Waiting for someone to join";
-  }
-
-  return isMyTurn(view) ? "It's your turn" : `It's ${holderName}'s turn`;
 }

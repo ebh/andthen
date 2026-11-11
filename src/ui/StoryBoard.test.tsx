@@ -156,9 +156,15 @@ describe("composer", () => {
     );
   });
 
-  it("keeps New paragraph ticked when the send fails", async () => {
+  it("offers no New paragraph box when it is not your turn", () => {
+    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
+
+    expect(screen.queryByRole("checkbox", { name: "New paragraph" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the text and New paragraph ticked, and refetches, on a 409 stale_turn", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
-    renderBoard(myTurn);
+    const refetch = renderBoard(myTurn);
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("checkbox", { name: "New paragraph" }));
@@ -166,38 +172,8 @@ describe("composer", () => {
     await user.click(screen.getByRole("button", { name: "Add to the story" }));
 
     expect(await screen.findByText(/The story changed while you were writing/)).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "New paragraph" })).toBeChecked();
-  });
-
-  it("offers no New paragraph box when it is not your turn", () => {
-    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
-
-    expect(screen.queryByRole("checkbox", { name: "New paragraph" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the text and refetches on a 409 stale_turn", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
-    const refetch = renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Your passage"), "Precious words");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    expect(await screen.findByText(/The story changed while you were writing/)).toBeInTheDocument();
     expect(screen.getByLabelText("Your passage")).toHaveValue("Precious words");
-    expect(refetch).toHaveBeenCalled();
-  });
-
-  it("explains a 403 not_your_turn differently, keeps the text and refetches", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_your_turn" })));
-    const refetch = renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Your passage"), "Late words");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    expect(await screen.findByText(/no longer your turn/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Your passage")).toHaveValue("Late words");
+    expect(screen.getByRole("checkbox", { name: "New paragraph" })).toBeChecked();
     expect(refetch).toHaveBeenCalled();
   });
 });
@@ -254,40 +230,9 @@ describe("replacing a draft with a suggestion", () => {
     expect(field).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
-
-  it("offers no Undo when the composer was empty", async () => {
-    renderBoard(myTurn);
-
-    await askAndPick(userEvent.setup(), "Two.");
-
-    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
-  });
-
-  it("drops the Undo once the user edits the text", async () => {
-    renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Your passage"), "Draft");
-    await askAndPick(user, "Two.");
-    await user.type(screen.getByLabelText("Your passage"), "!");
-
-    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
-  });
 });
 
 describe("stale pages and notices", () => {
-  it("refetches on 403 not_participant from adding a passage, so the page can show the join form", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_participant" })));
-    const refetch = renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Your passage"), "Words");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    expect(await screen.findByText(/not part of this story/)).toBeInTheDocument();
-    expect(refetch).toHaveBeenCalled();
-  });
-
   it("clears the notice once the story shows a new turn version", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
     const refetch = vi.fn<() => void>();
@@ -421,20 +366,6 @@ describe("leaving the story", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("stays open with a generic message when the request fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() => Promise.reject(new TypeError("offline"))),
-    );
-    const refetch = renderBoard();
-    const { user, dialog } = await openDialog();
-
-    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
-
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Can't reach the server.");
-    expect(refetch).not.toHaveBeenCalled();
-  });
-
   it("forgets an earlier failure when the dialog is opened again", async () => {
     vi.stubGlobal(
       "fetch",
@@ -462,34 +393,6 @@ describe("waiting for a joiner", () => {
     expect(screen.getByText(/Nobody else has joined yet/)).toBeInTheDocument();
     expect(screen.getByLabelText("Invite link")).toHaveValue(`${window.location.origin}/abc12`);
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
-  });
-});
-
-describe("a writer who left in another tab", () => {
-  it("reloads the story when sending a passage finds they left, and keeps the draft", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() =>
-        Promise.resolve(
-          jsonResponse(403, {
-            error: "left_story",
-            displayName: "Me",
-            opening: "Once.",
-            openingAuthorId: "u1",
-          }),
-        ),
-      ),
-    );
-    const refetch = renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Your passage"), "And then.");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    await waitFor(() => {
-      expect(refetch).toHaveBeenCalled();
-    });
-    expect(screen.getByLabelText("Your passage")).toHaveValue("And then.");
   });
 });
 

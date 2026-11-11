@@ -2,25 +2,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { ApiFailure, ApiResult } from "./api";
 import { ME, OTHER, jsonResponse, storyView } from "./testFixtures";
-import { useStory } from "./useStory";
+import { nextLoad, useStory, type StoryLoad } from "./useStory";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-const leftStoryBody = {
-  error: "left_story",
-  displayName: "Ana",
-  opening: "Once.",
-  openingAuthorId: "u1",
-};
-const left = {
-  type: "left",
-  displayName: "Ana",
-  opening: "Once.",
-  openingAuthorId: "u1",
-};
 
 const view = storyView({ participants: [ME, OTHER], holderId: OTHER, lastWriterId: ME });
 
@@ -32,80 +20,6 @@ describe("useStory", () => {
 
     await waitFor(() => {
       expect(result.current.load).toEqual({ type: "loaded", view, refreshFailed: false });
-    });
-  });
-
-  it("reports a story this browser hasn't joined", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_participant" })));
-    const { result } = renderHook(() => useStory("abc12"));
-
-    await waitFor(() => {
-      expect(result.current.load).toEqual({ type: "not_joined" });
-    });
-  });
-
-  it("reports a story that doesn't exist", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(404, { error: "not_found" })));
-    const { result } = renderHook(() => useStory("abc12"));
-
-    await waitFor(() => {
-      expect(result.current.load).toEqual({ type: "not_found" });
-    });
-  });
-
-  it("reports a writer who left the story, with the name and opening to rejoin with", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, leftStoryBody)));
-    const { result } = renderHook(() => useStory("abc12"));
-
-    await waitFor(() => {
-      expect(result.current.load).toEqual(left);
-    });
-  });
-
-  it("reports a writer who left with no opening author when an older Worker sends none", async () => {
-    vi.stubGlobal("fetch", () =>
-      Promise.resolve(
-        jsonResponse(403, { error: "left_story", displayName: "Ana", opening: "Once." }),
-      ),
-    );
-    const { result } = renderHook(() => useStory("abc12"));
-
-    await waitFor(() => {
-      expect(result.current.load).toEqual({
-        type: "left",
-        displayName: "Ana",
-        opening: "Once.",
-        openingAuthorId: undefined,
-      });
-    });
-  });
-
-  it("moves a loaded story to the rejoin screen when a reload finds the writer left", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse(200, view))
-      .mockResolvedValueOnce(jsonResponse(403, leftStoryBody));
-    vi.stubGlobal("fetch", fetchMock);
-    const { result } = renderHook(() => useStory("abc12"));
-    await waitFor(() => {
-      expect(result.current.load.type).toBe("loaded");
-    });
-
-    act(() => {
-      result.current.refetch();
-    });
-
-    await waitFor(() => {
-      expect(result.current.load).toEqual(left);
-    });
-  });
-
-  it("reports a failed first load", async () => {
-    vi.stubGlobal("fetch", () => Promise.reject(new TypeError("offline")));
-    const { result } = renderHook(() => useStory("abc12"));
-
-    await waitFor(() => {
-      expect(result.current.load).toEqual({ type: "failed", failure: { type: "network" } });
     });
   });
 
@@ -190,5 +104,81 @@ describe("useStory", () => {
     await Promise.resolve();
 
     expect(result.current.load).toEqual({ type: "loading" });
+  });
+});
+
+function failed(failure: ApiFailure): ApiResult<typeof view> {
+  return { ok: false, failure };
+}
+
+describe("nextLoad", () => {
+  const loaded: StoryLoad = { type: "loaded", view, refreshFailed: false };
+  const loading: StoryLoad = { type: "loading" };
+  const left: ApiFailure = {
+    type: "left_story",
+    displayName: "Ana",
+    opening: "Once.",
+    openingAuthorId: "u1",
+  };
+  const leftToOlderWorker: ApiFailure = {
+    type: "left_story",
+    displayName: "Ana",
+    opening: "Once.",
+    openingAuthorId: undefined,
+  };
+  const network: ApiFailure = { type: "network" };
+
+  it.each<[string, StoryLoad, ApiResult<typeof view>, StoryLoad]>([
+    ["a story", loading, { ok: true, value: view }, loaded],
+    [
+      "a story after a failed reload",
+      { type: "loaded", view, refreshFailed: true },
+      { ok: true, value: view },
+      loaded,
+    ],
+    [
+      "a story this browser hasn't joined",
+      loading,
+      failed({ type: "rejected", status: 403, code: "not_participant" }),
+      { type: "not_joined" },
+    ],
+    [
+      "a story that doesn't exist",
+      loading,
+      failed({ type: "rejected", status: 404, code: "not_found" }),
+      { type: "not_found" },
+    ],
+    [
+      "a writer who left, on a first load",
+      loading,
+      failed(left),
+      { type: "left", displayName: "Ana", opening: "Once.", openingAuthorId: "u1" },
+    ],
+    [
+      "a writer who left, from a Worker that names no opening author",
+      loading,
+      failed(leftToOlderWorker),
+      { type: "left", displayName: "Ana", opening: "Once.", openingAuthorId: undefined },
+    ],
+    [
+      "a writer who left, on a reload of a loaded story",
+      loaded,
+      failed(left),
+      { type: "left", displayName: "Ana", opening: "Once.", openingAuthorId: "u1" },
+    ],
+    [
+      "any other failure of a reload, keeping the story",
+      loaded,
+      failed(network),
+      { type: "loaded", view, refreshFailed: true },
+    ],
+    [
+      "any other failure of a first load",
+      loading,
+      failed(network),
+      { type: "failed", failure: network },
+    ],
+  ])("moves on from %s", (_name, previous, result, expected) => {
+    expect(nextLoad(previous, result)).toEqual(expected);
   });
 });

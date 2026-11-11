@@ -11,8 +11,15 @@ import {
   useMedia,
 } from "tamagui";
 
-import { isObscured } from "../client/blocks";
+import {
+  highlightedAuthor,
+  isSameAuthor,
+  togglePin,
+  uniqueAuthors,
+  type AuthorInParagraph,
+} from "../client/authorHighlight";
 import { blocksNotice } from "../client/blockMessages";
+import { isObscured } from "../client/blocks";
 import { blockOffer } from "../client/storyRules";
 import { useBlocks, type BlocksValue } from "../client/useBlocks";
 import type { PassageView } from "../shared/api";
@@ -24,12 +31,6 @@ interface StoryTextProps {
   passages: readonly PassageView[];
   /** The viewer's user ID: their own passages are never obscured, and the menu never offers to block them. */
   myUserId: string;
-}
-
-/** One author of one paragraph: the name beside it, and whose turns to highlight. */
-interface AuthorInParagraph {
-  paragraph: number;
-  authorId: string;
 }
 
 interface ParagraphViewProps {
@@ -65,8 +66,8 @@ export function StoryText({ passages, myUserId }: StoryTextProps) {
   const [previewed, setPreviewed] = useState<AuthorInParagraph | null>(null);
   const [pinned, setPinned] = useState<AuthorInParagraph | null>(null);
 
-  const togglePin = (author: AuthorInParagraph): void => {
-    setPinned(isSame(pinned, author) ? null : author);
+  const pressAuthor = (author: AuthorInParagraph): void => {
+    setPinned(togglePin(pinned, author));
   };
 
   const changeShowAuthors = (show: boolean): void => {
@@ -94,10 +95,10 @@ export function StoryText({ passages, myUserId }: StoryTextProps) {
             turns={turns}
             paragraph={paragraph}
             showAuthors={media.md || showAuthors}
-            highlighted={previewed ?? pinned}
+            highlighted={highlightedAuthor(previewed, pinned)}
             pinned={pinned}
             onPreview={setPreviewed}
-            onTogglePin={togglePin}
+            onTogglePin={pressAuthor}
           />
         ))}
       </YStack>
@@ -159,7 +160,7 @@ function ParagraphView({
             myUserId={myUserId}
             blocks={blocks}
             separated={index > 0}
-            highlighted={isSame(highlighted, { paragraph, authorId: turn.authorId })}
+            highlighted={isSameAuthor(highlighted, { paragraph, authorId: turn.authorId })}
           />
         ))}
       </StoryParagraph>
@@ -197,8 +198,8 @@ function ParagraphView({
                       blocks.unblock(user);
                     }
                   }}
-                  highlighted={isSame(highlighted, author)}
-                  pinned={isSame(pinned, author)}
+                  highlighted={isSameAuthor(highlighted, author)}
+                  pinned={isSameAuthor(pinned, author)}
                   hoverable={hoverable}
                   onPreview={(on) => {
                     onPreview(on ? author : null);
@@ -266,17 +267,4 @@ function Turn({
       )}
     </>
   );
-}
-
-function uniqueAuthors(turns: readonly PassageView[]): { authorId: string; authorName: string }[] {
-  const authors = new Map<string, string>();
-  for (const { authorId, authorName } of turns) {
-    authors.set(authorId, authorName);
-  }
-
-  return [...authors].map(([authorId, authorName]) => ({ authorId, authorName }));
-}
-
-function isSame(a: AuthorInParagraph | null, b: AuthorInParagraph): boolean {
-  return a !== null && a.paragraph === b.paragraph && a.authorId === b.authorId;
 }

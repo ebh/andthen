@@ -56,14 +56,16 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
   const [latest] = useState(createLatestRequest);
   const changing = useRef(false);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback((): Promise<void> => {
     const isLatest = latest.start();
 
-    const result = await listBlocks();
-    // A reply that a newer request has overtaken is dropped.
-    if (isLatest()) {
-      setLoad((previous) => nextBlocksLoad(previous, result));
-    }
+    return (async () => {
+      const result = await listBlocks();
+      // A reply that a newer request has overtaken is dropped.
+      if (isLatest()) {
+        setLoad((previous) => nextBlocksLoad(previous, result));
+      }
+    })();
   }, [latest]);
 
   useEffect(() => {

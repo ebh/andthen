@@ -297,13 +297,14 @@ describe("StoryRoom in workerd", () => {
         .bind(Date.now() - TURN_WINDOW_MS - 1000, ana.storyId)
         .run();
       const room = env.STORY_ROOM.getByName(ana.storyId);
+      // The first deadline must stay well above the gap between the two notify calls, or the alarm fires before the second call clears it.
       await room.notify(
         { version: turnVersion },
-        { storyId: ana.storyId, origin, deadline: Date.now() + 50 },
+        { storyId: ana.storyId, origin, deadline: Date.now() + 1000 },
       );
 
       await room.notify({ version: turnVersion }, { storyId: ana.storyId, origin, deadline: null });
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       expect((await readTurn(env.DB, ana.storyId)).turnVersion).toBe(turnVersion);
     }, 15_000);

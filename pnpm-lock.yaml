@@ -257,6 +257,9 @@ importers:
       '@serwist/build':
         specifier: 9.5.13
         version: 9.5.13(browserslist@4.29.5)(typescript@6.0.3)
+      '@stryker-mutator/api':
+        specifier: 10.1.1
+        version: 10.1.1
       '@stryker-mutator/core':
         specifier: 10.1.1
         version: 10.1.1(@types/node@26.6.6)

@@ -14,6 +14,5 @@
     "scripts",
     "src/worker/vapidKeys.ts",
     "src/shared/legalVersionCheck.ts"
-  ],
-  "exclude": ["tamagui.config.ts"]
+  ]
 }

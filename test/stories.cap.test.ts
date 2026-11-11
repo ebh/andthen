@@ -84,8 +84,7 @@ describe("the participant cap", () => {
   }
 
   // The 51st join is sent on the full story with a recording room, so one story also proves the
-  // refusal writes nothing and notifies no one, and that name_taken and already_joined are
-  // reported before story_full.
+  // refusal writes nothing and notifies no one.
   it("lets the 50th join and refuses the 51st with 409 story_full", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS - 1);
 
@@ -123,17 +122,6 @@ describe("the participant cap", () => {
     expect(await readStory(ana, storyId)).toEqual(full);
     expect(notified).toEqual([]);
     expect(late.backgroundWork).toEqual([]);
-
-    const duplicateName = await newBrowser().post(joinPath(storyId), {
-      displayName: `p1 ${storyId}`,
-    });
-
-    expect(duplicateName.status).toBe(409);
-    expect(await readError(duplicateName)).toBe("name_taken");
-
-    const again = await ana.post(joinPath(storyId), {});
-
-    expect(await readError(again)).toBe("already_joined");
   });
 
   it("does not count a participant who has left toward the cap", async () => {

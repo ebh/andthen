@@ -1,3 +1,5 @@
+import type { StorySummary } from "../shared/api";
+
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 
@@ -17,4 +19,16 @@ export function describeTimeLeft(endsAt: number, now: number): string {
   return hours > 0
     ? `${hours.toString()}h ${minutes.toString()}m left`
     : `${minutes.toString()}m left`;
+}
+
+/** The status line under a story in the list: whose turn it is, with time left or writer count. */
+export function describeStatus(story: StorySummary, now: number): string {
+  if (story.holderName === null || story.endsAt === null) {
+    return "Waiting for someone to join";
+  }
+  if (story.isMyTurn) {
+    return `Your turn · ${describeTimeLeft(story.endsAt, now)}`;
+  }
+
+  return `${story.holderName}’s turn · ${story.writerCount.toString()} writers`;
 }

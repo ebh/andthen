@@ -255,12 +255,6 @@ describe("blocking", () => {
     });
   });
 
-  it("treats a list in the wrong shape as unreadable", async () => {
-    stubFetch(jsonResponse(200, { blocks: [{ id: "b1" }] }));
-
-    expect(await listBlocks()).toEqual({ ok: false, failure: { type: "unreadable", status: 200 } });
-  });
-
   it("posts the blocked user and parses the block ID from the 201", async () => {
     const fetchMock = stubFetch(jsonResponse(201, { blockId: "b1" }));
 

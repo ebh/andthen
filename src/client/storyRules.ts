@@ -29,6 +29,20 @@ export function canSkipTurn(view: StoryView): boolean {
   );
 }
 
+/** The turn banner's headline: waiting, the viewer's turn, or the holder's. */
+export function headline(view: StoryView, holderName: string | null): string {
+  if (holderName === null) {
+    return "Waiting for someone to join";
+  }
+
+  return isMyTurn(view) ? "It's your turn" : `It's ${holderName}'s turn`;
+}
+
+/** The skip button's label: in progress, or naming whose turn it would skip. */
+export function skipLabel(skipping: boolean, holderName: string | null): string {
+  return skipping ? "Skipping…" : `Skip ${holderName ?? "this turn"}`;
+}
+
 /** What leaving does to the turn. `unchanged` unless the one leaving holds it. */
 export type TurnAfterLeaving =
   | { type: "unchanged" }

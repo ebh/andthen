@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { Label, Paragraph, Switch, XStack, YStack } from "tamagui";
 
-import { useTurnAlerts } from "../client/turnAlerts";
+import { switchFlags, useTurnAlerts } from "../client/turnAlerts";
 
 /** The reader's switch for "your turn" notifications, or the reason there is none. */
 export function TurnAlertsSwitch() {
@@ -20,10 +20,7 @@ export function TurnAlertsSwitch() {
     );
   }
 
-  const blocked = state.type === "blocked";
-  const on = state.type === "ready" && state.on;
-  const busy = state.type === "ready" && state.busy;
-  const failed = state.type === "ready" && state.failed;
+  const { blocked, on, busy, failed } = switchFlags(state);
 
   return (
     <YStack gap="2" items="flex-start">

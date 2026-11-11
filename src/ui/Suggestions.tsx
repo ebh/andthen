@@ -2,13 +2,7 @@ import { useState } from "react";
 import { Button, Paragraph, YStack } from "tamagui";
 
 import { requestSuggestions } from "../client/api";
-import { describeFailure } from "../client/messages";
-
-type SuggestionsState =
-  | { type: "idle" }
-  | { type: "loading" }
-  | { type: "shown"; suggestions: readonly string[] }
-  | { type: "failed"; message: string };
+import { suggestionsOutcome, type SuggestionsState } from "../client/suggestions";
 
 interface SuggestionsControl {
   state: SuggestionsState;
@@ -33,14 +27,11 @@ export function useSuggestions(storyId: string, onTurnLost: () => void): Suggest
     setState({ type: "loading" });
     void (async () => {
       const result = await requestSuggestions(storyId);
-      if (result.ok) {
-        setState({ type: "shown", suggestions: result.value.suggestions });
-        return;
-      }
-      if (result.failure.type === "rejected" && result.failure.code === "not_your_turn") {
+      const outcome = suggestionsOutcome(result);
+      if (outcome.turnLost) {
         onTurnLost();
       }
-      setState({ type: "failed", message: describeFailure(result.failure, FAILURE_MESSAGES) });
+      setState(outcome.state);
     })();
   };
 
@@ -88,10 +79,3 @@ export function SuggestionList({ control, onUse }: SuggestionListProps) {
     </YStack>
   );
 }
-
-const FAILURE_MESSAGES = {
-  ai_rate_limited:
-    "You've used your suggestions for this hour. Try again later, or write your own passage.",
-  ai_unavailable: "Suggestions aren't available right now. You can still write your own passage.",
-  not_your_turn: "It's no longer your turn.",
-};

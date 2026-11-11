@@ -5,12 +5,14 @@ import * as api from "./api";
 import {
   availabilityOf,
   createTurnAlerts,
+  switchFlags,
   type BrowserFacts,
   type NotificationPermissionState,
   type PushManagerHandle,
   type PushSubscriptionHandle,
   type TurnAlertsAvailability,
   type TurnAlertsEnvironment,
+  type TurnAlertsState,
 } from "./turnAlerts";
 
 vi.mock("./api", () => ({
@@ -534,5 +536,22 @@ describe("availabilityOf", () => {
 
   it("is available on a Mac without a touch screen even when the app is not installed", () => {
     expect(availabilityOf({ ...desktop, maxTouchPoints: 1 })).toBe("available");
+  });
+});
+
+describe("switchFlags", () => {
+  const none = { blocked: false, on: false, busy: false, failed: false };
+  const ready = { type: "ready", on: false, busy: false, failed: false } as const;
+
+  it.each<[string, TurnAlertsState, Partial<typeof none>]>([
+    ["blocked", { type: "blocked" }, { blocked: true }],
+    ["ready and off", ready, {}],
+    ["ready and on", { ...ready, on: true }, { on: true }],
+    ["ready and busy", { ...ready, busy: true }, { busy: true }],
+    ["ready and failed", { ...ready, failed: true }, { failed: true }],
+    ["unavailable", { type: "unavailable" }, {}],
+    ["needing an install", { type: "needs_install" }, {}],
+  ])("flags %s", (_name, state, expected) => {
+    expect(switchFlags(state)).toEqual({ ...none, ...expected });
   });
 });

@@ -94,28 +94,6 @@ describe("Suggestions", () => {
     expect(screen.getByRole("button", { name: "Thinking…" })).toBeDisabled();
   });
 
-  it.each([
-    [429, "ai_rate_limited", "used your suggestions for this hour"],
-    [503, "ai_unavailable", "aren't available right now"],
-  ])(
-    "shows a friendly message for %i %s and keeps the button usable",
-    async (status, code, text) => {
-      vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(status, { error: code })));
-      renderPage(
-        <Suggestions
-          storyId="abc12"
-          onUse={vi.fn<(text: string) => void>()}
-          onTurnLost={vi.fn<() => void>()}
-        />,
-      );
-
-      await userEvent.setup().click(screen.getByRole("button", ASK));
-
-      expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
-      expect(screen.getByRole("button", ASK)).toBeEnabled();
-    },
-  );
-
   it("tells the page the turn is lost on a 403 not_your_turn", async () => {
     vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(403, { error: "not_your_turn" })));
     const onTurnLost = vi.fn<() => void>();

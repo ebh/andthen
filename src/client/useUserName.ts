@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { onDeviceUserAdded } from "./account";
 import { fetchMe } from "./api";
+import { createLatestRequest } from "./latestRequest";
 import type { UserNameLoad } from "./userName";
 
 const LOADING: UserNameLoad = { type: "loading" };
@@ -12,16 +13,15 @@ const LOADING: UserNameLoad = { type: "loading" };
  */
 export function useUserName(): { load: UserNameLoad; reload: () => void } {
   const [load, setLoad] = useState<UserNameLoad>(LOADING);
-  const latestRequest = useRef<object>({});
+  const [latest] = useState(createLatestRequest);
 
   const fetchName = useCallback(() => {
-    const thisRequest = {};
-    latestRequest.current = thisRequest;
+    const isLatest = latest.start();
 
     void (async () => {
       const result = await fetchMe();
       // A reply that a newer request has overtaken is dropped.
-      if (thisRequest === latestRequest.current) {
+      if (isLatest()) {
         setLoad(
           result.ok
             ? { type: "loaded", displayName: result.value.displayName }
@@ -29,7 +29,7 @@ export function useUserName(): { load: UserNameLoad; reload: () => void } {
         );
       }
     })();
-  }, []);
+  }, [latest]);
 
   useEffect(() => {
     fetchName();

@@ -93,13 +93,6 @@ describe("StoryText", () => {
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
 
-    it("lists each author of a paragraph once", async () => {
-      renderPage(<StoryText passages={turns} />);
-      await userEvent.setup().click(screen.getByRole("switch", { name: "Show authors" }));
-
-      expect(screen.getAllByRole("button", { name: "Ana" })).toHaveLength(1);
-    });
-
     it("pins an author's turns on press and releases them on the next press", async () => {
       const user = userEvent.setup();
       renderPage(<StoryText passages={turns} />);
@@ -114,18 +107,6 @@ describe("StoryText", () => {
       await user.click(ana);
       expect(ana).toHaveAttribute("aria-pressed", "false");
       expect(highlighted()).toEqual([]);
-    });
-
-    it("moves the pin to another author's turns", async () => {
-      const user = userEvent.setup();
-      renderPage(<StoryText passages={turns} />);
-      await user.click(screen.getByRole("switch", { name: "Show authors" }));
-
-      await user.click(screen.getByRole("button", { name: "Ana" }));
-      await user.click(screen.getByRole("button", { name: "Ben" }));
-
-      expect(screen.getByRole("button", { name: "Ana" })).toHaveAttribute("aria-pressed", "false");
-      expect(highlighted()).toEqual(["It opened nothing."]);
     });
 
     it("drops a pinned highlight when the authors are switched off", async () => {

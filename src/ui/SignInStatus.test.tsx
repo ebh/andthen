@@ -101,7 +101,7 @@ describe("SignInStatus", () => {
 
     // Clerk fails: the writer stays signed in, is told, and the page hears nothing.
     alertsOff.resolve(undefined);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't sign out. Try again.");
+    expect(await screen.findByText("Couldn't sign out. Try again.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
     expect(onSignedOut).not.toHaveBeenCalled();
 

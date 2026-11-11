@@ -6,6 +6,7 @@ import {
   type BlockUserResponse,
 } from "../../shared/api";
 import { createBlock, deleteBlock, listBlocks } from "../db/blockRepo";
+import type { UserRow } from "../db/rows";
 import { findUserById } from "../db/userRepo";
 import { ApiError, parseJsonBody, type AppContext } from "../http";
 import { newId } from "../ids";
@@ -61,7 +62,7 @@ export function blockRoutes(deps: MeDeps): Hono<{ Bindings: Env }> {
 }
 
 // A request with no user holds no blocks and can have seen no user to block, so it finds nothing.
-async function requireMe(c: AppContext, deps: MeDeps): Promise<{ id: string }> {
+async function requireMe(c: AppContext, deps: MeDeps): Promise<UserRow> {
   const me = await resolveMe(c, deps);
   if (me === null) {
     throw new ApiError("not_found");

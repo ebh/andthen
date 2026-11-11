@@ -15,7 +15,7 @@ interface RejoinProps {
   /** The story's first passage, to tell which story this is. */
   opening: string;
   /** The user ID of the opening's author: the user may have blocked them. Missing means unknown. */
-  openingAuthorId?: string | undefined;
+  openingAuthorId: string | undefined;
   /** Called after the server accepts the rejoin, or says the writer is already back in. */
   onRejoined: () => void;
 }

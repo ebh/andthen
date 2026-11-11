@@ -178,7 +178,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       storyId,
       loaded,
       saved: joinedState,
-      requesterPosition: loaded.nextPosition,
+      requesterUserId: me.id,
       now,
     });
 
@@ -239,7 +239,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       storyId,
       loaded,
       saved: next,
-      requesterPosition: loaded.nextPosition,
+      requesterUserId: me.userId,
       now,
     });
 
@@ -287,7 +287,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       storyId,
       loaded,
       saved: result.state,
-      requesterPosition: me.position,
+      requesterUserId: me.userId,
       now,
     });
 
@@ -323,7 +323,7 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       storyId,
       loaded,
       saved: result.state,
-      requesterPosition: me.position,
+      requesterUserId: me.userId,
       now,
     });
 

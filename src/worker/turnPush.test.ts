@@ -11,7 +11,9 @@ import {
   type TurnState,
 } from "../shared/turnOrder";
 import { TURN_WINDOW_MS } from "../shared/validation";
-import { turnPassedToSomeoneOtherThanRequester } from "./turnPush";
+import type { ParticipantRow } from "./db/rows";
+import type { LoadedStory } from "./db/typeSchemas";
+import { requesterPositionInSavedOrder, turnPassedToSomeoneOtherThanRequester } from "./turnPush";
 
 const T0 = 1_700_000_000_000;
 const ANA = 0;
@@ -27,6 +29,27 @@ function benHolds(): TurnState {
 // Ana wrote last and is alone: Ben joined, then left.
 function waitingWithAna(): TurnState {
   return onLeave(onJoin(newStoryState(), BEN, T0), BEN, T0);
+}
+
+function participant(position: number, leftAt: number | null = null): ParticipantRow {
+  return {
+    id: `p${String(position)}`,
+    displayName: `Writer ${String(position)}`,
+    position,
+    userId: `u${String(position)}`,
+    leftAt,
+  };
+}
+
+// The story as a request loads it. `rows` are everyone who ever joined, a leaver included.
+function loadedAs(state: TurnState, rows: readonly ParticipantRow[]): LoadedStory {
+  return {
+    story: { id: "abc12", createdAt: T0, ...state },
+    participants: [...rows],
+    activeParticipants: rows.filter((row) => row.leftAt === null),
+    nextPosition: Math.max(...rows.map((row) => row.position)) + 1,
+    state,
+  };
 }
 
 function unwrap(result: TurnResult): TurnState {
@@ -100,5 +123,68 @@ describe("turnPassedToSomeoneOtherThanRequester", () => {
 
     expect(saved.currentPosition).toBe(CY);
     expect(turnPassedToSomeoneOtherThanRequester(stored, saved, DAN, now)).toBeNull();
+  });
+});
+
+describe("requesterPositionInSavedOrder", () => {
+  const rows = [participant(ANA), participant(BEN), participant(CY)];
+
+  // Ben left and Cy holds; Ben keeps his row at the old position until he rejoins.
+  const afterBenLeft = onLeave(benHolds(), BEN, T0);
+  const rowsAfterBenLeft = [participant(ANA), participant(BEN, T0), participant(CY)];
+
+  it.each([
+    {
+      name: "a join takes the new position at the end",
+      loaded: loadedAs(benHolds(), rows),
+      saved: onJoin(benHolds(), DAN, T0),
+      requester: "u-new",
+      expected: DAN,
+    },
+    {
+      name: "a rejoin takes the new position, not the one on the requester's old row",
+      loaded: loadedAs(afterBenLeft, rowsAfterBenLeft),
+      saved: onRejoin(afterBenLeft, { previousPosition: BEN, position: DAN }, T0),
+      requester: "u1",
+      expected: DAN,
+    },
+    {
+      name: "a passage keeps the holder where they were loaded",
+      loaded: loadedAs(benHolds(), rows),
+      saved: unwrap(
+        afterContribution(benHolds(), T0, {
+          contributorPosition: BEN,
+          turnVersion: benHolds().turnVersion,
+        }),
+      ),
+      requester: "u1",
+      expected: BEN,
+    },
+    {
+      name: "a skip keeps the skipper where they were loaded",
+      loaded: loadedAs(benHolds(), rows),
+      saved: unwrap(
+        skip(benHolds(), T0, { skipperPosition: CY, turnVersion: benHolds().turnVersion }),
+      ),
+      requester: "u2",
+      expected: CY,
+    },
+    {
+      name: "a leave keeps the leaver at the position they held",
+      loaded: loadedAs(benHolds(), rows),
+      saved: onLeave(benHolds(), BEN, T0),
+      requester: "u1",
+      expected: BEN,
+    },
+  ])("returns the position for $name", ({ loaded, saved, requester, expected }) => {
+    expect(requesterPositionInSavedOrder(loaded, saved, requester)).toBe(expected);
+  });
+
+  it("throws for a user who is neither new to the turn order nor already in the story", () => {
+    const stored = benHolds();
+
+    expect(() =>
+      requesterPositionInSavedOrder(loadedAs(stored, rows), stored, "u-stranger"),
+    ).toThrow("not a participant");
   });
 });

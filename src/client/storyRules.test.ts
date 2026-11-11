@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canSkipTurn, turnAfterLeaving } from "./storyRules";
+import { canSkipTurn, headline, skipLabel, turnAfterLeaving } from "./storyRules";
 import { ME, OTHER, THIRD, storyView } from "./testFixtures";
 
 describe("canSkipTurn", () => {
@@ -26,6 +26,36 @@ describe("canSkipTurn", () => {
     const view = storyView({ participants: [ME], holderId: null, lastWriterId: ME });
 
     expect(canSkipTurn(view)).toBe(false);
+  });
+});
+
+describe("headline", () => {
+  it("says the story is waiting when nobody holds the turn", () => {
+    const view = storyView({ participants: [ME], holderId: null, lastWriterId: ME });
+
+    expect(headline(view, null)).toBe("Waiting for someone to join");
+  });
+
+  it("tells the holder it is their turn", () => {
+    const view = storyView({ participants: [ME, OTHER, THIRD], holderId: ME, lastWriterId: OTHER });
+
+    expect(headline(view, "Me")).toBe("It's your turn");
+  });
+
+  it("names another holder", () => {
+    const view = storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME });
+
+    expect(headline(view, "Sam")).toBe("It's Sam's turn");
+  });
+});
+
+describe("skipLabel", () => {
+  it.each([
+    [true, "Sam", "Skipping…"],
+    [false, "Sam", "Skip Sam"],
+    [false, null, "Skip this turn"],
+  ])("with skipping %s and holder %s reads %s", (skipping, holderName, label) => {
+    expect(skipLabel(skipping, holderName)).toBe(label);
   });
 });
 

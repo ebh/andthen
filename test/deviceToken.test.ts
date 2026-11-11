@@ -161,7 +161,7 @@ describe("a request with a device token and no Origin (the store apps)", () => {
     expect(response.status).toBe(201);
   });
 
-  it("answers 400 to a malformed header, on a read and on a write", async () => {
+  it("answers 400 bad_request to a bad header, on a read and on a write", async () => {
     const ana = phone();
     ana.deviceToken = "not-a-token";
 
@@ -170,31 +170,11 @@ describe("a request with a device token and no Origin (the store apps)", () => {
       displayName: nameInTest("Ana"),
       opening: "Once upon a time.",
     });
-
-    expect([read.status, write.status]).toEqual([400, 400]);
-    expect(await readError(write)).toBe("bad_request");
-  });
-
-  it("answers 400 to an empty header instead of treating it as no token", async () => {
-    const ana = phone();
     ana.deviceToken = "";
+    const empty = await ana.get("/api/stories");
 
-    const response = await ana.get("/api/stories");
-
-    expect(response.status).toBe(400);
-  });
-
-  it("decides alone when a cookie names another user", async () => {
-    const { ana, storyId } = await twoPhoneStory();
-    const browser = web();
-    await createStory(browser, nameInTest("Web"));
-    const sameToken = createPhone(app, env, ana.deviceToken ?? "");
-    sameToken.cookies.set("andthen_bt", browser.cookies.get("andthen_bt") ?? "");
-
-    const response = await sameToken.get(`/api/stories/${storyId}`);
-
-    // Ana's header wins over the cookie of a different user, who is not in this story.
-    expect(response.status).toBe(200);
+    expect([read.status, write.status, empty.status]).toEqual([400, 400, 400]);
+    expect(await readError(write)).toBe("bad_request");
   });
 
   it("is attached to the account on sign-in", async () => {

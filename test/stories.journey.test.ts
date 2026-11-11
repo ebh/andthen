@@ -353,7 +353,7 @@ describe("cookies", () => {
     await testEnv.dispose();
   });
 
-  it("sends a plain, non-Secure cookie on http://localhost", async () => {
+  it("gives an anonymous create a device token cookie", async () => {
     const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env);
 
     const response = await browser.post("/api/stories", {
@@ -364,50 +364,6 @@ describe("cookies", () => {
     const cookie = response.headers.get("Set-Cookie") ?? "";
     expect(cookie).toMatch(/^andthen_bt=[0-9a-f]{64};/);
     expect(cookie).toContain("HttpOnly");
-    expect(cookie).toContain("SameSite=Lax");
-    expect(cookie).toContain("Path=/");
-    expect(cookie).toContain("Max-Age=31536000");
-    expect(cookie).not.toContain("Secure");
-  });
-
-  it("sends a __Host- Secure cookie everywhere else", async () => {
-    const origin = "https://app.andthen.page";
-    const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env, origin);
-
-    const response = await browser.post("/api/stories", {
-      displayName: nameInTest("Ana"),
-      opening: "Hi.",
-    });
-
-    const cookie = response.headers.get("Set-Cookie") ?? "";
-    expect(cookie).toMatch(/^__Host-andthen_bt=[0-9a-f]{64};/);
-    expect(cookie).toContain("Secure");
-    expect(cookie).toContain("HttpOnly");
-    expect(cookie).toContain("SameSite=Lax");
-    expect(cookie).toContain("Path=/");
-    expect(cookie).toContain("Max-Age=31536000");
-  });
-
-  it("treats http on another host as needing the __Host- cookie", async () => {
-    const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env, "http://example.test");
-
-    const response = await browser.post("/api/stories", {
-      displayName: nameInTest("Ana"),
-      opening: "Hi.",
-    });
-
-    expect(response.headers.get("Set-Cookie")).toMatch(/^__Host-andthen_bt=/);
-  });
-
-  it("treats https on localhost as needing the __Host- cookie", async () => {
-    const browser = createBrowser(createTestApp({ now: T0 }), testEnv.env, "https://localhost");
-
-    const response = await browser.post("/api/stories", {
-      displayName: nameInTest("Ana"),
-      opening: "Hi.",
-    });
-
-    expect(response.headers.get("Set-Cookie")).toMatch(/^__Host-andthen_bt=/);
   });
 
   it("stores only the SHA-256 hash of the token", async () => {

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppInstallState } from "../client/appInstall";
 import { InstallButton } from "./InstallButton";
-import { renderPage } from "./testRender";
+import { inTheme, renderPage } from "./testRender";
 
 const appInstall = vi.hoisted((): { state: AppInstallState; install: () => Promise<void> } => ({
   state: { type: "unavailable" },
@@ -16,33 +16,23 @@ vi.mock("../client/appInstall", () => ({
   useAppInstall: () => ({ state: appInstall.state, install: appInstall.install }),
 }));
 
-function show(state: AppInstallState) {
-  appInstall.state = state;
-  renderPage(<InstallButton />);
-}
-
 beforeEach(() => {
   vi.mocked(appInstall.install).mockResolvedValue(undefined);
 });
 
 describe("InstallButton", () => {
-  it("renders nothing where the app cannot be installed", () => {
-    show({ type: "unavailable" });
-
+  it("appears once the browser offers the install, starts it on press and waits while its dialog is open", async () => {
+    appInstall.state = { type: "unavailable" };
+    const { rerender } = renderPage(<InstallButton />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-  });
 
-  it("offers the install, and starts it when pressed", async () => {
-    show({ type: "ready", busy: false });
-
+    appInstall.state = { type: "ready", busy: false };
+    rerender(inTheme(<InstallButton />));
     await userEvent.setup().click(screen.getByRole("button", { name: "Install the app" }));
-
     expect(appInstall.install).toHaveBeenCalledTimes(1);
-  });
 
-  it("is disabled while the browser's install dialog is open", () => {
-    show({ type: "ready", busy: true });
-
+    appInstall.state = { type: "ready", busy: true };
+    rerender(inTheme(<InstallButton />));
     expect(screen.getByRole("button", { name: "Install the app" })).toBeDisabled();
   });
 });

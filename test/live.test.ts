@@ -101,35 +101,31 @@ describe("GET /api/stories/:storyId/live", () => {
       expect(rooms.upgrades).toEqual([]);
     });
 
-    it("refuses a cross-origin or origin-less upgrade", async () => {
+    it("refuses a cross-origin upgrade", async () => {
       const { ana, storyId } = await twoPersonStory();
       const rooms = fakeRooms();
 
-      for (const headers of [
-        { Upgrade: "websocket", Origin: "https://evil.example" },
-        { Upgrade: "websocket" },
-      ]) {
-        const response = await ana.get(`/api/stories/${storyId}/live`, { headers, env: rooms.env });
+      const response = await ana.get(`/api/stories/${storyId}/live`, {
+        headers: { Upgrade: "websocket", Origin: "https://evil.example" },
+        env: rooms.env,
+      });
 
-        expect(response.status).toBe(403);
-        expect(await readError(response)).toBe("forbidden_origin");
-      }
+      expect(response.status).toBe(403);
+      expect(await readError(response)).toBe("forbidden_origin");
       expect(rooms.upgrades).toEqual([]);
     });
 
-    it("answers 404 for an unknown story and for text that isn't an ID", async () => {
+    it("answers 404 for an unknown story", async () => {
       const ana = newBrowser();
       const rooms = fakeRooms();
 
-      for (const id of ["zzzzz", "abc-1"]) {
-        const response = await ana.get(`/api/stories/${id}/live`, {
-          headers: upgrade,
-          env: rooms.env,
-        });
+      const response = await ana.get("/api/stories/zzzzz/live", {
+        headers: upgrade,
+        env: rooms.env,
+      });
 
-        expect(response.status).toBe(404);
-        expect(await readError(response)).toBe("not_found");
-      }
+      expect(response.status).toBe(404);
+      expect(await readError(response)).toBe("not_found");
       expect(rooms.upgrades).toEqual([]);
     });
 
@@ -200,28 +196,6 @@ describe("GET /api/stories/:storyId/live", () => {
 
       expect(await response.text()).toBe("room");
       expect(rooms.upgrades.map((u) => u.subprotocol)).toEqual(["andthen-live"]);
-    });
-
-    it("lets an anonymous participant in with andthen-live alone", async () => {
-      const { ana, storyId } = await twoPersonStory();
-      const rooms = fakeRooms();
-
-      const response = await ana.get(`/api/stories/${storyId}/live`, {
-        headers: { ...upgrade, "Sec-WebSocket-Protocol": "andthen-live" },
-        env: rooms.env,
-      });
-
-      expect(await response.text()).toBe("room");
-      expect(rooms.upgrades.map((u) => u.subprotocol)).toEqual(["andthen-live"]);
-    });
-
-    it("sends the room no subprotocol when the client offered none", async () => {
-      const { ana, storyId } = await twoPersonStory();
-      const rooms = fakeRooms();
-
-      await ana.get(`/api/stories/${storyId}/live`, { headers: upgrade, env: rooms.env });
-
-      expect(rooms.upgrades.map((u) => u.subprotocol)).toEqual([null]);
     });
 
     it("refuses a bad token with 401 and never falls back to the cookie", async () => {

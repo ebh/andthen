@@ -5,6 +5,7 @@ import {
   buildMessages,
   CLOSING_INSTRUCTION,
   MAX_STORY_CHARACTERS,
+  storyTextWithParagraphBreaks,
   SUGGESTIONS_JSON_SCHEMA,
 } from "./prompt";
 
@@ -96,5 +97,28 @@ describe("SUGGESTIONS_JSON_SCHEMA", () => {
       minItems: 3,
       maxItems: 3,
     });
+  });
+});
+
+const passage = (text: string, startsParagraph = false) => ({ text, startsParagraph });
+
+describe("storyTextWithParagraphBreaks", () => {
+  it.each([
+    ["no passages", [], ""],
+    ["one passage", [passage("One.", true)], "One."],
+    ["the first passage, whatever its flag", [passage("One.")], "One."],
+    ["two passages in one paragraph", [passage("One.", true), passage("Two.")], "One. Two."],
+    [
+      "a passage that starts a new paragraph",
+      [passage("One.", true), passage("Two.", true)],
+      "One.\n\nTwo.",
+    ],
+    [
+      "a mix of both",
+      [passage("One.", true), passage("Two."), passage("Three.", true), passage("Four.")],
+      "One. Two.\n\nThree. Four.",
+    ],
+  ])("joins %s", (_name, passages, expected) => {
+    expect(storyTextWithParagraphBreaks(passages)).toBe(expected);
   });
 });

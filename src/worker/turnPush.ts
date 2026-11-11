@@ -39,19 +39,20 @@ export interface HolderPush {
  * Nothing is sent when the same person keeps the turn, when the story goes to waiting or when the
  * requester is the new holder. The work runs under `waitUntil`: a slow push service can't delay a
  * write that is already committed, and no failure here reaches the response.
- *
- * The turn before the write is the stored one with expiry applied, so a holder whose window had
- * already lapsed does not count as having just received the turn from an unrelated change.
  */
 export function notifyTurnHolder(
   c: AppContext,
   pushSender: (env: Env) => PushSender,
   change: TurnChange,
 ): void {
-  const before = resolveTurn(change.loaded.state, change.now).state;
-  const holderPosition = turnPassedTo(before, change.saved);
+  const holderPosition = turnPassedToSomeoneOtherThanRequester(
+    change.loaded.state,
+    change.saved,
+    change.requesterPosition,
+    change.now,
+  );
   const endsAt = turnEndsAt(change.saved);
-  if (holderPosition === null || endsAt === null || holderPosition === change.requesterPosition) {
+  if (holderPosition === null || endsAt === null) {
     return;
   }
 
@@ -65,6 +66,25 @@ export function notifyTurnHolder(
       turnEndsAt: endsAt,
     }),
   );
+}
+
+/**
+ * The position of the writer a write handed the turn to, or null when no one should be pushed: the
+ * turn did not move, the story went to waiting, or the new holder is the requester.
+ *
+ * The turn before the write is the stored one with expiry applied, so a holder whose window had
+ * already lapsed does not count as having just received the turn from an unrelated change.
+ */
+export function turnPassedToSomeoneOtherThanRequester(
+  stored: TurnState,
+  saved: TurnState,
+  requesterPosition: number,
+  now: number,
+): number | null {
+  const before = resolveTurn(stored, now).state;
+  const holderPosition = turnPassedTo(before, saved);
+
+  return holderPosition === requesterPosition ? null : holderPosition;
 }
 
 /**

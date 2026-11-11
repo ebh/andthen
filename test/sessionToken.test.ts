@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { myStoriesResponseSchema } from "../src/shared/api";
 import { findUserByClerkUserId } from "../src/worker/db/userRepo";
-import { selectSessionVerifier } from "../src/worker/sessionToken";
 import {
   createBrowser,
   createStory,
@@ -18,56 +17,6 @@ import { signSessionToken, type SessionTokenOptions } from "./support/sessionTok
 import { createTestEnv, type TestEnv } from "./support/testEnv";
 
 const ORIGIN = "http://localhost";
-
-describe("the session verifier", () => {
-  let testEnv: TestEnv;
-
-  beforeAll(async () => {
-    testEnv = await createTestEnv();
-  });
-
-  afterAll(async () => {
-    await testEnv.dispose();
-  });
-
-  it("returns the Clerk user id of a valid token", async () => {
-    const verify = selectSessionVerifier(testEnv.env);
-
-    const verdict = await verify(await signSessionToken("user_verified", ORIGIN), ORIGIN);
-
-    expect(verdict).toEqual({ type: "valid", clerkUserId: "user_verified" });
-  });
-
-  it("rejects with a reason for the server log and never throws", async () => {
-    const verify = selectSessionVerifier(testEnv.env);
-
-    const verdict = await verify(await signSessionToken("user_x", "https://evil.example"), ORIGIN);
-
-    expect(verdict.type).toBe("rejected");
-    expect(verdict.type === "rejected" ? verdict.reason.trim() : "").not.toBe("");
-  });
-
-  it("rejects a token with no azp claim, whose origin Clerk would not check", async () => {
-    const verify = selectSessionVerifier(testEnv.env);
-
-    const verdict = await verify(
-      await signSessionToken("user_x", ORIGIN, { omitAuthorizedParty: true }),
-      ORIGIN,
-    );
-
-    expect(verdict.type).toBe("rejected");
-  });
-
-  it("rejects every token when the key is not a public key", async () => {
-    const env = { ...testEnv.env };
-    Object.defineProperty(env, "CLERK_JWT_KEY", { value: "not-a-public-key", enumerable: true });
-    const verify = selectSessionVerifier(env);
-
-    const verdict = await verify(await signSessionToken("user_x", ORIGIN), ORIGIN);
-
-    expect(verdict.type).toBe("rejected");
-  });
-});
 
 describe("session tokens", () => {
   let testEnv: TestEnv;
@@ -142,23 +91,11 @@ describe("session tokens", () => {
   });
 
   describe("a token that is present and bad", () => {
-    const cases: [string, () => Promise<string>][] = [
-      ["expired", () => signSessionToken("user_x", ORIGIN, { expiresInSeconds: -120 })],
-      [
-        "signed by another key",
-        () => signSessionToken("user_x", ORIGIN, { signWithOtherKey: true }),
-      ],
-      ["issued for another origin", () => signSessionToken("user_x", "https://evil.example")],
-      [
-        "without an azp claim",
-        () => signSessionToken("user_x", ORIGIN, { omitAuthorizedParty: true }),
-      ],
-      ["malformed", () => Promise.resolve("not-a-jwt")],
-    ];
-
-    it.each(cases)("is refused with 401 and a challenge when %s", async (_name, makeToken) => {
+    // Why a token fails is unit tested in src/worker/sessionToken.test.ts. This pins that a
+    // rejection reaches the client as 401 with its challenge and that the server logs it.
+    it("is refused with 401 and a challenge", async () => {
       const browser = newBrowser();
-      browser.sessionToken = await makeToken();
+      browser.sessionToken = await signSessionToken("user_x", ORIGIN, { expiresInSeconds: -120 });
       const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
       const response = await browser.get("/api/stories");

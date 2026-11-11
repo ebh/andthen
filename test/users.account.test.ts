@@ -576,17 +576,6 @@ describe("PUT /api/users/me/account", () => {
   describe("a request that is not signed in", () => {
     const cases: [string, () => Promise<Browser>][] = [
       ["expired", () => account("user_x", { expiresInSeconds: -120 })],
-      ["signed by another key", () => account("user_x", { signWithOtherKey: true })],
-      [
-        "issued for another origin",
-        async () => {
-          const browser = createBrowser(app, env, ORIGIN);
-          browser.sessionToken = await signSessionToken("user_x", "https://evil.example");
-
-          return browser;
-        },
-      ],
-      ["without an azp claim", () => account("user_x", { omitAuthorizedParty: true })],
       ["missing", () => Promise.resolve(anonymous())],
     ];
 

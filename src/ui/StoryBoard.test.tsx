@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { takeLeftStoryNote } from "../client/leftStoryNote";
@@ -12,6 +13,7 @@ import {
   noContentResponse,
   storyView,
 } from "../client/testFixtures";
+import { useStoryLive } from "../client/useStoryLive";
 import { replace } from "./routerStub";
 import { StoryBoard } from "./StoryBoard";
 import { inTheme, renderPage } from "./testRender";
@@ -22,25 +24,24 @@ vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
 vi.mock("../client/useStoryLive", () => ({ useStoryLive: vi.fn<() => void>() }));
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
+const alone = storyView({ participants: [ME], holderId: null, lastWriterId: ME });
+const someoneElsesTurn = storyView({
+  participants: [ME, OTHER, THIRD],
+  holderId: OTHER,
+  lastWriterId: THIRD,
+  version: 5,
+});
 const myTurn = storyView({ participants: [ME, OTHER, THIRD], holderId: ME, lastWriterId: OTHER });
 
-const withCompany = storyView({ participants: [ME, OTHER], holderId: OTHER, lastWriterId: ME });
-const alone = storyView({ participants: [ME], holderId: null, lastWriterId: ME });
-
-function renderBoard(view = withCompany, refreshFailed = false, refetch = vi.fn<() => void>()) {
-  renderPage(
-    <StoryBoard storyId="abc12" view={view} refreshFailed={refreshFailed} refetch={refetch} />,
-  );
-
-  return refetch;
-}
-
 describe("StoryBoard", () => {
-  it("has the wordmark as its level-1 heading, links back to the writer's stories and publishes the contact address", () => {
-    renderBoard();
+  it("shows a lone writer the invite link and no composer", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>());
+    renderBoard(alone);
+    const user = userEvent.setup();
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("And then…");
     expect(screen.getByRole("link", { name: /Your stories/ })).toHaveAttribute("href", "/");
@@ -48,201 +49,140 @@ describe("StoryBoard", () => {
       "href",
       "mailto:support@andthen.page",
     );
-  });
-
-  it("offers the story's address as the invite link", () => {
-    renderBoard();
-
-    expect(screen.getByLabelText("Invite link")).toHaveValue(`${window.location.origin}/abc12`);
-  });
-
-  it("tells a lone writer to send the link", () => {
-    renderBoard(alone);
-
+    expect(
+      within(screen.getByRole("region", { name: "Turn" })).getByRole("status"),
+    ).toHaveTextContent("Waiting for someone to join");
+    expect(screen.queryByText(/left$/)).not.toBeInTheDocument();
     expect(screen.getByText(/Nobody else has joined yet/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Your passage")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't refresh/)).not.toBeInTheDocument();
+
+    const invite = `${window.location.origin}/abc12`;
+    const field = screen.getByLabelText("Invite link");
+    expect(field).toHaveValue(invite);
+    expect(field).toHaveAttribute("readonly");
+
+    expect(screen.queryByText("Link copied.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't copy/)).not.toBeInTheDocument();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();
+    await user.click(screen.getByRole("button", { name: "Copy link" }));
+    expect(await screen.findByText("Link copied.")).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(invite);
+
+    writeText.mockRejectedValueOnce(new Error("denied"));
+    await user.click(screen.getByRole("button", { name: "Copy link" }));
+    expect(await screen.findByText(/Couldn't copy/)).toBeInTheDocument();
+    expect(screen.queryByText("Link copied.")).not.toBeInTheDocument();
   });
 
-  it("says nothing about waiting once someone else has joined", () => {
-    renderBoard();
+  it("shows someone else's turn, offers no writing, and retries a failed reload", async () => {
+    const refetch = renderBoard(someoneElsesTurn, true);
+    const user = userEvent.setup();
 
+    expect(screen.getByRole("region", { name: "Turn" })).toHaveTextContent("It's Sam's turn");
+    // The wording is describeTimeLeft's. `endsAt` and `now` come from separate clocks, so the minutes can vary.
+    expect(screen.getByText(/m left$/)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Turn order" }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Me (you)", "Sam", "Kim"]);
+    expect(useStoryLive).toHaveBeenCalledWith({
+      storyId: "abc12",
+      endsAt: someoneElsesTurn.turn.endsAt,
+      refetch,
+    });
     expect(screen.queryByText(/Nobody else has joined yet/)).not.toBeInTheDocument();
-  });
-
-  it("warns that the story may be out of date after a failed reload, and retries on request", async () => {
-    const refetch = renderBoard(withCompany, true);
+    expect(screen.queryByLabelText("Your passage")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest continuations" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "New paragraph" })).not.toBeInTheDocument();
 
     expect(screen.getByText(/Couldn't refresh the story\./)).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
-
+    await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(refetch).toHaveBeenCalledOnce();
+
+    const { dialog } = await openDialog(user);
+    expect(dialog).toHaveTextContent(
+      /Your passages stay in the story under your name\. You’ll drop out of the turn order\. You can rejoin from the invite link\./,
+    );
+    expect(dialog).not.toHaveTextContent("your turn now");
   });
 
-  it("shows no warning while the story is fresh", () => {
-    renderBoard();
-
-    expect(screen.queryByText(/Couldn't refresh/)).not.toBeInTheDocument();
-  });
-});
-
-describe("composer", () => {
-  it("counts graphemes live and disables send when empty or over the limit", async () => {
-    renderBoard(myTurn);
+  it("walks a writer through a turn: suggestions, a stale turn, a rejected passage, then sending", async () => {
+    const hostile = '<img src=x onerror="alert(1)"> <b>bold</b>';
+    const suggestionsRequest = inFlight();
+    const staleSend = inFlight();
+    const rejectedSend = inFlight();
+    const goodSend = inFlight();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockReturnValueOnce(suggestionsRequest.response)
+      .mockReturnValueOnce(staleSend.response)
+      .mockReturnValueOnce(rejectedSend.response)
+      .mockReturnValueOnce(goodSend.response)
+      .mockResolvedValueOnce(jsonResponse(403, { error: "not_your_turn" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const refetch = vi.fn<() => void>();
+    const { container, rerender } = renderPage(
+      <StrictMode>
+        <StoryBoard storyId="abc12" view={myTurn} refreshFailed={false} refetch={refetch} />
+      </StrictMode>,
+    );
     const user = userEvent.setup();
     const field = screen.getByLabelText("Your passage");
     const send = screen.getByRole("button", { name: "Add to the story" });
+    const newParagraph = screen.getByRole("checkbox", { name: "New paragraph" });
     expect(send).toBeDisabled();
 
+    // Counting is validation.test.ts's; this checks the screen shows one count and the over-limit state.
     await user.type(field, "Hi 👨‍👩‍👧");
     expect(screen.getByText("4 / 280")).toBeInTheDocument();
     expect(send).toBeEnabled();
-
     await user.clear(field);
     await user.click(field);
-    await user.paste("x".repeat(281));
+    await user.paste("x".repeat(280));
+    expect(screen.getByText("280 / 280")).toBeInTheDocument();
+    expect(send).toBeEnabled();
+    await user.type(field, "x");
     expect(screen.getByText(/281 \/ 280/)).toHaveTextContent("too long");
     expect(send).toBeDisabled();
-  });
-
-  it("is absent when it is not your turn", () => {
-    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
-
-    expect(screen.queryByLabelText("Your passage")).not.toBeInTheDocument();
-  });
-
-  it("sends the passage with the shown turn version and clears it on success", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse(201, { passageId: "c9" })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const refetch = renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.type(screen.getByLabelText("Your passage"), "And then.");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText("Your passage")).toHaveValue("");
-    });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/passages",
-      expect.objectContaining({
-        body: JSON.stringify({ text: "And then.", turnVersion: 3, startsParagraph: false }),
-      }),
-    );
-    expect(refetch).toHaveBeenCalled();
-  });
-
-  it("sends startsParagraph when New paragraph is ticked, then unticks it after sending", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse(201, { passageId: "c9" })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    renderBoard(myTurn);
-    const user = userEvent.setup();
-    const box = screen.getByRole("checkbox", { name: "New paragraph" });
-
-    await user.click(box);
-    await user.type(screen.getByLabelText("Your passage"), "A fresh start.");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    await waitFor(() => {
-      expect(box).not.toBeChecked();
-    });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/passages",
-      expect.objectContaining({
-        body: JSON.stringify({ text: "A fresh start.", turnVersion: 3, startsParagraph: true }),
-      }),
-    );
-  });
-
-  it("offers no New paragraph box when it is not your turn", () => {
-    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
-
-    expect(screen.queryByRole("checkbox", { name: "New paragraph" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the text and New paragraph ticked, and refetches, on a 409 stale_turn", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
-    const refetch = renderBoard(myTurn);
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("checkbox", { name: "New paragraph" }));
-    await user.type(screen.getByLabelText("Your passage"), "Precious words");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
-
-    expect(await screen.findByText(/The story changed while you were writing/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Your passage")).toHaveValue("Precious words");
-    expect(screen.getByRole("checkbox", { name: "New paragraph" })).toBeChecked();
-    expect(refetch).toHaveBeenCalled();
-  });
-});
-
-describe("suggestions in the composer", () => {
-  it("puts the chosen suggestion in the composer for editing and does not submit", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() =>
-      Promise.resolve(jsonResponse(200, { suggestions: ["One.", "Two.", "Three."] })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    renderBoard(myTurn);
-    const user = userEvent.setup();
+    await user.clear(field);
+    await user.type(field, "My own words");
 
     await user.click(screen.getByRole("button", { name: "Suggest continuations" }));
-    await user.click(await screen.findByRole("button", { name: "Three." }));
+    expect(screen.getByRole("button", { name: "Thinking…" })).toBeDisabled();
+    suggestionsRequest.finish(jsonResponse(200, { suggestions: [hostile, "Two.", "Three."] }));
+    expect(await screen.findByRole("button", { name: hostile })).toBeInTheDocument();
+    expect(container.querySelector("img, b")).toBeNull();
 
-    expect(screen.getByLabelText("Your passage")).toHaveValue("Three.");
-    expect(fetchMock).toHaveBeenCalledOnce();
-  });
-
-  it("is not offered to someone who does not hold the turn", () => {
-    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
-
-    expect(screen.queryByRole("button", { name: "Suggest continuations" })).not.toBeInTheDocument();
-  });
-});
-
-async function askAndPick(user: ReturnType<typeof userEvent.setup>, pick: string) {
-  await user.click(screen.getByRole("button", { name: "Suggest continuations" }));
-  await user.click(await screen.findByRole("button", { name: pick }));
-}
-
-describe("replacing a draft with a suggestion", () => {
-  beforeEach(() => {
-    vi.stubGlobal("fetch", () =>
-      Promise.resolve(jsonResponse(200, { suggestions: ["One.", "Two.", "Three."] })),
-    );
-  });
-
-  it("offers Undo that restores the typed draft", async () => {
-    renderBoard(myTurn);
-    const user = userEvent.setup();
-    const field = screen.getByLabelText("Your passage");
-
-    await user.type(field, "My own words");
-    await askAndPick(user, "Two.");
-
+    await user.click(screen.getByRole("button", { name: "Two." }));
     expect(field).toHaveValue("Two.");
     expect(field).toHaveFocus();
-
+    expect(fetchMock).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "Undo" }));
-
     expect(field).toHaveValue("My own words");
     expect(field).toHaveFocus();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
-  });
-});
 
-describe("stale pages and notices", () => {
-  it("clears the notice once the story shows a new turn version", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
-    const refetch = vi.fn<() => void>();
-    const { rerender } = renderPage(
-      <StoryBoard storyId="abc12" view={myTurn} refreshFailed={false} refetch={refetch} />,
-    );
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Your passage"), "Words");
-    await user.click(screen.getByRole("button", { name: "Add to the story" }));
+    await user.click(newParagraph);
+    expect(newParagraph).toBeChecked();
+    await user.click(newParagraph);
+    expect(newParagraph).not.toBeChecked();
+    await user.click(newParagraph);
+    await user.click(send);
+    expect(await screen.findByRole("button", { name: "Sending…" })).toBeDisabled();
+    staleSend.finish(jsonResponse(409, { error: "stale_turn" }));
     expect(await screen.findByText(/The story changed while you were writing/)).toBeInTheDocument();
+    expect(field).toHaveValue("My own words");
+    expect(newParagraph).toBeChecked();
+    expect(refetch).toHaveBeenCalledOnce();
+
+    await user.click(send);
+    expect(await screen.findByRole("button", { name: "Sending…" })).toBeDisabled();
+    expect(screen.queryByText(/The story changed while you were writing/)).not.toBeInTheDocument();
+    rejectedSend.finish(jsonResponse(400, { error: "invalid_passage" }));
+    expect(await screen.findByText(/That passage can't be sent/)).toBeInTheDocument();
+    expect(refetch).toHaveBeenCalledOnce();
 
     const newer = storyView({
       participants: [ME, OTHER, THIRD],
@@ -251,156 +191,198 @@ describe("stale pages and notices", () => {
       version: 4,
     });
     rerender(
-      inTheme(<StoryBoard storyId="abc12" view={newer} refreshFailed={false} refetch={refetch} />),
+      inTheme(
+        <StrictMode>
+          <StoryBoard storyId="abc12" view={newer} refreshFailed={false} refetch={refetch} />
+        </StrictMode>,
+      ),
     );
+    expect(screen.queryByText(/That passage can't be sent/)).not.toBeInTheDocument();
+    expect(field).toHaveValue("My own words");
 
-    expect(screen.queryByText(/The story changed while you were writing/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Your passage")).toHaveValue("Words");
-  });
-});
-
-describe("skip", () => {
-  const skippable = storyView({
-    participants: [ME, OTHER, THIRD],
-    holderId: OTHER,
-    lastWriterId: THIRD,
-    version: 5,
-  });
-
-  it("sends the shown turn version and refetches", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
-    vi.stubGlobal("fetch", fetchMock);
-    const refetch = renderBoard(skippable);
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Skip Sam" }));
-
+    await user.click(send);
+    goodSend.finish(jsonResponse(201, { passageId: "c9" }));
     await waitFor(() => {
-      expect(refetch).toHaveBeenCalled();
+      expect(field).toHaveValue("");
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/skip",
-      expect.objectContaining({ body: JSON.stringify({ turnVersion: 5 }) }),
+    expect(newParagraph).not.toBeChecked();
+    expect(refetch).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      "/api/stories/abc12/passages",
+      expect.objectContaining({
+        body: JSON.stringify({ text: "My own words", turnVersion: 4, startsParagraph: true }),
+      }),
     );
+
+    await user.click(screen.getByRole("button", { name: "Suggest continuations" }));
+    expect(await screen.findByText("It's no longer your turn.")).toBeInTheDocument();
+    expect(refetch).toHaveBeenCalledTimes(3);
   });
 
-  it("refetches and says nothing was skipped on a 409 stale_turn", async () => {
-    vi.stubGlobal("fetch", () => Promise.resolve(jsonResponse(409, { error: "stale_turn" })));
-    const refetch = renderBoard(skippable);
+  it("skips a holder, and says nothing was skipped when the turn had moved on", async () => {
+    const staleSkip = inFlight();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockReturnValueOnce(staleSkip.response)
+      .mockResolvedValueOnce(noContentResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const refetch = renderBoard(someoneElsesTurn);
+    const user = userEvent.setup();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Skip Sam" }));
-
+    await user.click(screen.getByRole("button", { name: "Skip Sam" }));
+    expect(await screen.findByRole("button", { name: "Skipping…" })).toBeDisabled();
+    staleSkip.finish(jsonResponse(409, { error: "stale_turn" }));
     expect(await screen.findByText(/nothing was skipped/)).toBeInTheDocument();
-    expect(refetch).toHaveBeenCalled();
+    expect(refetch).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole("button", { name: "Skip Sam" }));
+    await waitFor(() => {
+      expect(refetch).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.queryByText(/nothing was skipped/)).not.toBeInTheDocument();
+    for (const call of [1, 2]) {
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        call,
+        "/api/stories/abc12/skip",
+        expect.objectContaining({ body: JSON.stringify({ turnVersion: 5 }) }),
+      );
+    }
+  });
+
+  describe("leaving the story", () => {
+    beforeEach(() => {
+      replace.mockClear();
+      takeLeftStoryNote();
+    });
+
+    it("asks first, keeps the story on a failure, then leaves and goes home", async () => {
+      const failedLeave = inFlight();
+      const offlineLeave = inFlight();
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockReturnValueOnce(failedLeave.response)
+        .mockReturnValueOnce(offlineLeave.response)
+        .mockResolvedValueOnce(noContentResponse());
+      vi.stubGlobal("fetch", fetchMock);
+      const refetch = vi.fn<() => void>();
+      const { rerender } = renderPage(
+        <StrictMode>
+          <StoryBoard storyId="abc12" view={myTurn} refreshFailed={false} refetch={refetch} />
+        </StrictMode>,
+      );
+      const user = userEvent.setup();
+
+      const first = await openDialog(user);
+      // StrictMode mounts, cleans up and mounts again; the dialog must survive that.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(first.dialog).toBeInTheDocument();
+      expect(first.dialog).toHaveTextContent(
+        "You’ll drop out of the turn order. It’s your turn now, so it passes to Kim.",
+      );
+      expect(first.dialog).toHaveTextContent("You can rejoin from the invite link.");
+
+      await user.keyboard("{Escape}");
+      await expectClosed();
+      const second = await openDialog(user);
+      await user.click(within(second.dialog).getByText("Cancel"));
+      await expectClosed();
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      const third = await openDialog(user);
+      await user.click(within(third.dialog).getByRole("button", { name: "Leave story" }));
+      expect(await within(third.dialog).findByRole("button", { name: "Leaving…" })).toBeDisabled();
+      failedLeave.finish(jsonResponse(409, { error: "stale_turn" }));
+      await waitFor(() => {
+        expect(within(third.dialog).getByRole("alert")).toHaveTextContent(
+          "The story changed just now.",
+        );
+      });
+      expect(within(third.dialog).getByRole("button", { name: "Leave story" })).toBeEnabled();
+      expect(refetch).toHaveBeenCalledOnce();
+      expect(replace).not.toHaveBeenCalled();
+
+      await user.click(within(third.dialog).getByRole("button", { name: "Leave story" }));
+      expect(await within(third.dialog).findByRole("button", { name: "Leaving…" })).toBeDisabled();
+      expect(within(third.dialog).getByRole("alert")).toHaveTextContent(/^$/);
+      offlineLeave.fail(new TypeError("offline"));
+      await waitFor(() => {
+        expect(within(third.dialog).getByRole("alert")).toHaveTextContent(
+          "Can't reach the server.",
+        );
+      });
+      expect(refetch).toHaveBeenCalledOnce();
+
+      await user.click(within(third.dialog).getByText("Cancel"));
+      await expectClosed();
+      // The reload brought a story in which nobody else can take the turn.
+      rerender(
+        inTheme(
+          <StrictMode>
+            <StoryBoard
+              storyId="abc12"
+              view={storyView({
+                participants: [ME, OTHER],
+                holderId: ME,
+                lastWriterId: OTHER,
+                version: 4,
+              })}
+              refreshFailed={false}
+              refetch={refetch}
+            />
+          </StrictMode>,
+        ),
+      );
+
+      const reopened = await openDialog(user);
+      expect(reopened.dialog).not.toHaveTextContent("Can't reach the server");
+      expect(reopened.dialog).toHaveTextContent(
+        "No one else can take it, so the story will wait for someone to join.",
+      );
+      await user.click(within(reopened.dialog).getByRole("button", { name: "Leave story" }));
+
+      await waitFor(() => {
+        expect(replace).toHaveBeenCalledWith("/");
+      });
+      expect(takeLeftStoryNote()).toBe(true);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        3,
+        "/api/stories/abc12/leave",
+        expect.objectContaining({ method: "POST", body: "{}" }),
+      );
+    });
   });
 });
 
-describe("leaving the story", () => {
-  beforeEach(() => {
-    replace.mockClear();
-    takeLeftStoryNote();
-  });
+function renderBoard(
+  view = someoneElsesTurn,
+  refreshFailed = false,
+  refetch = vi.fn<() => void>(),
+) {
+  renderPage(
+    <StoryBoard storyId="abc12" view={view} refreshFailed={refreshFailed} refetch={refetch} />,
+  );
 
-  it("asks first, and says who gets the turn when the writer holds it", async () => {
-    renderBoard(myTurn);
+  return refetch;
+}
 
-    const { dialog } = await openDialog();
+/** A request the test settles itself, so it can look at the screen while the request is in flight. */
+function inFlight() {
+  const { promise, resolve, reject } = Promise.withResolvers<Response>();
 
-    expect(dialog).toHaveTextContent("passes to Kim");
-  });
-
-  it("does not talk about the turn when someone else holds it", async () => {
-    renderBoard(storyView({ participants: [ME, OTHER, THIRD], holderId: OTHER, lastWriterId: ME }));
-
-    const { dialog } = await openDialog();
-
-    expect(dialog).not.toHaveTextContent("your turn now");
-  });
-
-  it("closes without leaving on Cancel", async () => {
-    const fetchMock = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", fetchMock);
-    renderBoard();
-    const { user, dialog } = await openDialog();
-
-    await user.click(within(dialog).getByText("Cancel"));
-
-    await waitFor(() => {
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("leaves, then goes home with a note", async () => {
-    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(noContentResponse()));
-    vi.stubGlobal("fetch", fetchMock);
-    renderBoard();
-    const { user, dialog } = await openDialog();
-
-    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
-
-    await waitFor(() => {
-      expect(replace).toHaveBeenCalledWith("/");
-    });
-    expect(takeLeftStoryNote()).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/stories/abc12/leave",
-      expect.objectContaining({ method: "POST", body: "{}" }),
-    );
-  });
-
-  it("stays open with a message, and reloads the story, when the story moved on", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(409, { error: "stale_turn" }))),
-    );
-    const refetch = renderBoard();
-    const { user, dialog } = await openDialog();
-
-    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
-
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "The story changed just now.",
-    );
-    expect(refetch).toHaveBeenCalled();
-    expect(within(dialog).getByRole("button", { name: "Leave story" })).toBeEnabled();
-    expect(replace).not.toHaveBeenCalled();
-  });
-
-  it("forgets an earlier failure when the dialog is opened again", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>(() => Promise.resolve(jsonResponse(409, { error: "stale_turn" }))),
-    );
-    renderBoard();
-    const { user, dialog } = await openDialog();
-    await user.click(within(dialog).getByRole("button", { name: "Leave story" }));
-    await within(dialog).findByText(/The story changed just now/);
-    await user.click(within(dialog).getByText("Cancel"));
-    await waitFor(() => {
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    });
-
-    const reopened = await openDialog();
-
-    expect(reopened.dialog).not.toHaveTextContent("The story changed just now");
-  });
-});
-
-describe("waiting for a joiner", () => {
-  it("shows a message and the invite link", () => {
-    renderBoard(storyView({ participants: [ME], holderId: null, lastWriterId: ME }));
-
-    expect(screen.getByText(/Nobody else has joined yet/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Invite link")).toHaveValue(`${window.location.origin}/abc12`);
-    expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
-  });
-});
+  return { response: promise, finish: resolve, fail: reject };
+}
 
 // Tamagui's `DialogClose` names every close button "Dialog Close" (#26), so the dialog's Cancel is
 // found by its visible text. The plain "Leave story" button inside the dialog keeps its own name.
-async function openDialog() {
-  const user = userEvent.setup();
+async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "Leave story" }));
 
-  return { user, dialog: await screen.findByRole("alertdialog", { name: "Leave this story?" }) };
+  return { dialog: await screen.findByRole("alertdialog", { name: "Leave this story?" }) };
+}
+
+async function expectClosed() {
+  await waitFor(() => {
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
 }

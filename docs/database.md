@@ -16,6 +16,14 @@ erDiagram
     TEXT blocked_user_id FK
     INTEGER created_at
   }
+  legal_document_acceptances {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT legal_document_id
+    INTEGER version
+    TEXT story_id FK
+    INTEGER accepted_at
+  }
   participants {
     TEXT id PK
     TEXT story_id FK
@@ -63,6 +71,8 @@ erDiagram
   }
   blocks }o--|| users : "blocked_user_id"
   blocks }o--|| users : "user_id"
+  legal_document_acceptances }o--o| stories : "story_id"
+  legal_document_acceptances }o--|| users : "user_id"
   participants }o--|| stories : "story_id"
   participants }o--|| users : "user_id"
   passages }o--|| users : "author_id"
@@ -103,6 +113,44 @@ CREATE TABLE blocks (
   created_at INTEGER NOT NULL,
   UNIQUE (user_id, blocked_user_id),
   CHECK (user_id <> blocked_user_id)
+)
+```
+
+</details>
+
+## legal_document_acceptances
+
+One row per legal document acceptance: a user's recorded yes to one version of one legal document. Append-only, so a new version means a new row and old rows stay as the record of what each user agreed to. user_id changes only when two users merge.
+
+### Columns
+
+| Column              | Type    | Required | Default | Description                                                                                             |
+| ------------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `id`                | TEXT    | yes      |         | Opaque ID of the legal document acceptance.                                                             |
+| `user_id`           | TEXT    | yes      |         | The user who accepted the legal document.                                                               |
+| `legal_document_id` | TEXT    | yes      |         | ID of the legal document, as in LEGAL_DOCUMENTS: terms-of-service or copyright-terms/<copyright model>. |
+| `version`           | INTEGER | yes      |         | The version of the legal document that was accepted.                                                    |
+| `story_id`          | TEXT    | no       |         | The story a per-story legal document was accepted for; null for one accepted per user.                  |
+| `accepted_at`       | INTEGER | yes      |         | When the user accepted it, in epoch ms.                                                                 |
+
+### Indexes
+
+| Name                                            | Kind        | Columns | Condition |
+| ----------------------------------------------- | ----------- | ------- | --------- |
+| `legal_document_acceptances_by_user_id`         | index       | user_id |           |
+| `sqlite_autoindex_legal_document_acceptances_1` | primary key | id      |           |
+
+<details>
+<summary>CREATE TABLE statement</summary>
+
+```sql
+CREATE TABLE legal_document_acceptances (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id),
+  legal_document_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  story_id TEXT REFERENCES stories (id),
+  accepted_at INTEGER NOT NULL
 )
 ```
 

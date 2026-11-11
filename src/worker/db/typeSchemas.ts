@@ -15,6 +15,7 @@ import {
 } from "./rows";
 import {
   blocksTableSchema,
+  legalDocumentAcceptancesTableSchema,
   participantsTableSchema,
   passagesTableSchema,
   pushSubscriptionsTableSchema,
@@ -155,6 +156,16 @@ const createdBlockSchema = z.object({
   created: z.boolean(),
 });
 export type CreatedBlock = z.infer<typeof createdBlockSchema>;
+
+const newLegalDocumentAcceptanceSchema = legalDocumentAcceptancesTableSchema.pick({
+  id: true,
+  userId: true,
+  legalDocumentId: true,
+  version: true,
+  storyId: true,
+  acceptedAt: true,
+});
+export type NewLegalDocumentAcceptance = z.infer<typeof newLegalDocumentAcceptanceSchema>;
 
 const suggestionReservationSchema = suggestionRequestsTableSchema
   .pick({ id: true, participantId: true })

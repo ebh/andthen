@@ -102,5 +102,12 @@
       }
     ],
     "nextCursor": null
+  },
+  "createLegalDocumentAcceptance": {
+    "legalDocumentAcceptanceId": "a1"
+  },
+  "meWithMissingLegalDocumentAcceptances": {
+    "displayName": "Ana",
+    "missingLegalDocumentAcceptances": [{ "legalDocumentId": "terms-of-service", "version": 1 }]
   }
 }

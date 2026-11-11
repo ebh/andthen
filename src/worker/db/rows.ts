@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   blocksTableSchema,
+  legalDocumentAcceptancesTableSchema,
   participantsTableSchema,
   passagesTableSchema,
   pushSubscriptionsTableSchema,
@@ -89,6 +90,13 @@ export const pushSubscriptionRowSchema = pushSubscriptionsTableSchema.pick({
   auth: true,
 });
 export type PushSubscriptionRow = z.infer<typeof pushSubscriptionRowSchema>;
+
+/** Which version of which legal document a user has accepted. */
+export const legalDocumentAcceptanceRowSchema = legalDocumentAcceptancesTableSchema.pick({
+  legalDocumentId: true,
+  version: true,
+});
+export type LegalDocumentAcceptanceRow = z.infer<typeof legalDocumentAcceptanceRowSchema>;
 
 /** One column of a table in the migrated database, as `pragma_table_info` reports it. */
 export const databaseColumnRowSchema = z.object({

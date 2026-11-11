@@ -11,6 +11,8 @@ import {
   blocksResponseSchema,
   blockUserRequestSchema,
   blockUserResponseSchema,
+  createLegalDocumentAcceptanceRequestSchema,
+  createLegalDocumentAcceptanceResponseSchema,
   createPassageRequestSchema,
   createPassageResponseSchema,
   createStoryRequestSchema,
@@ -36,6 +38,8 @@ const responseSchemas = {
   join: joinResponseSchema,
   createPassage: createPassageResponseSchema,
   me: meResponseSchema,
+  meWithMissingLegalDocumentAcceptances: meResponseSchema,
+  createLegalDocumentAcceptance: createLegalDocumentAcceptanceResponseSchema,
   storyView: storyViewSchema,
   myStories: myStoriesResponseSchema,
   myStoriesWithOpeningAuthor: myStoriesResponseSchema,
@@ -45,8 +49,9 @@ const responseSchemas = {
   blocks: blocksResponseSchema,
 };
 
-// emptyRequestSchema is the only strict schema, so a new field in a request would reject an old
-// client; the other request schemas are tested for what a client of the level still sends.
+// emptyRequestSchema and createLegalDocumentAcceptanceRequestSchema are strict, so a new field in
+// their requests would reject an old client; the other request schemas are tested for what a
+// client of the level still sends.
 const requestSchemas = {
   createStory: createStoryRequestSchema,
   join: joinRequestSchema,
@@ -55,6 +60,7 @@ const requestSchemas = {
   pushSubscription: pushSubscriptionSchema,
   empty: emptyRequestSchema,
   blockUser: blockUserRequestSchema,
+  createLegalDocumentAcceptance: createLegalDocumentAcceptanceRequestSchema,
 };
 
 const responseFixtures = readFixture(3, "responses", z.record(z.string(), z.unknown()));

@@ -200,6 +200,11 @@ export async function mergeUserInto(db: Db, from: UserRow, intoUserId: string): 
       .bind(from.id, from.id, from.id, from.displayNameKey),
     db
       .prepare(
+        `UPDATE legal_document_acceptances SET user_id = ? WHERE user_id = ? AND ${nameAsRead}`,
+      )
+      .bind(intoUserId, from.id, from.id, from.displayNameKey),
+    db
+      .prepare(
         `UPDATE users SET display_name = NULL, display_name_key = NULL
          WHERE id = ? AND display_name_key IS ?`,
       )

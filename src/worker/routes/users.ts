@@ -1,25 +1,73 @@
 import { Hono } from "hono";
 
-import { emptyRequestSchema, type MeResponse } from "../../shared/api";
+import {
+  createLegalDocumentAcceptanceRequestSchema,
+  emptyRequestSchema,
+  type CreateLegalDocumentAcceptanceResponse,
+  type MeResponse,
+} from "../../shared/api";
+import {
+  isCurrentPerUserLegalDocument,
+  missingLegalDocumentAcceptances,
+} from "../../shared/legalDocuments";
 import { MERGE_ATTEMPTS, MERGE_LEAVE_ATTEMPTS } from "../config";
+import {
+  loadPerUserLegalDocumentAcceptances,
+  saveLegalDocumentAcceptance,
+} from "../db/legalDocumentAcceptanceRepo";
 import { loadStory } from "../db/storyRepo";
 import * as userRepo from "../db/userRepo";
 import type { UserRow } from "../db/rows";
 import { ApiError, parseJsonBody, type AppContext } from "../http";
+import { newId } from "../ids";
 import { leaveAsParticipant, type LeaveDeps } from "../leave";
-import { findDeviceUser, requireSession, resolveMe, type MeDeps } from "../me";
+import { findDeviceUser, requireOrCreateMe, requireSession, resolveMe, type MeDeps } from "../me";
 
 export type UserDeps = MeDeps & LeaveDeps;
 
 export function userRoutes(deps: UserDeps): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
 
-  // Only reads: no cookie is issued or user created. A request with no user has no name yet.
+  // Only reads: no cookie is issued or user created. A request with no user has no name yet and
+  // has accepted no legal document.
   routes.get("/api/users/me", async (c) => {
     const me = await resolveMe(c, deps);
-    const response: MeResponse = { displayName: me?.displayName ?? null };
+    const legalDocumentAcceptances =
+      me === null ? [] : await loadPerUserLegalDocumentAcceptances(c.env.DB, me.id);
+    const response: MeResponse = {
+      displayName: me?.displayName ?? null,
+      missingLegalDocumentAcceptances: missingLegalDocumentAcceptances(legalDocumentAcceptances),
+    };
 
     return c.json(response);
+  });
+
+  // The body is checked before the user is looked up, so a refused request creates no user. Nothing
+  // here is turn-guarded, so a repeat is another row rather than a conflict.
+  routes.post("/api/users/me/legal-document-acceptances", async (c) => {
+    const { legalDocumentId, version } = await parseJsonBody(
+      c,
+      createLegalDocumentAcceptanceRequestSchema,
+    );
+    if (!isCurrentPerUserLegalDocument(legalDocumentId, version)) {
+      throw new ApiError("bad_request");
+    }
+
+    const me = await requireOrCreateMe(c, deps);
+    const legalDocumentAcceptanceId = newId();
+    await saveLegalDocumentAcceptance(c.env.DB, {
+      id: legalDocumentAcceptanceId,
+      userId: me.id,
+      legalDocumentId,
+      version,
+      storyId: null,
+      acceptedAt: deps.now(),
+    });
+    const response: CreateLegalDocumentAcceptanceResponse = { legalDocumentAcceptanceId };
+
+    c.header("Location", `/api/users/me/legal-document-acceptances/${legalDocumentAcceptanceId}`);
+
+    return c.json(response, 201);
   });
 
   // The client calls this after sign-in and again on every load while signed in, so an

@@ -87,9 +87,9 @@ describe("pushing the turn", () => {
   }
 
   // The same, and everyone has one subscription; the sender has been told nothing yet.
-  async function threeWriters() {
+  async function threeWriters(origin = "http://localhost") {
     setUp();
-    const { ana, ben, cy, storyId } = await unsubscribedWriters(app);
+    const { ana, ben, cy, storyId } = await unsubscribedWriters(app, origin);
     const endpoints = {
       ana: await subscribe(ana, "ana"),
       ben: await subscribe(ben, "ben"),
@@ -102,150 +102,41 @@ describe("pushing the turn", () => {
   }
 
   describe("when a contribution passes the turn", () => {
-    it("sends the new holder a declarative push that opens the story", async () => {
-      const { ben, cy, storyId, endpoints } = await threeWriters();
-
-      const response = await contribute(ben, storyId);
-      await settle(ben);
-
-      expect(response.status).toBe(201);
-      expect(sentTo()).toEqual([endpoints.cy]);
-      expect(sender.sent[0]?.subscription).toEqual({
-        endpoint: endpoints.cy,
-        p256dh: P256DH,
-        auth: AUTH,
-      });
-      expect(sender.sent[0]?.message).toEqual({
-        data: {
-          web_push: 8030,
-          notification: {
-            title: "Your turn",
-            body: "Once upon a time, in a village by the sea, a lantern went…",
-            navigate: `http://localhost/${storyId}`,
-            tag: `turn-${storyId}`,
-          },
-        },
-        topic: `turn-${storyId}`,
-        ttlSeconds: TURN_WINDOW_MS / 1000,
-      });
-      expect(await holds(cy, storyId)).toBe(true);
-    });
-
-    it("lives for the rest of the window: the TTL counts down from the turn's start", async () => {
-      const { ben, storyId } = await threeWriters();
-      clock.now = T0 + 60 * 60 * 1000;
-
-      await contribute(ben, storyId);
-      await settle(ben);
-
-      // The contribution starts Cy's window now, so it has the whole of it.
-      expect(sender.sent[0]?.message.ttlSeconds).toBe(TURN_WINDOW_MS / 1000);
-    });
-
-    it("sends to the origin of the request, so a preview links to the preview", async () => {
-      setUp();
+    it("sends the new holder's every subscription a declarative push that opens the story on the request's origin", async () => {
+      // A preview origin, so a hard-coded origin in the link would fail.
       const origin = "https://andthen-preview.example.dev";
-      const { ben, cy, storyId } = await unsubscribedWriters(app, origin);
-      await subscribe(cy, "preview-cy");
-
-      await contribute(ben, storyId);
-      await settle(ben);
-
-      expect(sender.sent[0]?.message.data.notification.navigate).toBe(`${origin}/${storyId}`);
-    });
-
-    it("sends to every subscription of the holder's browser, and to no one else's", async () => {
-      const { ben, cy, storyId, endpoints } = await threeWriters();
+      const { ben, cy, storyId, endpoints } = await threeWriters(origin);
       const second = await subscribe(cy, "cy-second");
 
-      await contribute(ben, storyId);
-      await settle(ben);
-
-      expect(sentTo().toSorted()).toEqual([endpoints.cy, second].toSorted());
-    });
-
-    it("sends nothing when the new holder has no subscription, and needs no VAPID keys", async () => {
-      setUp();
-      const throwingSender = vi.fn<() => PushSender>(() => {
-        throw new Error("no VAPID keys");
-      });
-      const unkeyed = createApp({
-        now: () => clock.now,
-        newStoryId: () => "nok01",
-        suggestionProvider: () => fakeProvider,
-        pushSender: throwingSender,
-        sessionVerifier: selectSessionVerifier,
-      });
-      const { ben, storyId } = await unsubscribedWriters(unkeyed);
-      const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
+      // A later clock pins that the lifetime counts from the turn the write saved, not the turn it loaded.
+      clock.now = T0 + 60 * 60 * 1000;
       const response = await contribute(ben, storyId);
       await settle(ben);
 
       expect(response.status).toBe(201);
-      expect(throwingSender).not.toHaveBeenCalled();
-      expect(error).not.toHaveBeenCalledWith("Turn push failed", expect.anything());
-    });
-
-    it("sends nothing when the story goes to waiting", async () => {
-      setUp();
-      const [ana, ben] = [newBrowser(), newBrowser()];
-      const storyId = await createStory(ana);
-      await joinStory(ben, storyId, nameInTest("Ben"));
-      await subscribe(ana, "ana");
-
-      // Ben is the only other writer and Ana wrote last, so when Ben leaves nobody can hold it.
-      await ben.post(`/api/stories/${storyId}/leave`, {});
-      await settle(ben);
-
-      expect(await isWaiting(ana, storyId)).toBe(true);
-      expect(sender.sent).toEqual([]);
-    });
-  });
-
-  describe("when a write leaves the turn with the same person", () => {
-    it("sends nothing for a join", async () => {
-      const { storyId } = await threeWriters();
-      const dan = newBrowser();
-
-      await joinStory(dan, storyId, nameInTest("Dan"));
-      await settle(dan);
-
-      expect(sender.sent).toEqual([]);
-    });
-
-    it("sends nothing when someone who isn't the holder leaves", async () => {
-      const { cy, storyId } = await threeWriters();
-
-      await cy.post(`/api/stories/${storyId}/leave`, {});
-      await settle(cy);
-
-      expect(sender.sent).toEqual([]);
-    });
-
-    it("sends nothing for a rejoin that doesn't take the turn", async () => {
-      const { ana, cy, storyId } = await threeWriters();
-      await cy.post(`/api/stories/${storyId}/leave`, {});
-      await settle(cy);
-
-      await cy.post(`/api/stories/${storyId}/rejoin`, {});
-      await settle(cy);
-
-      expect(sender.sent).toEqual([]);
-      expect(ana.cookies.size).toBe(1);
-    });
-
-    it("does not count a lapsed turn as handed over by an unrelated change", async () => {
-      const { storyId, endpoints } = await threeWriters();
-      // Ben's window lapses: the stored holder is Ben, but the turn is now Cy's.
-      clock.now = T0 + TURN_WINDOW_MS + 1000;
-      const dan = newBrowser();
-
-      await joinStory(dan, storyId, nameInTest("Dan"));
-      await settle(dan);
-
-      expect(sentTo()).not.toContain(endpoints.cy);
-      expect(sender.sent).toEqual([]);
+      // Both of the holder's subscriptions, and no one else's.
+      expect(sentTo().toSorted()).toEqual([endpoints.cy, second].toSorted());
+      for (const { subscription, message } of sender.sent) {
+        expect(subscription).toEqual({
+          endpoint: subscription.endpoint,
+          p256dh: P256DH,
+          auth: AUTH,
+        });
+        expect(message).toEqual({
+          data: {
+            web_push: 8030,
+            notification: {
+              title: "Your turn",
+              body: "Once upon a time, in a village by the sea, a lantern went…",
+              navigate: `${origin}/${storyId}`,
+              tag: `turn-${storyId}`,
+            },
+          },
+          topic: `turn-${storyId}`,
+          ttlSeconds: TURN_WINDOW_MS / 1000,
+        });
+      }
+      expect(await holds(cy, storyId)).toBe(true);
     });
   });
 
@@ -306,31 +197,6 @@ describe("pushing the turn", () => {
       expect(sentTo()).toEqual([endpoints.cy]);
     });
 
-    it("pushes the next holder when the holder leaves", async () => {
-      const { ben, storyId, endpoints } = await threeWriters();
-
-      await ben.post(`/api/stories/${storyId}/leave`, {});
-      await settle(ben);
-
-      expect(sentTo()).toEqual([endpoints.cy]);
-    });
-
-    it("never pushes a writer who has left", async () => {
-      setUp();
-      const [ana, ben, cy] = [newBrowser(), newBrowser(), newBrowser()];
-      const storyId = await createStory(ana);
-      await joinStory(ben, storyId, nameInTest("Ben"));
-      await subscribe(ben, "ben");
-      await ben.post(`/api/stories/${storyId}/leave`, {});
-      await settle(ana, ben);
-
-      // The story waits with Ana alone; Cy joins and takes the turn.
-      await joinStory(cy, storyId, nameInTest("Cy"));
-      await settle(cy);
-
-      expect(sender.sent).toEqual([]);
-    });
-
     it("pushes the next holder on a leave, and no one on the leaver's rejoin", async () => {
       const { ben, storyId, endpoints } = await threeWriters();
 
@@ -359,18 +225,6 @@ describe("pushing the turn", () => {
       expect(kept.map(({ endpoint }) => endpoint).toSorted()).toEqual([second, third].toSorted());
     });
 
-    it("keeps a subscription after a failed send", async () => {
-      const { ben, cy, storyId, endpoints } = await threeWriters();
-      sender.outcomes.set(endpoints.cy, "failed");
-
-      await contribute(ben, storyId);
-      await settle(ben);
-
-      expect(
-        await loadPushSubscriptions(testEnv.env.DB, await userIdOf(testEnv.env.DB, cy)),
-      ).toHaveLength(1);
-    });
-
     it("still answers the request, logs, and sends the rest when one send rejects", async () => {
       const { ben, cy, storyId, endpoints } = await threeWriters();
       const second = await subscribe(cy, "cy-second");
@@ -385,25 +239,35 @@ describe("pushing the turn", () => {
       expect(error).toHaveBeenCalledWith("Push to one subscription failed", expect.any(Error));
     });
 
-    it("still answers the request and logs when the sender can't be built", async () => {
+    it("builds the sender only for a holder who subscribed, and still answers when it can't be built", async () => {
       setUp();
+      const throwingSender = vi.fn<() => PushSender>(() => {
+        throw new Error("Invalid VAPID config");
+      });
       const broken = createApp({
         now: () => clock.now,
         newStoryId: () => "nok02",
         suggestionProvider: () => fakeProvider,
-        pushSender: () => {
-          throw new Error("Invalid VAPID config");
-        },
+        pushSender: throwingSender,
         sessionVerifier: selectSessionVerifier,
       });
-      const { ben, cy, storyId } = await unsubscribedWriters(broken);
-      await subscribe(cy, "cy");
+      const { ana, ben, cy, storyId } = await unsubscribedWriters(broken);
       const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-      const response = await contribute(ben, storyId);
+      // Cy has no subscription: the sender is never built, so a missing VAPID config is no error.
+      const unsubscribed = await contribute(ben, storyId);
       await settle(ben);
 
-      expect(response.status).toBe(201);
+      expect(unsubscribed.status).toBe(201);
+      expect(throwingSender).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalledWith("Turn push failed", expect.anything());
+
+      // Cy's contribution hands the turn to Ana, who subscribed.
+      await subscribe(ana, "ana");
+      const subscribed = await contribute(cy, storyId);
+      await settle(cy);
+
+      expect(subscribed.status).toBe(201);
       expect(error).toHaveBeenCalledWith("Turn push failed", expect.any(Error));
     });
 

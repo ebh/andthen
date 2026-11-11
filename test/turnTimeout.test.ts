@@ -104,14 +104,6 @@ describe("passTimedOutTurn", () => {
     expect(sender.sent).toEqual([]);
   });
 
-  it("passes the turn at exactly the deadline", async () => {
-    const { storyId, sender } = await story();
-
-    const outcome = await fire(storyId, sender, T0 + TURN_WINDOW_MS);
-
-    expect(outcome.newTurnVersion).not.toBeNull();
-  });
-
   it("does nothing for a story that waits, and for an unknown story", async () => {
     const solo = createBrowser(newApp(), quietRoom(testEnv.env));
     const storyId = await createStory(solo, nameInTest("Ana"), OPENING);

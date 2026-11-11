@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isLegalDocumentId } from "./legalDocuments";
 import { MY_STORIES_DEFAULT_LIMIT, MY_STORIES_MAX_LIMIT, normaliseStoryId } from "./validation";
 
 // Request bodies carry plain strings: routes run validatePassage and validateDisplayName, so the
@@ -92,8 +93,39 @@ export const storyViewSchema = z.object({
 });
 export type StoryView = z.infer<typeof storyViewSchema>;
 
-/** The requesting user, as `GET /api/users/me` reports them. `displayName` is null until they have one. */
-export const meResponseSchema = z.object({ displayName: z.string().nullable() });
+// The ID is a plain string in a response: a Worker that registers a new legal document must not
+// make an older client reject the whole response.
+const legalDocumentVersionSchema = z.object({
+  legalDocumentId: z.string(),
+  version: z.number().int().positive(),
+});
+
+/** The legal document acceptance a user gives: this version of this legal document. */
+export const createLegalDocumentAcceptanceRequestSchema = z.strictObject({
+  legalDocumentId: z.string().refine(isLegalDocumentId),
+  version: z.number().int().positive(),
+});
+export type CreateLegalDocumentAcceptanceRequest = z.infer<
+  typeof createLegalDocumentAcceptanceRequestSchema
+>;
+
+export const createLegalDocumentAcceptanceResponseSchema = z.object({
+  legalDocumentAcceptanceId: idSchema,
+});
+export type CreateLegalDocumentAcceptanceResponse = z.infer<
+  typeof createLegalDocumentAcceptanceResponseSchema
+>;
+
+/**
+ * The requesting user, as `GET /api/users/me` reports them. `displayName` is null until they have
+ * one. `missingLegalDocumentAcceptances` lists the legal document versions they still have to
+ * accept. The Worker always sends it, but the schema leaves it optional so that a level-3 response
+ * from before it existed still parses (`docs/api.md`, "Versioning").
+ */
+export const meResponseSchema = z.object({
+  displayName: z.string().nullable(),
+  missingLegalDocumentAcceptances: z.array(legalDocumentVersionSchema).optional(),
+});
 export type MeResponse = z.infer<typeof meResponseSchema>;
 
 /**

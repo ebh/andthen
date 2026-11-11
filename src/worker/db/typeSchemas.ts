@@ -14,6 +14,7 @@ import {
   tableSqlRowSchema,
 } from "./rows";
 import {
+  legalDocumentAcceptancesTableSchema,
   participantsTableSchema,
   passagesTableSchema,
   pushSubscriptionsTableSchema,
@@ -139,6 +140,16 @@ const newPushSubscriptionSchema = pushSubscriptionsTableSchema.pick({
   createdAt: true,
 });
 export type NewPushSubscription = z.infer<typeof newPushSubscriptionSchema>;
+
+const newLegalDocumentAcceptanceSchema = legalDocumentAcceptancesTableSchema.pick({
+  id: true,
+  userId: true,
+  legalDocumentId: true,
+  version: true,
+  storyId: true,
+  acceptedAt: true,
+});
+export type NewLegalDocumentAcceptance = z.infer<typeof newLegalDocumentAcceptanceSchema>;
 
 const suggestionReservationSchema = suggestionRequestsTableSchema
   .pick({ id: true, participantId: true })

@@ -19,5 +19,9 @@
       "p256dh": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
       "auth": "aaaaaaaaaaaaaaaaaaaaaa"
     }
+  },
+  "createLegalDocumentAcceptance": {
+    "legalDocumentId": "terms-of-service",
+    "version": 1
   }
 }

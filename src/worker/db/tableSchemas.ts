@@ -127,6 +127,28 @@ export const pushSubscriptionsTableSchema = z
       "A browser's Web Push subscription, one per push service endpoint. It belongs to a user, not a story, and covers every story the user is in.",
   });
 
+export const legalDocumentAcceptancesTableSchema = z
+  .object({
+    id: idSchema.meta({ description: "Opaque ID of the legal document acceptance." }),
+    userId: idSchema.meta({ description: "The user who accepted the legal document." }),
+    legalDocumentId: z.string().meta({
+      description:
+        "ID of the legal document, as in LEGAL_DOCUMENTS: terms-of-service or copyright-terms/<copyright model>.",
+    }),
+    version: countSchema.meta({
+      description: "The version of the legal document that was accepted.",
+    }),
+    storyId: storyIdSchema.nullable().meta({
+      description:
+        "The story a per-story legal document was accepted for; null for one accepted per user.",
+    }),
+    acceptedAt: countSchema.meta({ description: "When the user accepted it, in epoch ms." }),
+  })
+  .meta({
+    description:
+      "One row per legal document acceptance: a user's recorded yes to one version of one legal document. Append-only, so a new version means a new row and old rows stay as the record of what each user agreed to. user_id changes only when two users merge.",
+  });
+
 /** Every table schema, under its SQL table name. */
 export const TABLE_SCHEMAS = {
   stories: storiesTableSchema,
@@ -135,4 +157,5 @@ export const TABLE_SCHEMAS = {
   suggestion_requests: suggestionRequestsTableSchema,
   users: usersTableSchema,
   push_subscriptions: pushSubscriptionsTableSchema,
+  legal_document_acceptances: legalDocumentAcceptancesTableSchema,
 };

@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
+  createLegalDocumentAcceptanceRequestSchema,
+  createLegalDocumentAcceptanceResponseSchema,
   createPassageRequestSchema,
   createPassageResponseSchema,
   createStoryRequestSchema,
@@ -33,14 +35,17 @@ const responseSchemas = {
   join: joinResponseSchema,
   createPassage: createPassageResponseSchema,
   me: meResponseSchema,
+  meWithMissingLegalDocumentAcceptances: meResponseSchema,
+  createLegalDocumentAcceptance: createLegalDocumentAcceptanceResponseSchema,
   storyView: storyViewSchema,
   myStories: myStoriesResponseSchema,
   suggestions: suggestionsResponseSchema,
   liveMessage: liveMessageSchema,
 };
 
-// emptyRequestSchema is the only strict schema, so a new field in a request would reject an old
-// client; the other request schemas are tested for what a client of the level still sends.
+// emptyRequestSchema and createLegalDocumentAcceptanceRequestSchema are strict, so a new field in
+// their requests would reject an old client; the other request schemas are tested for what a
+// client of the level still sends.
 const requestSchemas = {
   createStory: createStoryRequestSchema,
   join: joinRequestSchema,
@@ -48,6 +53,7 @@ const requestSchemas = {
   skip: skipRequestSchema,
   pushSubscription: pushSubscriptionSchema,
   empty: emptyRequestSchema,
+  createLegalDocumentAcceptance: createLegalDocumentAcceptanceRequestSchema,
 };
 
 const responseFixtures = readFixture(3, "responses", z.record(z.string(), z.unknown()));

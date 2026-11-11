@@ -2,7 +2,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { canSkipTurn } from "../src/client/storyRules";
-import { meResponseSchema, myStoriesResponseSchema } from "../src/shared/api";
+import {
+  createLegalDocumentAcceptanceResponseSchema,
+  meResponseSchema,
+  myStoriesResponseSchema,
+} from "../src/shared/api";
 import { loadPushSubscriptions } from "../src/worker/db/pushRepo";
 import { findUserByClerkUserId } from "../src/worker/db/userRepo";
 import {
@@ -25,6 +29,8 @@ import { userIdOf } from "./support/users";
 
 const ORIGIN = "http://localhost";
 const PATH = "/api/users/me/account";
+const ACCEPTANCES_PATH = "/api/users/me/legal-document-acceptances";
+const TERMS_OF_SERVICE_V1 = { legalDocumentId: "terms-of-service", version: 1 };
 const P256DH = "B".repeat(87);
 const AUTH = "a".repeat(22);
 
@@ -87,6 +93,27 @@ describe("PUT /api/users/me/account", () => {
     return z.array(rowSchema).parse(result.results);
   }
 
+  async function acceptanceRows() {
+    const result = await testEnv.env.DB.prepare(
+      `SELECT id, user_id AS userId, legal_document_id AS legalDocumentId, version,
+         story_id AS storyId, accepted_at AS acceptedAt
+       FROM legal_document_acceptances ORDER BY id`,
+    ).all();
+
+    return z
+      .array(
+        z.object({
+          id: z.string(),
+          userId: z.string(),
+          legalDocumentId: z.string(),
+          version: z.number(),
+          storyId: z.string().nullable(),
+          acceptedAt: z.number(),
+        }),
+      )
+      .parse(result.results);
+  }
+
   async function pushEndpoints(): Promise<string[]> {
     const result = await testEnv.env.DB.prepare("SELECT endpoint FROM push_subscriptions").all();
 
@@ -112,8 +139,14 @@ describe("PUT /api/users/me/account", () => {
       const before = await phone.get("/api/users/me");
       const signedInBefore = await signedIn.get("/api/users/me");
 
-      expect(meResponseSchema.parse(await before.json())).toEqual({ displayName: null });
-      expect(meResponseSchema.parse(await signedInBefore.json())).toEqual({ displayName: null });
+      expect(meResponseSchema.parse(await before.json())).toEqual({
+        displayName: null,
+        missingLegalDocumentAcceptances: [TERMS_OF_SERVICE_V1],
+      });
+      expect(meResponseSchema.parse(await signedInBefore.json())).toEqual({
+        displayName: null,
+        missingLegalDocumentAcceptances: [TERMS_OF_SERVICE_V1],
+      });
       expect([before.headers.getSetCookie(), signedInBefore.headers.getSetCookie()]).toEqual([
         [],
         [],
@@ -126,7 +159,70 @@ describe("PUT /api/users/me/account", () => {
 
       expect(meResponseSchema.parse(await after.json())).toEqual({
         displayName: nameInTest("Ana on phone"),
+        missingLegalDocumentAcceptances: [TERMS_OF_SERVICE_V1],
       });
+    });
+  });
+
+  describe("POST /api/users/me/legal-document-acceptances", () => {
+    it("records the legal document acceptance for a new browser and stops listing it as missing", async () => {
+      setUp();
+      const phone = anonymous();
+
+      const response = await phone.post(ACCEPTANCES_PATH, TERMS_OF_SERVICE_V1);
+
+      expect(response.status).toBe(201);
+      const { legalDocumentAcceptanceId } = createLegalDocumentAcceptanceResponseSchema.parse(
+        await response.json(),
+      );
+      expect(response.headers.get("Location")).toBe(
+        `${ACCEPTANCES_PATH}/${legalDocumentAcceptanceId}`,
+      );
+      expect(response.headers.getSetCookie()).toHaveLength(1);
+      expect(await acceptanceRows()).toEqual([
+        {
+          id: legalDocumentAcceptanceId,
+          userId: await userIdOf(testEnv.env.DB, phone),
+          legalDocumentId: "terms-of-service",
+          version: 1,
+          storyId: null,
+          acceptedAt: clock.now,
+        },
+      ]);
+      const me = meResponseSchema.parse(await (await phone.get("/api/users/me")).json());
+      expect(me.missingLegalDocumentAcceptances).toEqual([]);
+    });
+
+    it("records it for the account user of a signed-in request", async () => {
+      setUp();
+      const laptop = await account("user_accepts_terms");
+
+      const response = await laptop.post(ACCEPTANCES_PATH, TERMS_OF_SERVICE_V1);
+
+      expect(response.status).toBe(201);
+      const accountUser = await findUserByClerkUserId(testEnv.env.DB, "user_accepts_terms");
+      expect((await acceptanceRows()).map(({ userId }) => userId)).toContain(accountUser?.id);
+    });
+
+    it("refuses a version that is not the current one, or a field it does not know, and creates no user", async () => {
+      setUp();
+      const phone = anonymous();
+      const users = await count("users");
+      const acceptances = (await acceptanceRows()).length;
+
+      const stale = await phone.post(ACCEPTANCES_PATH, { ...TERMS_OF_SERVICE_V1, version: 2 });
+      const extra = await phone.post(ACCEPTANCES_PATH, {
+        ...TERMS_OF_SERVICE_V1,
+        storyId: "abc12",
+      });
+
+      expect([await readError(stale), await readError(extra)]).toEqual([
+        "bad_request",
+        "bad_request",
+      ]);
+      expect([stale.status, extra.status]).toEqual([400, 400]);
+      expect(await count("users")).toBe(users);
+      expect(await acceptanceRows()).toHaveLength(acceptances);
     });
   });
 
@@ -230,6 +326,25 @@ describe("PUT /api/users/me/account", () => {
       ]);
       expect(phoneView.participants.map(({ userId }) => userId)).toEqual([accountUser?.id]);
       await createStory(anonymous(), nameInTest("Ana on phone"));
+    });
+
+    it("carries the device user's legal document acceptances to the account user, so the account is not asked again", async () => {
+      setUp();
+      const laptop = await account("user_merge_terms");
+      await createStory(laptop, nameInTest("Ana"));
+      const phone = anonymous();
+      await phone.post(ACCEPTANCES_PATH, TERMS_OF_SERVICE_V1);
+      const deviceUserId = await userIdOf(testEnv.env.DB, phone);
+
+      const response = await signIn(phone, "user_merge_terms");
+
+      expect(response.status).toBe(204);
+      const accountUser = await findUserByClerkUserId(testEnv.env.DB, "user_merge_terms");
+      const rows = await acceptanceRows();
+      expect(rows.filter(({ userId }) => userId === accountUser?.id)).toHaveLength(1);
+      expect(rows.some(({ userId }) => userId === deviceUserId)).toBe(false);
+      const me = meResponseSchema.parse(await (await laptop.get("/api/users/me")).json());
+      expect(me.missingLegalDocumentAcceptances).toEqual([]);
     });
 
     it("merges when another request claims the account while this one attaches it", async () => {

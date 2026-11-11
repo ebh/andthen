@@ -21,3 +21,24 @@ export interface SuggestionProvider {
    */
   suggest: (storyText: string, signal?: AbortSignal) => Promise<SuggestionResult>;
 }
+
+/**
+ * Only an outage refunds: bad output and a timeout may already have been billed. Whoever adds a
+ * failure kind must decide here whether it refunds.
+ */
+export function failureRefundsQuotaSlot(failure: SuggestionFailure): boolean {
+  return failure === "model_error";
+}
+
+/** A provider that throws breaks its contract; the quota slot still gets settled. */
+export async function askProvider(
+  provider: SuggestionProvider,
+  storyText: string,
+): Promise<SuggestionResult> {
+  try {
+    return await provider.suggest(storyText);
+  } catch (error) {
+    console.error("Suggestion provider threw", error);
+    return { ok: false, failure: "model_error" };
+  }
+}

@@ -52,7 +52,7 @@ Local data lives in `.wrangler/state`; delete that folder to start clean. Copy `
 | `pnpm typecheck`        | `tsc -b` over the app, Worker, tests, e2e and tooling.                                    |
 | `pnpm test`             | Vitest: unit tests, component tests and Miniflare-backed integration tests.               |
 | `pnpm e2e`              | Playwright in Chromium against a fresh build and database. Needs `pnpm e2e:install` once. |
-| `pnpm stryker`          | Mutation tests over `src/shared`, `src/worker` and `src/client`.                          |
+| `pnpm stryker`          | Mutation tests over `src/shared`, `src/worker`, `src/client` and `src/ui`.                |
 | `pnpm db:docs`          | Regenerate `docs/database.md` from the migrations and the table schemas.                  |
 | `pnpm cf-typegen`       | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc`.                             |
 

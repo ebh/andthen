@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        area: [shared, worker, client]
+        area: [shared, worker, client, ui]
     env:
       STRYKER_AREA: ${{ matrix.area }}
     steps:

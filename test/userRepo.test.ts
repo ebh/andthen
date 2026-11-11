@@ -113,10 +113,7 @@ describe("userRepo", () => {
       expect(await loadPerUserLegalDocumentAcceptances(db, "m4-device")).toHaveLength(1);
       expect((await findUserByDisplayNameKey(db, "quin"))?.id).toBe("m4-device");
 
-      const fresh = await findUserByBrowserTokenHash(db, "hash-of-m4-device");
-      if (fresh === null) {
-        throw new Error("device user missing");
-      }
+      const fresh = await userOf(db, "m4-device");
       expect(await mergeUserInto(db, fresh, "m4-account")).toBe(true);
       expect(await authorsOf(db, "m4d01")).toEqual(["m4-account"]);
       expect(await loadPerUserLegalDocumentAcceptances(db, "m4-device")).toEqual([]);
@@ -236,25 +233,6 @@ describe("userRepo", () => {
   });
 });
 
-async function insertedUser(db: Env["DB"], id: string): Promise<UserRow> {
-  await insertUser(db, id);
-  const user = await findUserByBrowserTokenHash(db, `hash-of-${id}`);
-  if (user === null) {
-    throw new Error(`User ${id} missing`);
-  }
-
-  return user;
-}
-
-async function blocksOf(db: Env["DB"], id: string): Promise<unknown[]> {
-  const result = await db
-    .prepare("SELECT user_id AS userId, blocked_user_id AS blockedUserId FROM blocks WHERE id = ?")
-    .bind(id)
-    .all();
-
-  return result.results;
-}
-
 // A user who starts a story gets the name and writes the opening passage.
 async function userWhoStarted(
   db: Env["DB"],
@@ -271,12 +249,8 @@ async function userWhoStarted(
     displayName: name === null ? null : { displayName: name, displayNameKey: name.toLowerCase() },
     opening: { id: `o-${id}`, text: "Once." },
   });
-  const user = await findUserByBrowserTokenHash(db, `hash-of-${id}`);
-  if (user === null) {
-    throw new Error("user missing");
-  }
 
-  return user;
+  return userOf(db, id);
 }
 
 async function authorsOf(db: Env["DB"], storyId: string): Promise<string[]> {
@@ -289,4 +263,28 @@ async function authorsOf(db: Env["DB"], storyId: string): Promise<string[]> {
     .array(z.object({ authorId: z.string() }))
     .parse(result.results)
     .map((row) => row.authorId);
+}
+
+async function insertedUser(db: Env["DB"], id: string): Promise<UserRow> {
+  await insertUser(db, id);
+
+  return userOf(db, id);
+}
+
+async function userOf(db: Env["DB"], id: string): Promise<UserRow> {
+  const user = await findUserByBrowserTokenHash(db, `hash-of-${id}`);
+  if (user === null) {
+    throw new Error(`User ${id} missing`);
+  }
+
+  return user;
+}
+
+async function blocksOf(db: Env["DB"], id: string): Promise<unknown[]> {
+  const result = await db
+    .prepare("SELECT user_id AS userId, blocked_user_id AS blockedUserId FROM blocks WHERE id = ?")
+    .bind(id)
+    .all();
+
+  return result.results;
 }

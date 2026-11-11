@@ -1,5 +1,18 @@
 import type { StoryView } from "../shared/api";
+import { canBlock } from "../shared/blocks";
 import { canSkip, onLeave, type TurnState } from "../shared/turnOrder";
+
+/** What an author's menu offers about blocking them. */
+export type BlockOffer =
+  | { type: "none" }
+  | { type: "block"; label: string }
+  | { type: "unblock"; label: string };
+
+/** What leaving does to the turn. `unchanged` unless the one leaving holds it. */
+export type TurnAfterLeaving =
+  | { type: "unchanged" }
+  | { type: "passes_to"; displayName: string }
+  | { type: "waits" };
 
 /** The participant whose turn it is, or null while the story waits for a joiner. */
 export function turnHolder(view: StoryView): StoryView["participants"][number] | null {
@@ -43,12 +56,6 @@ export function skipLabel(skipping: boolean, holderName: string | null): string 
   return skipping ? "Skipping…" : `Skip ${holderName ?? "this turn"}`;
 }
 
-/** What leaving does to the turn. `unchanged` unless the one leaving holds it. */
-export type TurnAfterLeaving =
-  | { type: "unchanged" }
-  | { type: "passes_to"; displayName: string }
-  | { type: "waits" };
-
 /**
  * What would happen to the turn if the viewer left, as the shared `onLeave` rule decides it. The
  * participants arrive in turn order, so their indexes stand in for the stored positions.
@@ -70,6 +77,39 @@ export function turnAfterLeaving(view: StoryView): TurnAfterLeaving {
   }
 
   return { type: "passes_to", displayName: next.displayName };
+}
+
+/**
+ * The user ID of the viewer, who is a participant of the view. A passage names its author by user,
+ * so this is what tells the viewer's own passages from the rest.
+ */
+export function myUserId(view: Pick<StoryView, "me" | "participants">): string {
+  const myParticipant = view.participants.find(({ id }) => id === view.me);
+  if (myParticipant === undefined) {
+    throw new Error(`No participant for ${view.me}`);
+  }
+
+  return myParticipant.userId;
+}
+
+/**
+ * The block action an author's menu offers the user. The user never blocks their own name, and a
+ * non-null `blockId` means they already block that author, so the offer lifts it.
+ */
+export function blockOffer(author: {
+  authorId: string;
+  authorName: string;
+  myUserId: string;
+  blockId: string | null;
+}): BlockOffer {
+  if (!canBlock(author.myUserId, author.authorId)) {
+    return { type: "none" };
+  }
+  if (author.blockId !== null) {
+    return { type: "unblock", label: `Unblock ${author.authorName}` };
+  }
+
+  return { type: "block", label: `Block ${author.authorName}` };
 }
 
 // The view's turn as the shared rules take it. Only the order matters to them, so the clock is 0.

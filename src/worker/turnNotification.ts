@@ -2,8 +2,11 @@ import type { PushMessage } from "./push";
 
 export interface TurnNotificationInput {
   storyId: string;
-  /** The story's first passage in full; the notification quotes its start. */
-  opening: string;
+  /**
+   * The story's first passage in full; the notification quotes its start. Null when the person
+   * notified has blocked its author: the notification then quotes nothing.
+   */
+  opening: string | null;
   /** The app's origin, such as `https://app.andthen.page`, so the tap opens the story. */
   origin: string;
   now: number;
@@ -33,7 +36,7 @@ export function turnNotification(input: TurnNotificationInput): PushMessage {
       web_push: 8030,
       notification: {
         title: "Your turn",
-        body: excerpt(opening),
+        body: opening === null ? "" : excerpt(opening),
         navigate: `${origin}/${storyId}`,
         tag: topic,
       },

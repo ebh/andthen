@@ -6,6 +6,7 @@ import { withPageAppended } from "./withPageAppended";
 const story = (id: string): StorySummary => ({
   id,
   opening: "The lighthouse keeper found a letter.",
+  openingAuthorId: "u1",
   holderName: null,
   isMyTurn: false,
   endsAt: null,

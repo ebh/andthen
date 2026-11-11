@@ -1,7 +1,8 @@
 import { resolveTurn, turnEndsAt, turnPassedTo, type TurnState } from "../shared/turnOrder";
+import { blocksUser } from "./db/blockRepo";
 import { deletePushSubscriptionByEndpoint, loadPushSubscriptions } from "./db/pushRepo";
 import type { ParticipantRow, PushSubscriptionRow } from "./db/rows";
-import { loadOpeningText, type Db } from "./db/storyRepo";
+import { loadOpening, type Db } from "./db/storyRepo";
 import type { LoadedStory } from "./db/typeSchemas";
 import type { AppContext } from "./http";
 import type { PushMessage, PushSender } from "./push";
@@ -112,7 +113,7 @@ export async function pushToHolder(
     const sender = buildSender();
     const message = turnNotification({
       storyId,
-      opening: await loadOpeningText(db, storyId),
+      opening: await quotableOpening(db, storyId, holder.userId),
       origin,
       now,
       turnEndsAt: endsAt,
@@ -123,6 +124,18 @@ export async function pushToHolder(
   } catch (error) {
     console.error("Turn push failed", error);
   }
+}
+
+// A notification shows on the lock screen, where the holder can't choose to reveal anything, so it
+// must not quote an author the holder has blocked.
+async function quotableOpening(
+  db: Db,
+  storyId: string,
+  holderUserId: string,
+): Promise<string | null> {
+  const opening = await loadOpening(db, storyId);
+
+  return (await blocksUser(db, holderUserId, opening.authorId)) ? null : opening.text;
 }
 
 // One subscription's failure, even a failed delete, must not stop the holder's others.

@@ -1,7 +1,52 @@
 import { describe, expect, it } from "vitest";
 
-import { canSkipTurn, headline, skipLabel, turnAfterLeaving } from "./storyRules";
-import { ME, OTHER, THIRD, storyView } from "./testFixtures";
+import {
+  blockOffer,
+  canSkipTurn,
+  headline,
+  myUserId,
+  skipLabel,
+  turnAfterLeaving,
+} from "./storyRules";
+import { ME, OTHER, THIRD, storyView, userIdOf } from "./testFixtures";
+
+describe("blockOffer", () => {
+  const ben = { authorId: "u2", authorName: "Ben", myUserId: "u1" };
+
+  it.each([
+    {
+      title: "offers Block on another author",
+      author: { ...ben, blockId: null },
+      offer: { type: "block", label: "Block Ben" },
+    },
+    {
+      title: "offers Unblock on an author the user blocks",
+      author: { ...ben, blockId: "b1" },
+      offer: { type: "unblock", label: "Unblock Ben" },
+    },
+    {
+      title: "offers nothing on the user's own name",
+      author: { ...ben, authorId: "u1", authorName: "Ana", blockId: null },
+      offer: { type: "none" },
+    },
+  ])("$title", ({ author, offer }) => {
+    expect(blockOffer(author)).toEqual(offer);
+  });
+});
+
+describe("myUserId", () => {
+  it("is the user behind the participant the view is for", () => {
+    const view = storyView({ participants: [OTHER, ME], holderId: ME, lastWriterId: OTHER });
+
+    expect(myUserId(view)).toBe(userIdOf(ME));
+  });
+
+  it("throws when the view lacks the participant it is for", () => {
+    const view = storyView({ participants: [OTHER], holderId: OTHER, lastWriterId: OTHER });
+
+    expect(() => myUserId(view)).toThrow("No participant for");
+  });
+});
 
 describe("canSkipTurn", () => {
   it("is true for a non-holder when a third person can take the turn", () => {

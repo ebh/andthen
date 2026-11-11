@@ -3,10 +3,11 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OPENING_HIDDEN_LABEL } from "../client/blockMessages";
 import { ME, OTHER, jsonResponse, noContentResponse, storyView } from "../client/testFixtures";
 import { params } from "./routerStub";
 import { Story } from "./Story";
-import { inTheme, renderPage } from "./testRender";
+import { fakeBlocks, inTheme, renderPage } from "./testRender";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
 
@@ -23,7 +24,12 @@ afterEach(() => {
 
 const view = storyView({ participants: [ME, OTHER], holderId: OTHER, lastWriterId: ME });
 const NOT_PARTICIPANT = { error: "not_participant" };
-const LEFT_STORY = { error: "left_story", displayName: "Ana", opening: "The bell rang once." };
+const LEFT_STORY = {
+  error: "left_story",
+  displayName: "Ana",
+  opening: "The bell rang once.",
+  openingAuthorId: "u2",
+};
 
 // Which screen a story's address shows is useStory's (nextLoad); what a join or rejoin result
 // means is joinOutcome's; the wording of a name failure is messages.test.ts's. These sessions
@@ -52,7 +58,7 @@ describe("Story", () => {
     await user.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByLabelText("Invite link")).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeEmptyDOMElement();
     expect(api.urls("story")).toEqual(["/api/stories/abc12", "/api/stories/abc12"]);
   });
 
@@ -201,6 +207,12 @@ describe("Story", () => {
     expect(screen.getByText("“The bell rang once.”")).toBeInTheDocument();
     expect(screen.getByText(/Rejoin as Ana\. You’ll take the last place/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← Your stories" })).toHaveAttribute("href", "/");
+
+    // A blocked opening author keeps the opening out of the page; blocks.test.ts has the variants.
+    const blocked = fakeBlocks({ blocked: [{ id: "b1", blockedUserId: "u2" }] });
+    rerender(inTheme(<Story />, blocked));
+    expect(screen.queryByText("“The bell rang once.”")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: OPENING_HIDDEN_LABEL })).toBeInTheDocument();
 
     // Held in flight: the button says so and can't be pressed again.
     await user.click(screen.getByRole("button", { name: "Rejoin as Ana" }));

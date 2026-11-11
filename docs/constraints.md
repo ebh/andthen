@@ -66,6 +66,15 @@ What the tools and platforms force on the code, each with the file that carries 
 - **The Metro plugin turns components into class names but never writes their CSS.** Only `tamagui build` does, so a plain `expo export` is unstyled. `pnpm build` wraps the export; see `docs/deployment.md`. `tamagui.build.ts` turns the compiler off in dev, so dev styles come from the `tamagui.generated.css` of the last build.
 - **`tamagui build` rewrites sources in place and restores them afterwards.** The restore was checked after normal and failing runs, not after a hard kill.
 - **The Tamagui docs are stale in two places.** `disableExtraction` is ignored by the Metro plugin, and the zero-runtime mode fails with "509 forbidden Tamagui module(s)".
+- **`Menu` comes from `tamagui`, like every other component.** It is re-exported there, so the app has no direct dependency on the package behind it.
+  - The parts are `Menu`, `Menu.Trigger` (with `asChild` on a `Button`), `Menu.Portal`, `Menu.Content`, `Menu.CheckboxItem` with `Menu.ItemIndicator`, `Menu.Item` and `Menu.ItemTitle`. It exposes `role="menu"`, `menuitem` and `menuitemcheckbox`, and the trigger gets `aria-haspopup="menu"`.
+  - It renders in jsdom under the component-test setup, and opens on a plain `user.click`.
+  - **The stock menu has no look of its own.** `Menu.Content` and the items draw nothing until given documented style props: a `background` fill and a `border-color` hairline on the content, and `bg="hover:highlight focus:highlight"` on each item. Without them the menu is invisible text over the page.
+  - **A pseudo state is a clause in the value string**, as in the v6 note below: `focusStyle` and `hoverStyle` are not props.
+  - **A disabled item shows `data-disabled`**, not the `disabled` attribute.
+- **Blur is the documented `filter` style prop** (`filter="blur(4px)"`, one of the typed presets). It works on web and needs no `expo-blur`. Native blur was not checked: the app is web-only, and `expo export` for web builds with it.
+- **The blur sits on a child, not on the pressable span.** A filter on the element blurs its own focus ring.
+- **`focusVisibleStyle` and `userSelect` are not accepted on `Text`.** The stand-in keeps the browser's own focus ring, which shows in both themes.
 - **In the v6 config, tokens take no `$` prefix and only shorthands are allowed.** Media conditions go inside value strings, and unitless numbers inside those strings are silently ignored.
 
 ## Clerk

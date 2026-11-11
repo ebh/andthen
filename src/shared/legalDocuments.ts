@@ -37,6 +37,7 @@ export const LEGAL_DOCUMENTS = {
       { version: 1, effectiveOn: "2026-11-09" },
       { version: 2, effectiveOn: "2026-11-17" },
       { version: 3, effectiveOn: "2026-11-18" },
+      { version: 4, effectiveOn: "2026-11-18" },
     ],
   },
   "copyright-terms/equal-shares": {

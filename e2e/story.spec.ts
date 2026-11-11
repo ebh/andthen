@@ -128,6 +128,7 @@ test("turns share a paragraph until a writer starts a new one, and authors highl
   await expect(storyText(ben)).toContainText("Morning came at last.");
   await ben.getByLabel("Show authors").check();
   await storyText(ben).getByRole("button", { name: names.ana }).first().click();
+  await ben.getByRole("menuitemcheckbox", { name: "Highlight passages" }).click();
   await expect(storyText(ben).locator("mark")).toHaveText("The bridge hummed at dusk.");
 });
 

@@ -149,6 +149,20 @@ export const legalDocumentAcceptancesTableSchema = z
       "One row per legal document acceptance: a user's recorded yes to one version of one legal document. Append-only, so a new version means a new row and old rows stay as the record of what each user agreed to. user_id changes only when two users merge.",
   });
 
+export const blocksTableSchema = z
+  .object({
+    id: idSchema.meta({ description: "Opaque ID of the block." }),
+    userId: idSchema.meta({ description: "The user who blocks." }),
+    blockedUserId: idSchema.meta({
+      description: "The user who is blocked; never the same user as the one who blocks.",
+    }),
+    createdAt: countSchema.meta({ description: "When the block was made, in epoch ms." }),
+  })
+  .meta({
+    description:
+      "One row per user blocked by another user, for every story the two share. A block hides the blocked user's passages from the user who blocks and from no one else. Deleting the row unblocks. A merge moves a user's blocks, in both directions, to the account user.",
+  });
+
 /** Every table schema, under its SQL table name. */
 export const TABLE_SCHEMAS = {
   stories: storiesTableSchema,
@@ -158,4 +172,5 @@ export const TABLE_SCHEMAS = {
   users: usersTableSchema,
   push_subscriptions: pushSubscriptionsTableSchema,
   legal_document_acceptances: legalDocumentAcceptancesTableSchema,
+  blocks: blocksTableSchema,
 };

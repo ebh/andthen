@@ -5,6 +5,7 @@ import { describeStatus } from "../client/format";
 import type { MoreStoriesStatus } from "../client/useMyStories";
 import { useNow } from "../client/useNow";
 import type { StorySummary } from "../shared/api";
+import { Opening } from "./Opening";
 
 interface MyStoriesProps {
   /** The stories to list, in the order to show them. */
@@ -44,7 +45,7 @@ export function MyStories({ stories, hasMore, moreStatus, onShowMore }: MyStorie
                   lineHeight={media.md ? "2xl" : "lg"}
                   numberOfLines={2}
                 >
-                  {story.opening}
+                  <Opening text={story.opening} authorId={story.openingAuthorId} />
                 </Paragraph>
                 <Paragraph
                   fontSize="sm"

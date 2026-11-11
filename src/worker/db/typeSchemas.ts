@@ -14,6 +14,7 @@ import {
   tableSqlRowSchema,
 } from "./rows";
 import {
+  blocksTableSchema,
   legalDocumentAcceptancesTableSchema,
   participantsTableSchema,
   passagesTableSchema,
@@ -140,6 +141,21 @@ const newPushSubscriptionSchema = pushSubscriptionsTableSchema.pick({
   createdAt: true,
 });
 export type NewPushSubscription = z.infer<typeof newPushSubscriptionSchema>;
+
+const newBlockSchema = blocksTableSchema.pick({
+  id: true,
+  userId: true,
+  blockedUserId: true,
+  createdAt: true,
+});
+export type NewBlock = z.infer<typeof newBlockSchema>;
+
+const createdBlockSchema = z.object({
+  /** The block's ID: the existing block's when the pair was already blocked. */
+  id: blocksTableSchema.shape.id,
+  created: z.boolean(),
+});
+export type CreatedBlock = z.infer<typeof createdBlockSchema>;
 
 const newLegalDocumentAcceptanceSchema = legalDocumentAcceptancesTableSchema.pick({
   id: true,

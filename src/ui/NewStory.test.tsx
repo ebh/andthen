@@ -3,13 +3,14 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OPENING_HIDDEN_LABEL } from "../client/blockMessages";
 import { setLeftStoryNote, takeLeftStoryNote } from "../client/leftStoryNote";
 import { jsonResponse } from "../client/testFixtures";
 import type { StorySummary } from "../shared/api";
 import { clerk, resetClerk } from "./clerkStub";
 import { NewStory } from "./NewStory";
 import { push } from "./routerStub";
-import { renderPage } from "./testRender";
+import { fakeBlocks, renderPage } from "./testRender";
 import { setScreen } from "./testScreen";
 
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
@@ -176,6 +177,7 @@ describe("NewStory", () => {
           summary({
             id: "bbbbb",
             opening: "Ben has it.",
+            openingAuthorId: "u2",
             holderName: "Ben",
             endsAt: Date.now() + HOUR_MS,
             writerCount: 3,
@@ -192,7 +194,7 @@ describe("NewStory", () => {
       jsonResponse(200, { stories: [], nextCursor: null }),
     );
     api.queue("me", jsonResponse(200, { displayName: "Ana" }));
-    renderPage(<NewStory />);
+    renderPage(<NewStory />, fakeBlocks({ blocked: [{ id: "b1", blockedUserId: "u2" }] }));
     const user = userEvent.setup();
 
     const region = await screen.findByRole("region", { name: "Your stories" });
@@ -202,6 +204,13 @@ describe("NewStory", () => {
     expect(links[0]).toHaveTextContent("Mine to write.");
     expect(links[0]).toHaveTextContent("Your turn · 1h 0m left");
     expect(links[1]).toHaveTextContent("Ben’s turn · 3 writers");
+    // Ben, whom the writer blocks, opened the second story: its opening is a stand-in, not text.
+    expect(links[1]).not.toHaveTextContent("Ben has it.");
+    expect(
+      within(links[1] ?? document.body).getByRole("img", {
+        name: OPENING_HIDDEN_LABEL,
+      }),
+    ).toBeInTheDocument();
     expect(links[2]).toHaveTextContent("Waiting for someone to join");
     expect(screen.queryByRole("heading", { name: PITCH })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Start a new story" })).toBeInTheDocument();
@@ -294,6 +303,7 @@ function summary(overrides: Partial<StorySummary>): StorySummary {
   return {
     id: "abc12",
     opening: "The lighthouse keeper found a letter.",
+    openingAuthorId: "u1",
     holderName: null,
     isMyTurn: false,
     endsAt: null,

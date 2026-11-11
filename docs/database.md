@@ -10,6 +10,12 @@
 
 ```mermaid
 erDiagram
+  blocks {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT blocked_user_id FK
+    INTEGER created_at
+  }
   legal_document_acceptances {
     TEXT id PK
     TEXT user_id FK
@@ -63,6 +69,8 @@ erDiagram
     TEXT display_name
     TEXT display_name_key UK
   }
+  blocks }o--|| users : "blocked_user_id"
+  blocks }o--|| users : "user_id"
   legal_document_acceptances }o--o| stories : "story_id"
   legal_document_acceptances }o--|| users : "user_id"
   participants }o--|| stories : "story_id"
@@ -72,6 +80,43 @@ erDiagram
   push_subscriptions }o--|| users : "user_id"
   suggestion_requests }o--|| participants : "participant_id"
 ```
+
+## blocks
+
+One row per user blocked by another user, for every story the two share. A block hides the blocked user's passages from the user who blocks and from no one else. Deleting the row unblocks. A merge moves a user's blocks, in both directions, to the account user.
+
+### Columns
+
+| Column            | Type    | Required | Default | Description                                                         |
+| ----------------- | ------- | -------- | ------- | ------------------------------------------------------------------- |
+| `id`              | TEXT    | yes      |         | Opaque ID of the block.                                             |
+| `user_id`         | TEXT    | yes      |         | The user who blocks.                                                |
+| `blocked_user_id` | TEXT    | yes      |         | The user who is blocked; never the same user as the one who blocks. |
+| `created_at`      | INTEGER | yes      |         | When the block was made, in epoch ms.                               |
+
+### Indexes
+
+| Name                        | Kind              | Columns                  | Condition |
+| --------------------------- | ----------------- | ------------------------ | --------- |
+| `blocks_by_blocked_user_id` | index             | blocked_user_id          |           |
+| `sqlite_autoindex_blocks_1` | primary key       | id                       |           |
+| `sqlite_autoindex_blocks_2` | unique constraint | user_id, blocked_user_id |           |
+
+<details>
+<summary>CREATE TABLE statement</summary>
+
+```sql
+CREATE TABLE blocks (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id),
+  blocked_user_id TEXT NOT NULL REFERENCES users (id),
+  created_at INTEGER NOT NULL,
+  UNIQUE (user_id, blocked_user_id),
+  CHECK (user_id <> blocked_user_id)
+)
+```
+
+</details>
 
 ## legal_document_acceptances
 

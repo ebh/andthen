@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { STALE_TURN_RETRY_DELAY_MS, onDeviceUserAdded, addDeviceUserToAccount } from "./account";
+import {
+  STALE_TURN_RETRY_DELAY_MS,
+  addDeviceUserToAccount,
+  announceSignedOut,
+  onDeviceUserAdded,
+  onSignedOut,
+} from "./account";
 import { jsonResponse, noContentResponse } from "./testFixtures";
 
 function stubFetch(...responses: Response[]) {
@@ -114,5 +120,22 @@ describe("addDeviceUserToAccount", () => {
     await addDeviceUserToAccount();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("announceSignedOut", () => {
+  it("tells every listener, and stops telling one that unsubscribed", () => {
+    const first = vi.fn<() => void>();
+    const second = vi.fn<() => void>();
+    const stopFirst = onSignedOut(first);
+    const stopSecond = onSignedOut(second);
+
+    announceSignedOut();
+    stopFirst();
+    announceSignedOut();
+    stopSecond();
+
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).toHaveBeenCalledTimes(2);
   });
 });

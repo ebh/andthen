@@ -28,6 +28,7 @@ describe("GET /api/health", () => {
     ).all();
 
     expect(tables.results).toEqual([
+      { name: "blocks" },
       { name: "legal_document_acceptances" },
       { name: "participants" },
       { name: "passages" },

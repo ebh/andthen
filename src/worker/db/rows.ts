@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  blocksTableSchema,
   legalDocumentAcceptancesTableSchema,
   participantsTableSchema,
   passagesTableSchema,
@@ -60,11 +61,14 @@ export type StoryWriterRow = z.infer<typeof storyWriterRowSchema>;
 /** A story's first passage and when its newest passage was written. */
 export const storyPassageRowSchema = passagesTableSchema.pick({ storyId: true }).extend({
   opening: passagesTableSchema.shape.text,
+  openingAuthorId: passagesTableSchema.shape.authorId,
   latestAt: passagesTableSchema.shape.createdAt,
 });
 export type StoryPassageRow = z.infer<typeof storyPassageRowSchema>;
 
-export const openingRowSchema = passagesTableSchema.pick({ text: true });
+/** A story's first passage and who wrote it. */
+export const openingRowSchema = passagesTableSchema.pick({ authorId: true, text: true });
+export type OpeningRow = z.infer<typeof openingRowSchema>;
 
 export const participantStoryIdRowSchema = participantsTableSchema.pick({ storyId: true });
 
@@ -74,6 +78,10 @@ export const userRowSchema = usersTableSchema.pick({
   displayNameKey: true,
 });
 export type UserRow = z.infer<typeof userRowSchema>;
+
+/** One block a user holds, as the list of their blocks shows it. */
+export const blockRowSchema = blocksTableSchema.pick({ id: true, blockedUserId: true });
+export type BlockRow = z.infer<typeof blockRowSchema>;
 
 /** What a push needs to reach one browser. */
 export const pushSubscriptionRowSchema = pushSubscriptionsTableSchema.pick({

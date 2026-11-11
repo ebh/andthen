@@ -71,6 +71,7 @@ function summarise(story: MyStoryRow, rows: MyStoryRows, now: number): DatedSumm
     summary: {
       id: story.id,
       opening: passage.opening,
+      openingAuthorId: passage.openingAuthorId,
       holderName: holder?.displayName ?? null,
       isMyTurn: state.currentPosition === story.myPosition,
       endsAt: turnEndsAt(state),

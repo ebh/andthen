@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { onSignedOut as onAccountSignedOut } from "../client/account";
 import { SignInStatus } from "./SignInStatus";
 import { clerk, resetClerk } from "./clerkStub";
 import { inTheme, renderPage } from "./testRender";
@@ -49,7 +50,8 @@ describe("SignInStatus", () => {
   // Pins the order that keeps a browser from being left subscribed: alerts go off while the
   // session can still authorise the Worker, then Clerk signs out, then the page is told. It also
   // pins that a failed sign-out leaves the writer signed in with a message, and that trying again
-  // clears the message.
+  // clears the message. The blocks are told right after Clerk signs out and before the page, so
+  // they drop the account's list before anything is fetched as the anonymous user.
   it("turns alerts off, then signs out, then tells the page, and recovers from a failed sign-out", async () => {
     clerk.isSignedIn = true;
     clerk.userId = "user_1";
@@ -78,6 +80,9 @@ describe("SignInStatus", () => {
 
         return secondSignOut.promise;
       });
+    const stopListening = onAccountSignedOut(() => {
+      order.push("blocks told");
+    });
     const onSignedOut = vi.fn<() => void>(() => {
       order.push("page told");
     });
@@ -114,7 +119,15 @@ describe("SignInStatus", () => {
     await waitFor(() => {
       expect(onSignedOut).toHaveBeenCalledOnce();
     });
-    expect(order).toEqual(["alerts off", "sign out", "alerts off", "sign out", "page told"]);
+    expect(order).toEqual([
+      "alerts off",
+      "sign out",
+      "alerts off",
+      "sign out",
+      "blocks told",
+      "page told",
+    ]);
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
+    stopListening();
   });
 });

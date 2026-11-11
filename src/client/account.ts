@@ -4,6 +4,7 @@ import { requestAddDeviceUserToAccount } from "./api";
 export const STALE_TURN_RETRY_DELAY_MS = 1000;
 
 const listeners = new Set<() => void>();
+const signedOutListeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
 
 /**
@@ -28,6 +29,25 @@ export function onDeviceUserAdded(listener: () => void): () => void {
 
   return () => {
     listeners.delete(listener);
+  };
+}
+
+/**
+ * Tells `onSignedOut` listeners that the account is gone and this browser is anonymous again.
+ * Call it once Clerk has signed out, before anything is fetched as the new user.
+ */
+export function announceSignedOut(): void {
+  for (const listener of signedOutListeners) {
+    listener();
+  }
+}
+
+/** Calls `listener` after each sign-out, when whatever the account showed must be dropped. */
+export function onSignedOut(listener: () => void): () => void {
+  signedOutListeners.add(listener);
+
+  return () => {
+    signedOutListeners.delete(listener);
   };
 }
 

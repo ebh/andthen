@@ -114,7 +114,18 @@ function failed(failure: ApiFailure): ApiResult<typeof view> {
 describe("nextLoad", () => {
   const loaded: StoryLoad = { type: "loaded", view, refreshFailed: false };
   const loading: StoryLoad = { type: "loading" };
-  const left: ApiFailure = { type: "left_story", displayName: "Ana", opening: "Once." };
+  const left: ApiFailure = {
+    type: "left_story",
+    displayName: "Ana",
+    opening: "Once.",
+    openingAuthorId: "u1",
+  };
+  const leftToOlderWorker: ApiFailure = {
+    type: "left_story",
+    displayName: "Ana",
+    opening: "Once.",
+    openingAuthorId: undefined,
+  };
   const network: ApiFailure = { type: "network" };
 
   it.each<[string, StoryLoad, ApiResult<typeof view>, StoryLoad]>([
@@ -141,13 +152,19 @@ describe("nextLoad", () => {
       "a writer who left, on a first load",
       loading,
       failed(left),
-      { type: "left", displayName: "Ana", opening: "Once." },
+      { type: "left", displayName: "Ana", opening: "Once.", openingAuthorId: "u1" },
+    ],
+    [
+      "a writer who left, from a Worker that names no opening author",
+      loading,
+      failed(leftToOlderWorker),
+      { type: "left", displayName: "Ana", opening: "Once.", openingAuthorId: undefined },
     ],
     [
       "a writer who left, on a reload of a loaded story",
       loaded,
       failed(left),
-      { type: "left", displayName: "Ana", opening: "Once." },
+      { type: "left", displayName: "Ana", opening: "Once.", openingAuthorId: "u1" },
     ],
     [
       "any other failure of a reload, keeping the story",

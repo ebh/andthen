@@ -15,6 +15,7 @@ import {
   mergeUserInto,
 } from "../src/worker/db/userRepo";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { insertBlock } from "./support/blocks";
 import { insertUser } from "./support/users";
 
 describe("userRepo", () => {
@@ -112,10 +113,7 @@ describe("userRepo", () => {
       expect(await loadPerUserLegalDocumentAcceptances(db, "m4-device")).toHaveLength(1);
       expect((await findUserByDisplayNameKey(db, "quin"))?.id).toBe("m4-device");
 
-      const fresh = await findUserByBrowserTokenHash(db, "hash-of-m4-device");
-      if (fresh === null) {
-        throw new Error("device user missing");
-      }
+      const fresh = await userOf(db, "m4-device");
       expect(await mergeUserInto(db, fresh, "m4-account")).toBe(true);
       expect(await authorsOf(db, "m4d01")).toEqual(["m4-account"]);
       expect(await loadPerUserLegalDocumentAcceptances(db, "m4-device")).toEqual([]);
@@ -123,6 +121,114 @@ describe("userRepo", () => {
         { legalDocumentId: "terms-of-service", version: 1 },
       ]);
       expect((await findUserByDisplayNameKey(db, "quin"))?.id).toBe("m4-account");
+    });
+
+    describe("blocks", () => {
+      it("moves the merged-away user's blocks to the account user, and drops one that would repeat or block the user on itself", async () => {
+        const device = await insertedUser(db, "mb-device");
+        for (const id of ["mb-account", "mb-made", "mb-against", "mb-repeat"]) {
+          await insertUser(db, id);
+        }
+        await insertBlock(db, {
+          id: "mb-moved-made",
+          userId: "mb-device",
+          blockedUserId: "mb-made",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-moved-against",
+          userId: "mb-against",
+          blockedUserId: "mb-device",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-kept-made",
+          userId: "mb-account",
+          blockedUserId: "mb-repeat",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-dropped-made",
+          userId: "mb-device",
+          blockedUserId: "mb-repeat",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-kept-against",
+          userId: "mb-repeat",
+          blockedUserId: "mb-account",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-dropped-against",
+          userId: "mb-repeat",
+          blockedUserId: "mb-device",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-self-made",
+          userId: "mb-device",
+          blockedUserId: "mb-account",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-self-against",
+          userId: "mb-account",
+          blockedUserId: "mb-device",
+          createdAt: 0,
+        });
+
+        expect(await mergeUserInto(db, device, "mb-account")).toBe(true);
+
+        expect(await blocksOf(db, "mb-moved-made")).toEqual([
+          { userId: "mb-account", blockedUserId: "mb-made" },
+        ]);
+        expect(await blocksOf(db, "mb-moved-against")).toEqual([
+          { userId: "mb-against", blockedUserId: "mb-account" },
+        ]);
+        expect(await blocksOf(db, "mb-kept-made")).toEqual([
+          { userId: "mb-account", blockedUserId: "mb-repeat" },
+        ]);
+        expect(await blocksOf(db, "mb-kept-against")).toEqual([
+          { userId: "mb-repeat", blockedUserId: "mb-account" },
+        ]);
+        expect(await blocksOf(db, "mb-dropped-made")).toEqual([]);
+        expect(await blocksOf(db, "mb-dropped-against")).toEqual([]);
+        expect(await blocksOf(db, "mb-self-made")).toEqual([]);
+        expect(await blocksOf(db, "mb-self-against")).toEqual([]);
+        expect(await findUserByBrowserTokenHash(db, "hash-of-mb-device")).toBeNull();
+      });
+
+      it("leaves every block alone when the merge is refused for a name given after the read", async () => {
+        const stale = await insertedUser(db, "mb5-device");
+        await insertUser(db, "mb5-account");
+        await insertUser(db, "mb5-other");
+        await insertBlock(db, {
+          id: "mb5-block",
+          userId: "mb5-device",
+          blockedUserId: "mb5-other",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb5-duplicate",
+          userId: "mb5-account",
+          blockedUserId: "mb5-other",
+          createdAt: 0,
+        });
+        await db
+          .prepare("UPDATE users SET display_name = 'Rae', display_name_key = 'rae' WHERE id = ?")
+          .bind("mb5-device")
+          .run();
+
+        expect(await mergeUserInto(db, stale, "mb5-account")).toBe(false);
+
+        expect(await blocksOf(db, "mb5-block")).toEqual([
+          { userId: "mb5-device", blockedUserId: "mb5-other" },
+        ]);
+        expect(await blocksOf(db, "mb5-duplicate")).toEqual([
+          { userId: "mb5-account", blockedUserId: "mb5-other" },
+        ]);
+      });
     });
   });
 });
@@ -143,12 +249,8 @@ async function userWhoStarted(
     displayName: name === null ? null : { displayName: name, displayNameKey: name.toLowerCase() },
     opening: { id: `o-${id}`, text: "Once." },
   });
-  const user = await findUserByBrowserTokenHash(db, `hash-of-${id}`);
-  if (user === null) {
-    throw new Error("user missing");
-  }
 
-  return user;
+  return userOf(db, id);
 }
 
 async function authorsOf(db: Env["DB"], storyId: string): Promise<string[]> {
@@ -161,4 +263,28 @@ async function authorsOf(db: Env["DB"], storyId: string): Promise<string[]> {
     .array(z.object({ authorId: z.string() }))
     .parse(result.results)
     .map((row) => row.authorId);
+}
+
+async function insertedUser(db: Env["DB"], id: string): Promise<UserRow> {
+  await insertUser(db, id);
+
+  return userOf(db, id);
+}
+
+async function userOf(db: Env["DB"], id: string): Promise<UserRow> {
+  const user = await findUserByBrowserTokenHash(db, `hash-of-${id}`);
+  if (user === null) {
+    throw new Error(`User ${id} missing`);
+  }
+
+  return user;
+}
+
+async function blocksOf(db: Env["DB"], id: string): Promise<unknown[]> {
+  const result = await db
+    .prepare("SELECT user_id AS userId, blocked_user_id AS blockedUserId FROM blocks WHERE id = ?")
+    .bind(id)
+    .all();
+
+  return result.results;
 }

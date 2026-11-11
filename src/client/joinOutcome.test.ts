@@ -28,7 +28,11 @@ describe("joinOutcome", () => {
       { type: "unknown_code", status: 409, code: "already_joined" },
       true,
     ],
-    ["left_story", { type: "left_story", displayName: "Sam", opening: "Once." }, true],
+    [
+      "left_story",
+      { type: "left_story", displayName: "Sam", opening: "Once.", openingAuthorId: "u1" },
+      true,
+    ],
   ])("fails on %s, with canRetry %s", (_name, failure, canRetry) => {
     expect(joinOutcome({ ok: false, failure })).toEqual({ type: "failed", failure, canRetry });
   });

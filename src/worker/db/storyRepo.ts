@@ -17,6 +17,7 @@ import {
   storyPassageRowSchema,
   storyRowSchema,
   storyWriterRowSchema,
+  type OpeningRow,
   type ParticipantRow,
   type StoryRow,
 } from "./rows";
@@ -116,7 +117,9 @@ export async function loadMyStories(db: Db, userId: string): Promise<MyStoryRows
       .prepare(
         `SELECT p.story_id AS storyId, MAX(p.created_at) AS latestAt,
            (SELECT o.text FROM passages o WHERE o.story_id = p.story_id AND o.seq = 1)
-             AS opening
+             AS opening,
+           (SELECT o.author_id FROM passages o WHERE o.story_id = p.story_id AND o.seq = 1)
+             AS openingAuthorId
          FROM passages p WHERE p.story_id IN (${STORIES_OF_USER})
          GROUP BY p.story_id`,
       )
@@ -294,10 +297,10 @@ export async function rejoinStory(db: Db, input: RejoinStoryInput): Promise<bool
   return changesAt(results, 1) === 1;
 }
 
-/** The text of the story's first passage. Every story has one, so a missing one is a bug. */
-export async function loadOpeningText(db: Db, storyId: string): Promise<string> {
+/** The story's first passage. Every story has one, so a missing one is a bug. */
+export async function loadOpening(db: Db, storyId: string): Promise<OpeningRow> {
   const result = await db
-    .prepare("SELECT text FROM passages WHERE story_id = ? AND seq = 1")
+    .prepare("SELECT author_id AS authorId, text FROM passages WHERE story_id = ? AND seq = 1")
     .bind(storyId)
     .all();
   const [row] = z.array(openingRowSchema).parse(result.results);
@@ -305,7 +308,7 @@ export async function loadOpeningText(db: Db, storyId: string): Promise<string> 
     throw new Error(`Story ${storyId} has no opening passage`);
   }
 
-  return row.text;
+  return row;
 }
 
 function toLoadedStory(stories: StoryRow[], participants: ParticipantRow[]): LoadedStory | null {

@@ -23,6 +23,7 @@ import { createTestEnv, type TestEnv } from "./support/testEnv";
 import { userIdOf } from "./support/users";
 
 const OPENING = "Once upon a time, in a village by the sea, a lantern went out.";
+const OPENING_EXCERPT = "Once upon a time, in a village by the sea, a lantern went…";
 const P256DH = "B".repeat(87);
 const AUTH = "a".repeat(22);
 
@@ -137,6 +138,34 @@ describe("pushing the turn", () => {
         });
       }
       expect(await holds(cy, storyId)).toBe(true);
+    });
+
+    // Pins that only the holder's own block of the opening's author silences the quote: other
+    // blocks leave it in, and a holder who blocks the author gets a push that quotes none of it.
+    // Without it a blocked author's words would reach the holder's lock screen.
+    it("quotes the opening unless the holder blocks its author", async () => {
+      const { ana, ben, cy, storyId } = await threeWriters();
+      // Ben blocks the author, and Cy blocks someone else; neither is the holder with a block.
+      await block(ben, await userIdOf(env.DB, ana));
+      await block(cy, await userIdOf(env.DB, ben));
+
+      await contribute(ben, storyId);
+      await settle(ben);
+      expect(sender.sent[0]?.message.data.notification.body).toBe(OPENING_EXCERPT);
+
+      await contribute(cy, storyId);
+      await settle(cy);
+      sender.sent.length = 0;
+      await contribute(ana, storyId);
+      await settle(ana);
+      // Ben holds after Ana's turn, and blocks the opening's author.
+      expect(sender.sent).toHaveLength(1);
+      expect(sender.sent[0]?.message.data.notification).toEqual({
+        title: "Your turn",
+        body: "",
+        navigate: `http://localhost/${storyId}`,
+        tag: `turn-${storyId}`,
+      });
     });
   });
 
@@ -315,6 +344,11 @@ async function contribute(browser: Browser, storyId: string): Promise<Response> 
     turnVersion: await version(browser, storyId),
     startsParagraph: false,
   });
+}
+
+async function block(browser: Browser, blockedUserId: string): Promise<void> {
+  const response = await browser.post("/api/users/me/blocks", { blockedUserId });
+  expect(response.status).toBe(201);
 }
 
 async function subscribe(browser: Browser, name: string): Promise<string> {

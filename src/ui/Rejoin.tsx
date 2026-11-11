@@ -6,6 +6,7 @@ import { rejoinStory } from "../client/api";
 import { joinOutcome } from "../client/joinOutcome";
 import { describeFailure } from "../client/messages";
 import { MAX_PARTICIPANTS } from "../shared/validation";
+import { Opening } from "./Opening";
 
 interface RejoinProps {
   storyId: string;
@@ -13,12 +14,20 @@ interface RejoinProps {
   displayName: string;
   /** The story's first passage, to tell which story this is. */
   opening: string;
+  /** The user ID of the opening's author: the user may have blocked them. Missing means unknown. */
+  openingAuthorId: string | undefined;
   /** Called after the server accepts the rejoin, or says the writer is already back in. */
   onRejoined: () => void;
 }
 
 /** What a browser that left the story sees at its address: one button to come back. */
-export function Rejoin({ storyId, displayName, opening, onRejoined }: RejoinProps) {
+export function Rejoin({
+  storyId,
+  displayName,
+  opening,
+  openingAuthorId,
+  onRejoined,
+}: RejoinProps) {
   const [error, setError] = useState<string | null>(null);
   const [rejoining, setRejoining] = useState(false);
   const [full, setFull] = useState(false);
@@ -46,7 +55,7 @@ export function Rejoin({ storyId, displayName, opening, onRejoined }: RejoinProp
         You left this story
       </H2>
       <Paragraph fontFamily="story" fontSize="lg" lineHeight="lg" color="muted" numberOfLines={3}>
-        “{opening}”
+        <Opening text={opening} authorId={openingAuthorId} quoted />
       </Paragraph>
       <Paragraph>Rejoin as {displayName}. You’ll take the last place in the turn order.</Paragraph>
       <Paragraph role="alert" minH="6" color="error">

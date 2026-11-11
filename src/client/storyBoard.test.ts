@@ -24,7 +24,11 @@ describe("isStoryOutOfDate", () => {
     ["a rejected stale_turn", rejected("stale_turn"), true],
     ["a rejected not_your_turn", rejected("not_your_turn"), true],
     ["a rejected not_participant", rejected("not_participant"), true],
-    ["left_story", { type: "left_story", displayName: "Sam", opening: "Once." }, true],
+    [
+      "left_story",
+      { type: "left_story", displayName: "Sam", opening: "Once.", openingAuthorId: "u1" },
+      true,
+    ],
     ["a rejected invalid_passage", rejected("invalid_passage"), false],
     ["a rejected code outside the refetch codes", rejected("story_full"), false],
     ["a network failure", { type: "network" }, false],
@@ -71,7 +75,12 @@ describe("sendOutcome", () => {
     ["a rejected code with no message of its own", rejected("story_full"), false, GENERIC],
     ["a network failure", { type: "network" }, false, OFFLINE],
     ["an unknown code", { type: "unknown_code", status: 409, code: "stale_turn" }, false, GENERIC],
-    ["left_story", { type: "left_story", displayName: "Sam", opening: "Once." }, true, GENERIC],
+    [
+      "left_story",
+      { type: "left_story", displayName: "Sam", opening: "Once.", openingAuthorId: "u1" },
+      true,
+      GENERIC,
+    ],
   ])("fails on %s", (_name, failure, refetch, notice) => {
     expect(sendOutcome({ ok: false, failure })).toEqual({ type: "failed", refetch, notice });
   });
@@ -117,7 +126,12 @@ describe("leaveOutcome", () => {
     ["not_participant", rejected("not_participant"), true, "You're not part of this story."],
     ["a rejected code with no message of its own", rejected("story_full"), false, GENERIC],
     ["a network failure", { type: "network" }, false, OFFLINE],
-    ["left_story", { type: "left_story", displayName: "Sam", opening: "Once." }, true, GENERIC],
+    [
+      "left_story",
+      { type: "left_story", displayName: "Sam", opening: "Once.", openingAuthorId: "u1" },
+      true,
+      GENERIC,
+    ],
   ])("fails on %s", (_name, failure, refetch, error) => {
     expect(leaveOutcome({ ok: false, failure })).toEqual({ type: "failed", refetch, error });
   });

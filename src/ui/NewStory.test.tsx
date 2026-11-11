@@ -99,9 +99,11 @@ describe("NewStory", () => {
 
     // Offline: the typed text stays, the name is not reloaded and the button works again.
     offline.fail(new TypeError("offline"));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Can't reach the server. Check your connection and try again.",
-    );
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Can't reach the server. Check your connection and try again.",
+      );
+    });
     expect(start).toBeEnabled();
     expect(name).toHaveValue("  Ada ");
     expect(opening).toHaveValue("  It began. ");

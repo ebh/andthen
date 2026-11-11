@@ -293,9 +293,11 @@ describe("StoryBoard", () => {
       await user.click(within(third.dialog).getByRole("button", { name: "Leave story" }));
       expect(await within(third.dialog).findByRole("button", { name: "Leaving…" })).toBeDisabled();
       failedLeave.finish(jsonResponse(409, { error: "stale_turn" }));
-      expect(await within(third.dialog).findByRole("alert")).toHaveTextContent(
-        "The story changed just now.",
-      );
+      await waitFor(() => {
+        expect(within(third.dialog).getByRole("alert")).toHaveTextContent(
+          "The story changed just now.",
+        );
+      });
       expect(within(third.dialog).getByRole("button", { name: "Leave story" })).toBeEnabled();
       expect(refetch).toHaveBeenCalledOnce();
       expect(replace).not.toHaveBeenCalled();
@@ -304,9 +306,11 @@ describe("StoryBoard", () => {
       expect(await within(third.dialog).findByRole("button", { name: "Leaving…" })).toBeDisabled();
       expect(within(third.dialog).getByRole("alert")).toHaveTextContent(/^$/);
       offlineLeave.fail(new TypeError("offline"));
-      expect(await within(third.dialog).findByRole("alert")).toHaveTextContent(
-        "Can't reach the server.",
-      );
+      await waitFor(() => {
+        expect(within(third.dialog).getByRole("alert")).toHaveTextContent(
+          "Can't reach the server.",
+        );
+      });
       expect(refetch).toHaveBeenCalledOnce();
 
       await user.click(within(third.dialog).getByText("Cancel"));

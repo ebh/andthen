@@ -15,33 +15,27 @@ beforeEach(() => {
 });
 
 describe("AddDeviceUserOnLoad", () => {
-  it("adds the device user to the account on load while signed in", () => {
-    clerk.isSignedIn = true;
-
-    render(<AddDeviceUserOnLoad />);
-
-    expect(addDeviceUserToAccount).toHaveBeenCalledOnce();
-  });
-
-  it("does nothing while signed out", () => {
-    render(<AddDeviceUserOnLoad />);
-
-    expect(addDeviceUserToAccount).not.toHaveBeenCalled();
-  });
-
-  it("waits for Clerk to load", () => {
+  // Pins when the merge runs: not while Clerk is loading, not while signed out, and once when a
+  // session exists. Without it a signed-out visitor would trigger a merge call, or a signed-in
+  // one would never have an interrupted merge healed.
+  it("adds the device user to the account once Clerk has loaded and a session exists", () => {
     clerk.isLoaded = false;
     clerk.isSignedIn = true;
-
-    render(<AddDeviceUserOnLoad />);
-
-    expect(addDeviceUserToAccount).not.toHaveBeenCalled();
-  });
-
-  it("adds the device user when someone signs in", () => {
     const { rerender } = render(<AddDeviceUserOnLoad />);
 
+    expect(addDeviceUserToAccount).not.toHaveBeenCalled();
+
+    clerk.isLoaded = true;
+    clerk.isSignedIn = false;
+    rerender(<AddDeviceUserOnLoad />);
+
+    expect(addDeviceUserToAccount).not.toHaveBeenCalled();
+
     clerk.isSignedIn = true;
+    rerender(<AddDeviceUserOnLoad />);
+
+    expect(addDeviceUserToAccount).toHaveBeenCalledOnce();
+
     rerender(<AddDeviceUserOnLoad />);
 
     expect(addDeviceUserToAccount).toHaveBeenCalledOnce();

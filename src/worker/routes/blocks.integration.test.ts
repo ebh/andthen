@@ -10,6 +10,7 @@ import {
   type Clock,
   nameInTest,
 } from "../../../test/support/browser";
+import { insertBlock } from "../../../test/support/blocks";
 import { createTestEnv, type TestEnv } from "../../../test/support/testEnv";
 import { insertUser, userIdOf } from "../../../test/support/users";
 import { blocksResponseSchema, blockUserResponseSchema } from "../../shared/api";
@@ -93,10 +94,10 @@ describe("blocking a user", () => {
     const z = await insertUser(testEnv.env.DB, "list-z");
     const w = await insertUser(testEnv.env.DB, "list-w");
     // The IDs sort against the times, so only created_at puts "later" after "earlier".
-    await insertBlock("b-3", anaId, x, 1);
-    await insertBlock("b-2", anaId, y, 2);
-    await insertBlock("b-1", anaId, z, 2);
-    await insertBlock("b-0", other, w, 0);
+    await insertBlock(testEnv.env.DB, { id: "b-3", userId: anaId, blockedUserId: x, createdAt: 1 });
+    await insertBlock(testEnv.env.DB, { id: "b-2", userId: anaId, blockedUserId: y, createdAt: 2 });
+    await insertBlock(testEnv.env.DB, { id: "b-1", userId: anaId, blockedUserId: z, createdAt: 2 });
+    await insertBlock(testEnv.env.DB, { id: "b-0", userId: other, blockedUserId: w, createdAt: 0 });
 
     const response = await ana.get("/api/users/me/blocks");
 
@@ -146,19 +147,6 @@ describe("blocking a user", () => {
     expect(response.status).toBe(400);
     expect(await readError(response)).toBe("bad_request");
   });
-
-  async function insertBlock(
-    id: string,
-    blockerId: string,
-    blockedUserId: string,
-    createdAt: number,
-  ): Promise<void> {
-    await testEnv.env.DB.prepare(
-      "INSERT INTO blocks (id, user_id, blocked_user_id, created_at) VALUES (?, ?, ?, ?)",
-    )
-      .bind(id, blockerId, blockedUserId, createdAt)
-      .run();
-  }
 
   async function storedBlocks(blockerId: string) {
     const result = await testEnv.env.DB.prepare(

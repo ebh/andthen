@@ -15,6 +15,7 @@ import {
   mergeUserInto,
 } from "../src/worker/db/userRepo";
 import { createTestEnv, type TestEnv } from "./support/testEnv";
+import { insertBlock } from "./support/blocks";
 import { insertUser } from "./support/users";
 
 describe("userRepo", () => {
@@ -131,14 +132,54 @@ describe("userRepo", () => {
         for (const id of ["mb-account", "mb-made", "mb-against", "mb-repeat"]) {
           await insertUser(db, id);
         }
-        await insertBlock(db, "mb-moved-made", "mb-device", "mb-made");
-        await insertBlock(db, "mb-moved-against", "mb-against", "mb-device");
-        await insertBlock(db, "mb-kept-made", "mb-account", "mb-repeat");
-        await insertBlock(db, "mb-dropped-made", "mb-device", "mb-repeat");
-        await insertBlock(db, "mb-kept-against", "mb-repeat", "mb-account");
-        await insertBlock(db, "mb-dropped-against", "mb-repeat", "mb-device");
-        await insertBlock(db, "mb-self-made", "mb-device", "mb-account");
-        await insertBlock(db, "mb-self-against", "mb-account", "mb-device");
+        await insertBlock(db, {
+          id: "mb-moved-made",
+          userId: "mb-device",
+          blockedUserId: "mb-made",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-moved-against",
+          userId: "mb-against",
+          blockedUserId: "mb-device",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-kept-made",
+          userId: "mb-account",
+          blockedUserId: "mb-repeat",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-dropped-made",
+          userId: "mb-device",
+          blockedUserId: "mb-repeat",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-kept-against",
+          userId: "mb-repeat",
+          blockedUserId: "mb-account",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-dropped-against",
+          userId: "mb-repeat",
+          blockedUserId: "mb-device",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-self-made",
+          userId: "mb-device",
+          blockedUserId: "mb-account",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb-self-against",
+          userId: "mb-account",
+          blockedUserId: "mb-device",
+          createdAt: 0,
+        });
 
         expect(await mergeUserInto(db, device, "mb-account")).toBe(true);
 
@@ -165,8 +206,18 @@ describe("userRepo", () => {
         const stale = await insertedUser(db, "mb5-device");
         await insertUser(db, "mb5-account");
         await insertUser(db, "mb5-other");
-        await insertBlock(db, "mb5-block", "mb5-device", "mb5-other");
-        await insertBlock(db, "mb5-duplicate", "mb5-account", "mb5-other");
+        await insertBlock(db, {
+          id: "mb5-block",
+          userId: "mb5-device",
+          blockedUserId: "mb5-other",
+          createdAt: 0,
+        });
+        await insertBlock(db, {
+          id: "mb5-duplicate",
+          userId: "mb5-account",
+          blockedUserId: "mb5-other",
+          createdAt: 0,
+        });
         await db
           .prepare("UPDATE users SET display_name = 'Rae', display_name_key = 'rae' WHERE id = ?")
           .bind("mb5-device")
@@ -193,18 +244,6 @@ async function insertedUser(db: Env["DB"], id: string): Promise<UserRow> {
   }
 
   return user;
-}
-
-async function insertBlock(
-  db: Env["DB"],
-  id: string,
-  userId: string,
-  blockedUserId: string,
-): Promise<void> {
-  await db
-    .prepare("INSERT INTO blocks (id, user_id, blocked_user_id, created_at) VALUES (?, ?, ?, 0)")
-    .bind(id, userId, blockedUserId)
-    .run();
 }
 
 async function blocksOf(db: Env["DB"], id: string): Promise<unknown[]> {

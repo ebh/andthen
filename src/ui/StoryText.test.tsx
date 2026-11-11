@@ -208,10 +208,8 @@ describe("StoryText", () => {
     rerender(inTheme(storyElement(), fakeBlocks({ blocked: [{ id: "b2", blockedUserId: "p2" }] })));
     expect(story().textContent).not.toContain("It opened nothing.");
 
-    // A Space that is not prevented would also scroll the page; other keys do nothing.
+    // A Space that is not prevented would also scroll the page. Which keys count is unit tested.
     const standIn = screen.getByRole("button", { name: label });
-    fireEvent.keyDown(standIn, { key: "a" });
-    expect(screen.queryByText("It opened nothing.")).not.toBeInTheDocument();
     expect(fireEvent.keyDown(standIn, { key: " " })).toBe(false);
     expect(screen.getByText("It opened nothing.")).toBeInTheDocument();
 

@@ -6,6 +6,7 @@ import {
   blockRequest,
   isObscured,
   isOpeningObscured,
+  isRevealKey,
   nextBlocksLoad,
   revealFor,
 } from "./blocks";
@@ -184,5 +185,15 @@ describe("blockRequest", () => {
     const request = blockRequest(action, blocks, userId, calls);
 
     expect(request === null ? null : request()).toBe(expected);
+  });
+});
+
+describe("isRevealKey", () => {
+  it.each([
+    { title: "shows on Enter", key: "Enter", expected: true },
+    { title: "shows on Space", key: " ", expected: true },
+    { title: "does not show on another key", key: "a", expected: false },
+  ])("$title", ({ key, expected }) => {
+    expect(isRevealKey(key)).toBe(expected);
   });
 });

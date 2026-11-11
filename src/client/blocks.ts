@@ -81,6 +81,11 @@ export function revealFor(reveal: Reveal, blockId: string | null): Reveal {
   return reveal.blockId === blockId ? reveal : { blockId, shown: false };
 }
 
+/** Whether this `KeyboardEvent.key` shows a stand-in, as it would press a button. */
+export function isRevealKey(key: string): boolean {
+  return key === "Enter" || key === " ";
+}
+
 /**
  * Whether an opening is shown as an obscured stand-in. An opening whose author is unknown, because
  * an older Worker sent no `openingAuthorId`, is obscured too: the page cannot tell whether it is

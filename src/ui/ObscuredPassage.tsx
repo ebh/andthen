@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { Text } from "tamagui";
 
+import { isRevealKey } from "../client/blocks";
 import { standIn } from "../client/standIn";
 
 interface ObscuredPassageProps {
@@ -26,7 +27,7 @@ export function ObscuredPassage({ text, label, onReveal }: ObscuredPassageProps)
           cursor: "pointer",
           onPress: onReveal,
           onKeyDown: (event: KeyboardEvent) => {
-            if (event.key === "Enter" || event.key === " ") {
+            if (isRevealKey(event.key)) {
               event.preventDefault();
               onReveal();
             }

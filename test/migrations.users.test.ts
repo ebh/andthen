@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { applyMigration, createTestEnv, type TestEnv } from "./support/testEnv";
 
@@ -68,6 +68,12 @@ describe("migration 0005_users.sql", () => {
   });
 
   it("allows a user one active participant per story, but not two", async () => {
+    // The tests share one database. Without this cleanup, the extra rows break the participants
+    // test whenever this one runs first.
+    onTestFinished(async () => {
+      await db.prepare("DELETE FROM participants WHERE id IN ('left-copy', 'active-copy')").run();
+    });
+
     await copyAnaParticipant(db, "left-copy", "Left", 5, 40);
     await expect(copyAnaParticipant(db, "active-copy", "Active", 6, null)).rejects.toThrow(
       /UNIQUE/,

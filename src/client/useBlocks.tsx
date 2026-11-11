@@ -16,10 +16,11 @@ import {
   blockIdFor,
   blockRequest,
   nextBlocksLoad,
+  type BlockAction,
   type BlocksLoad,
   type BlocksStatus,
 } from "./blocks";
-import { describeBlockFailure, describeBlockProgress, type BlockAction } from "./blockMessages";
+import { describeBlockFailure, describeBlockProgress } from "./blockMessages";
 import { createLatestRequest } from "./latestRequest";
 
 export interface BlocksValue {

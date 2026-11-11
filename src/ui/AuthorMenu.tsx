@@ -1,7 +1,7 @@
 import type { FocusEvent } from "react";
 import { Button, Menu, Text } from "tamagui";
 
-import type { BlockAction } from "../client/blockMessages";
+import type { BlockAction } from "../client/blocks";
 import type { BlockOffer } from "../client/storyRules";
 
 interface AuthorMenuProps {

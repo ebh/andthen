@@ -1,7 +1,5 @@
 import type { ApiFailure } from "./api";
-import type { BlocksStatus } from "./blocks";
-
-export type BlockAction = "block" | "unblock";
+import type { BlockAction, BlocksStatus } from "./blocks";
 
 /** Two lines that share one row. At most one is non-empty, and both are empty when all is well. */
 export interface BlocksNotice {

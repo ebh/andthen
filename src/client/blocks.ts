@@ -1,12 +1,13 @@
 import type { BlocksResponse } from "../shared/api";
 import type { ApiResult } from "./api";
-import type { BlockAction } from "./blockMessages";
 
 /**
  * Where the user's list of blocks stands. `failed` means the last load did not arrive, so who is
  * blocked is unknown.
  */
 export type BlocksStatus = "loading" | "ready" | "failed";
+
+export type BlockAction = "block" | "unblock";
 
 export type Block = BlocksResponse["blocks"][number];
 

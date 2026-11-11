@@ -74,7 +74,7 @@ describe("blocking a user", () => {
     const catId = await userId(await newWriter("Cat"));
     const [a, b] = await Promise.all([block(ana, catId), block(ana, catId)]);
 
-    expect([a.status, b.status].toSorted()).toEqual([200, 201]);
+    expect([a.status, b.status].toSorted((left, right) => left - right)).toEqual([200, 201]);
     const racedIds = [
       blockUserResponseSchema.parse(await a.json()).blockId,
       blockUserResponseSchema.parse(await b.json()).blockId,

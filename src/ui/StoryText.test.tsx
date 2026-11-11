@@ -52,7 +52,7 @@ function storyElement(passages: readonly PassageView[] = turns) {
   return <StoryText passages={passages} myUserId="p1" />;
 }
 
-type ChangeBlock = (action: "block" | "unblock", user: { id: string; name: string }) => void;
+type ChangeBlock = (action: "block" | "unblock", userId: string) => void;
 
 const blockingBen = { blocked: [{ id: "b1", blockedUserId: "p2" }] };
 
@@ -188,12 +188,12 @@ describe("StoryText", () => {
 
     await openMenu(user, "Cat");
     await user.click(screen.getByRole("menuitem", { name: "Block Cat" }));
-    expect(change).toHaveBeenLastCalledWith("block", { id: "p3", name: "Cat" });
+    expect(change).toHaveBeenLastCalledWith("block", "p3");
 
     await openMenu(user, "Ben");
     expect(screen.queryByRole("menuitem", { name: "Block Ben" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "Unblock Ben" }));
-    expect(change).toHaveBeenLastCalledWith("unblock", { id: "p2", name: "Ben" });
+    expect(change).toHaveBeenLastCalledWith("unblock", "p2");
     expect(change).toHaveBeenCalledTimes(2);
 
     rerender(inTheme(storyElement(), fakeBlocks({ change, working: "Blocking…" })));

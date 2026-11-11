@@ -22,12 +22,6 @@ import {
 import { describeBlockFailure, describeBlockProgress, type BlockAction } from "./blockMessages";
 import { createLatestRequest } from "./latestRequest";
 
-/** A user a Block or Unblock names: the ID a passage's `authorId` holds, and the name to show. */
-export interface BlockTarget {
-  id: string;
-  name: string;
-}
-
 export interface BlocksValue {
   /** Until it is `ready`, who is blocked is unknown, so a page must show other people's passages obscured. */
   status: BlocksStatus;
@@ -37,7 +31,7 @@ export interface BlocksValue {
    * Blocks or unblocks the user, then reloads the list. Ignored while another change is out, and
    * for an unblock of a user the list holds no block on.
    */
-  change: (action: BlockAction, user: BlockTarget) => void;
+  change: (action: BlockAction, userId: string) => void;
   /** What is in flight, such as "Blocking…", until the list has reloaded; else null. */
   working: string | null;
   /** Why the last change failed, or null. Cleared by the next attempt. */
@@ -99,8 +93,8 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
   );
 
   const change = useCallback(
-    (action: BlockAction, user: BlockTarget): void => {
-      const request = blockRequest(action, load.blocks, user, { blockUser, unblockUser });
+    (action: BlockAction, userId: string): void => {
+      const request = blockRequest(action, load.blocks, userId, { blockUser, unblockUser });
       if (changing.current || request === null) {
         return;
       }

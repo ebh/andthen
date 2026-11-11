@@ -48,20 +48,20 @@ export function nextBlocksLoad(
 }
 
 /**
- * The call that carries out a Block or Unblock of `user`, or null when there is nothing to send:
+ * The call that carries out a Block or Unblock of `userId`, or null when there is nothing to send:
  * an Unblock of a user the user does not block.
  */
 export function blockRequest<Blocked, Unblocked>(
   action: BlockAction,
   blocks: readonly Block[],
-  user: { id: string },
+  userId: string,
   calls: BlockCalls<Blocked, Unblocked>,
 ): (() => Blocked | Unblocked) | null {
   if (action === "block") {
-    return () => calls.blockUser({ blockedUserId: user.id });
+    return () => calls.blockUser({ blockedUserId: userId });
   }
 
-  const blockId = blockIdFor(blocks, user.id);
+  const blockId = blockIdFor(blocks, userId);
 
   return blockId === null ? null : () => calls.unblockUser(blockId);
 }

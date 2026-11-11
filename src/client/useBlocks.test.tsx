@@ -12,7 +12,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const ben = { id: "u2", name: "Ben" };
+const ben = "u2";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <BlocksProvider>{children}</BlocksProvider>;
@@ -72,7 +72,7 @@ describe("useBlocks", () => {
     // Block: what is out shows until the list has reloaded, and a second change is ignored.
     act(() => {
       result.current.change("block", ben);
-      result.current.change("block", { id: "u3", name: "Cat" });
+      result.current.change("block", "u3");
     });
     expect(result.current.working).toBe("Blocking…");
     block.resolve(jsonResponse(201, { blockId: "b1" }));

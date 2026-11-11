@@ -181,7 +181,7 @@ describe("blockRequest", () => {
       expected: null,
     },
   ] as const)("$title", ({ action, userId, expected }) => {
-    const request = blockRequest(action, blocks, { id: userId }, calls);
+    const request = blockRequest(action, blocks, userId, calls);
 
     expect(request === null ? null : request()).toBe(expected);
   });

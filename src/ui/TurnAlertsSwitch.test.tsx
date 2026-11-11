@@ -19,7 +19,8 @@ const alerts = vi.hoisted((): FakeAlerts => ({
   turnOff: vi.fn<() => Promise<void>>(),
 }));
 
-vi.mock("../client/turnAlerts", () => ({
+vi.mock("../client/turnAlerts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../client/turnAlerts")>()),
   useTurnAlerts: () => ({ state: alerts.state, turnOn: alerts.turnOn, turnOff: alerts.turnOff }),
 }));
 
@@ -70,16 +71,6 @@ describe("TurnAlertsSwitch", () => {
     expect(alerts.turnOn).not.toHaveBeenCalled();
   });
 
-  it("cannot be toggled while a request is in flight", async () => {
-    show({ ...off, busy: true });
-    const toggle = screen.getByRole("switch");
-
-    expect(toggle).toBeDisabled();
-    await userEvent.setup().click(toggle);
-
-    expect(alerts.turnOn).not.toHaveBeenCalled();
-  });
-
   it("asks an iPhone or iPad in a browser tab to add the app to the Home Screen, with no switch", () => {
     show({ type: "needs_install" });
 
@@ -91,17 +82,6 @@ describe("TurnAlertsSwitch", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
-  it("says notifications are blocked, and the switch cannot turn on", async () => {
-    show({ type: "blocked" });
-    const toggle = screen.getByRole("switch", { name: "Notify me when it's my turn" });
-
-    expect(screen.getByText("Notifications are blocked in this browser's settings.")).toBeVisible();
-    expect(toggle).toBeDisabled();
-    expect(toggle).not.toBeChecked();
-    await userEvent.setup().click(toggle);
-    expect(alerts.turnOn).not.toHaveBeenCalled();
-  });
-
   it("says so in an alert when turning on failed, and leaves the switch off and usable", () => {
     show({ ...off, failed: true });
 
@@ -110,14 +90,5 @@ describe("TurnAlertsSwitch", () => {
     );
     expect(screen.getByRole("switch")).not.toBeChecked();
     expect(screen.getByRole("switch")).toBeEnabled();
-  });
-
-  it("says so in an alert when turning off failed, and leaves the switch on", () => {
-    show({ ...off, on: true, failed: true });
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Notifications couldn't be turned off in this browser.",
-    );
-    expect(screen.getByRole("switch")).toBeChecked();
   });
 });

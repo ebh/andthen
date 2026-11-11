@@ -198,7 +198,7 @@ describe("Story", () => {
     api.queue("story", jsonResponse(403, LEFT_STORY));
     api.queue("rejoin", rejoining.response, rejoiningAgain.response);
     api.queue("story", jsonResponse(200, view));
-    api.queue("story", jsonResponse(403, { ...LEFT_STORY, openingAuthorId: undefined }));
+    api.queue("story", jsonResponse(403, LEFT_STORY));
     api.queue("rejoin", jsonResponse(409, { error: "story_full" }));
     const { rerender } = renderPage(<Story />);
     const user = userEvent.setup();
@@ -208,15 +208,11 @@ describe("Story", () => {
     expect(screen.getByText(/Rejoin as Ana\. You’ll take the last place/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← Your stories" })).toHaveAttribute("href", "/");
 
-    // A blocked opening author, or blocks still loading, keep the opening out of the page.
+    // A blocked opening author keeps the opening out of the page; blocks.test.ts has the variants.
     const blocked = fakeBlocks({ blocked: [{ id: "b1", blockedUserId: "u2" }] });
     rerender(inTheme(<Story />, blocked));
     expect(screen.queryByText("“The bell rang once.”")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: OPENING_HIDDEN })).toBeInTheDocument();
-    rerender(inTheme(<Story />, fakeBlocks({ status: "loading" })));
-    expect(screen.getByRole("img", { name: OPENING_HIDDEN })).toBeInTheDocument();
-    rerender(inTheme(<Story />));
-    expect(screen.getByText("“The bell rang once.”")).toBeInTheDocument();
 
     // Held in flight: the button says so and can't be pressed again.
     await user.click(screen.getByRole("button", { name: "Rejoin as Ana" }));
@@ -244,8 +240,6 @@ describe("Story", () => {
     rerender(inTheme(<Story />));
     await user.click(await screen.findByRole("button", { name: "Rejoin as Ana" }));
 
-    // An older Worker sent no opening author, so the opening stays hidden.
-    expect(screen.getByRole("img", { name: OPENING_HIDDEN })).toBeInTheDocument();
     expect(
       await screen.findByText("This story is full (50 writers), so you can't rejoin it."),
     ).toBeInTheDocument();

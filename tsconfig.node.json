@@ -13,6 +13,9 @@
     "eslint.config.ts",
     "scripts",
     "src/worker/vapidKeys.ts",
+    "src/shared/legalDocuments.ts",
+    "src/shared/legalPageUrl.ts",
+    "src/shared/legalPages.ts",
     "src/shared/legalVersionCheck.ts"
   ]
 }

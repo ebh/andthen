@@ -1,6 +1,7 @@
 import { Serwist, type PrecacheEntry } from "serwist";
 
 import { openNotifiedStory, showPushedNotification } from "../client/pushHandlers";
+import { LEGAL_PAGE_PREFIX } from "../shared/legalPageUrl";
 
 // Replaced with the list of files to precache when `scripts/buildServiceWorker.ts` bundles this file.
 declare const PRECACHE_ENTRIES: (PrecacheEntry | string)[];
@@ -15,7 +16,9 @@ const serwist = new Serwist({
     cleanupOutdatedCaches: true,
     // The app is a single-page export, so any page address is served by the cached shell, except the API.
     navigateFallback: "/index.html",
-    navigateFallbackDenylist: [/^\/api(\/|$)/],
+    // Legal pages are static files, not app routes. The prefix ends in a slash, so `/legal` alone (a
+    // valid story ID) still gets the shell.
+    navigateFallbackDenylist: [/^\/api(\/|$)/, new RegExp(`^${LEGAL_PAGE_PREFIX}`)],
   },
 });
 

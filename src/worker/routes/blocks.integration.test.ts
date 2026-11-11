@@ -68,6 +68,20 @@ describe("blocking a user", () => {
     expect(removedAgain.status).toBe(404);
     expect(reblocked.status).toBe(201);
     expect(blockUserResponseSchema.parse(await reblocked.json()).blockId).not.toBe(blockId);
+
+    // Two requests at once for a pair with no block: one creates it, the other finds it.
+    const catId = await userId(await newWriter("Cat"));
+    const [a, b] = await Promise.all([block(ana, catId), block(ana, catId)]);
+
+    expect([a.status, b.status].toSorted()).toEqual([200, 201]);
+    const racedIds = [
+      blockUserResponseSchema.parse(await a.json()).blockId,
+      blockUserResponseSchema.parse(await b.json()).blockId,
+    ];
+    expect(racedIds[0]).toBe(racedIds[1]);
+    expect(
+      (await storedBlocks(await userId(ana))).filter((row) => row.blockedUserId === catId),
+    ).toHaveLength(1);
   });
 
   it("lists only the caller's blocks, oldest first, breaking a tie by ID", async () => {

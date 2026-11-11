@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { jsonResponse } from "../client/testFixtures";
-import { BlocksProvider, useBlocks } from "../client/useBlocks";
+import { announceSignedOut } from "../client/account";
 import { SignInStatus } from "./SignInStatus";
 import { clerk, resetClerk } from "./clerkStub";
 import { inTheme, renderPage } from "./testRender";
@@ -13,6 +12,7 @@ const alerts = vi.hoisted(() => ({ turnOff: vi.fn<() => Promise<void>>() }));
 
 vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
+vi.mock("../client/account", () => ({ announceSignedOut: vi.fn<() => void>() }));
 vi.mock("../client/turnAlerts", () => ({
   useTurnAlerts: () => ({
     state: { type: "unavailable" },
@@ -25,20 +25,6 @@ beforeEach(() => {
   resetClerk();
   alerts.turnOff.mockReset().mockResolvedValue(undefined);
 });
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-function BlockedProbe() {
-  const blocks = useBlocks();
-
-  return (
-    <p>
-      {blocks.status}; u2 blocked: {blocks.blockIdFor("u2") === null ? "no" : "yes"}
-    </p>
-  );
-}
 
 // NewStory's tests reach the signed-out link and a successful sign-out through the page. What
 // only Clerk's own state decides is covered here.
@@ -65,7 +51,8 @@ describe("SignInStatus", () => {
   // Pins the order that keeps a browser from being left subscribed: alerts go off while the
   // session can still authorise the Worker, then Clerk signs out, then the page is told. It also
   // pins that a failed sign-out leaves the writer signed in with a message, and that trying again
-  // clears the message.
+  // clears the message. The blocks are told right after Clerk signs out and before the page, so
+  // they drop the account's list before anything is fetched as the anonymous user.
   it("turns alerts off, then signs out, then tells the page, and recovers from a failed sign-out", async () => {
     clerk.isSignedIn = true;
     clerk.userId = "user_1";
@@ -94,6 +81,9 @@ describe("SignInStatus", () => {
 
         return secondSignOut.promise;
       });
+    vi.mocked(announceSignedOut).mockImplementation(() => {
+      order.push("blocks told");
+    });
     const onSignedOut = vi.fn<() => void>(() => {
       order.push("page told");
     });
@@ -130,35 +120,14 @@ describe("SignInStatus", () => {
     await waitFor(() => {
       expect(onSignedOut).toHaveBeenCalledOnce();
     });
-    expect(order).toEqual(["alerts off", "sign out", "alerts off", "sign out", "page told"]);
+    expect(order).toEqual([
+      "alerts off",
+      "sign out",
+      "alerts off",
+      "sign out",
+      "blocks told",
+      "page told",
+    ]);
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
-  });
-
-  // Pins that signing out drops the account's blocked users at once and reloads the anonymous
-  // user's. Without it a signed-out browser would keep hiding, or showing, the wrong authors.
-  it("drops the account's blocked users on sign-out, and shows the anonymous user's once they load", async () => {
-    clerk.isSignedIn = true;
-    clerk.userId = "user_1";
-    const relist = Promise.withResolvers<Response>();
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(jsonResponse(200, { blocks: [{ id: "b1", blockedUserId: "u2" }] }))
-        .mockReturnValueOnce(relist.promise),
-    );
-    renderPage(
-      <BlocksProvider>
-        <BlockedProbe />
-        <SignInStatus onSignedOut={vi.fn<() => void>()} />
-      </BlocksProvider>,
-    );
-    expect(await screen.findByText("ready; u2 blocked: yes")).toBeInTheDocument();
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
-    expect(await screen.findByText("loading; u2 blocked: no")).toBeInTheDocument();
-
-    relist.resolve(jsonResponse(200, { blocks: [] }));
-    expect(await screen.findByText("ready; u2 blocked: no")).toBeInTheDocument();
   });
 });

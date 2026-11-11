@@ -17,9 +17,9 @@ export interface BlocksLoad {
 }
 
 /** The API calls a change can make. Passed in so a test can fake them. */
-export interface BlockCalls<R> {
-  blockUser: (request: { blockedUserId: string }) => R;
-  unblockUser: (blockId: string) => R;
+export interface BlockCalls<Blocked, Unblocked> {
+  blockUser: (request: { blockedUserId: string }) => Blocked;
+  unblockUser: (blockId: string) => Unblocked;
 }
 
 /** What the list is before its first load, and after a sign-out drops the previous account's. */
@@ -45,12 +45,12 @@ export function nextBlocksLoad(
  * The call that carries out a Block or Unblock of `user`, or null when there is nothing to send:
  * an Unblock of a user the user does not block.
  */
-export function blockRequest<R>(
+export function blockRequest<Blocked, Unblocked>(
   action: BlockAction,
   blocks: readonly Block[],
   user: { id: string },
-  calls: BlockCalls<R>,
-): (() => R) | null {
+  calls: BlockCalls<Blocked, Unblocked>,
+): (() => Blocked | Unblocked) | null {
   if (action === "block") {
     return () => calls.blockUser({ blockedUserId: user.id });
   }

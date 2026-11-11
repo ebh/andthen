@@ -1,4 +1,4 @@
-import { getCookie, setCookie } from "hono/cookie";
+import { generateCookie, getCookie } from "hono/cookie";
 
 import { DEVICE_TOKEN_HEADER, deviceTokenSchema } from "../shared/deviceToken";
 import { BROWSER_TOKEN_MAX_AGE_SECONDS } from "./config";
@@ -9,6 +9,14 @@ interface CookieSettings {
   secure: boolean;
 }
 
+/** The request's device token, or null when it carries none. `deviceTokenFrom` has the rules. */
+export function readDeviceToken(c: AppContext): string | null {
+  return deviceTokenFrom({
+    header: c.req.header(DEVICE_TOKEN_HEADER),
+    cookie: getCookie(c, cookieSettings(c.req.url).name),
+  });
+}
+
 /**
  * The device token a request carries, or null when it carries none. The `X-Device-Token` header
  * decides alone: a client that sends it never has its cookie read, because a native HTTP client
@@ -16,8 +24,13 @@ interface CookieSettings {
  * included, is `bad_request`, so it can't pass for "no token". Without the header the cookie
  * decides.
  */
-export function readDeviceToken(c: AppContext): string | null {
-  const header = c.req.header(DEVICE_TOKEN_HEADER);
+export function deviceTokenFrom({
+  header,
+  cookie,
+}: {
+  header: string | undefined;
+  cookie: string | undefined;
+}): string | null {
   if (header !== undefined) {
     const parsed = deviceTokenSchema.safeParse(header);
     if (!parsed.success) {
@@ -26,8 +39,6 @@ export function readDeviceToken(c: AppContext): string | null {
 
     return parsed.data;
   }
-
-  const cookie = getCookie(c, cookieSettings(c.req.url).name);
 
   return cookie === undefined || cookie === "" ? null : cookie;
 }
@@ -43,16 +54,22 @@ export function readOrIssueDeviceToken(c: AppContext): string {
   }
 
   const token = toHex(crypto.getRandomValues(new Uint8Array(32)));
-  const { name, secure } = cookieSettings(c.req.url);
-  setCookie(c, name, token, {
+  c.header("Set-Cookie", browserTokenCookie(token, c.req.url), { append: true });
+
+  return token;
+}
+
+/** The full `Set-Cookie` value that gives a browser its device token. */
+export function browserTokenCookie(token: string, requestUrl: string): string {
+  const { name, secure } = cookieSettings(requestUrl);
+
+  return generateCookie(name, token, {
     httpOnly: true,
     secure,
     sameSite: "Lax",
     path: "/",
     maxAge: BROWSER_TOKEN_MAX_AGE_SECONDS,
   });
-
-  return token;
 }
 
 /** Only the hash is stored, so a leaked database can't be used to act as a participant. */

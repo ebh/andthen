@@ -21,3 +21,4 @@ CLAUDE.local.md
 .claude/worktrees/
 test-results/
 playwright-report/
+.vitest/

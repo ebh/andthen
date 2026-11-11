@@ -16,6 +16,7 @@ Write source code so the logic in it is tested by fast unit tests. `testing.md` 
 A component or hook renders and wires. Branching on data, deriving state, choosing a message and classifying a result belong in a pure function in `src/client/` or `src/shared/`, with its own unit test.
 
 - A component calls the function and renders what it returns. Its component test then checks the wiring once.
+- A new component gets no test file of its own by default. The component that renders it checks its wiring; `component-tests.md` says when a component keeps its own file.
 - A pure function takes its inputs as arguments. A clock, `fetch` or a browser API is passed in, not read from the global.
 - A function a test needs is exported. A file-local rule that cannot be reached is a rule that is tested through the slowest layer.
 - Two components that share a rule share the function. `JoinForm` and `Rejoin` classifying a join result is one rule.

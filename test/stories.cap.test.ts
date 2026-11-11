@@ -83,24 +83,57 @@ describe("the participant cap", () => {
     return { ana, storyId };
   }
 
-  it("caps a story at 50 participants", () => {
-    expect(MAX_PARTICIPANTS).toBe(50);
-  });
-
-  it("lets the 50th participant join and refuses the 51st with 409 story_full", async () => {
+  // The 51st join is sent on the full story with a recording room, so one story also proves the
+  // refusal writes nothing and notifies no one, and that name_taken and already_joined are
+  // reported before story_full.
+  it("lets the 50th join and refuses the 51st with 409 story_full", async () => {
     const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS - 1);
 
     const fiftieth = await newBrowser().post(joinPath(storyId), {
       displayName: nameInTest("Last"),
     });
-    const fiftyFirst = await newBrowser().post(joinPath(storyId), {
-      displayName: nameInTest("Late"),
-    });
 
     expect(fiftieth.status).toBe(201);
+    const full = await readStory(ana, storyId);
+    expect(full.participants).toHaveLength(MAX_PARTICIPANTS);
+    expect(full.turn.holderId).toBe(full.participants[1]?.id);
+
+    const notified: number[] = [];
+    const env = {
+      DB: testEnv.env.DB,
+      STORY_ROOM: {
+        getByName: () => ({
+          notify: (message: { version: number }) => {
+            notified.push(message.version);
+            return Promise.resolve();
+          },
+        }),
+      },
+    };
+    const late = newBrowser();
+
+    const fiftyFirst = await late.post(
+      joinPath(storyId),
+      { displayName: nameInTest("Late") },
+      { env },
+    );
+
     expect(fiftyFirst.status).toBe(409);
     expect(await readError(fiftyFirst)).toBe("story_full");
-    expect((await readStory(ana, storyId)).participants).toHaveLength(MAX_PARTICIPANTS);
+    expect(await readStory(ana, storyId)).toEqual(full);
+    expect(notified).toEqual([]);
+    expect(late.backgroundWork).toEqual([]);
+
+    const duplicateName = await newBrowser().post(joinPath(storyId), {
+      displayName: `p1 ${storyId}`,
+    });
+
+    expect(duplicateName.status).toBe(409);
+    expect(await readError(duplicateName)).toBe("name_taken");
+
+    const again = await ana.post(joinPath(storyId), {});
+
+    expect(await readError(again)).toBe("already_joined");
   });
 
   it("does not count a participant who has left toward the cap", async () => {
@@ -128,61 +161,6 @@ describe("the participant cap", () => {
     expect(await readError(response)).toBe("story_full");
     const stillLeft = await ana.get(`/api/stories/${storyId}`);
     expect(await readError(stillLeft)).toBe("left_story");
-  });
-
-  it("changes nothing when a join is refused: no participant, no version bump, no notification", async () => {
-    const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
-    const before = await readStory(ana, storyId);
-    const notified: number[] = [];
-    const env = {
-      DB: testEnv.env.DB,
-      STORY_ROOM: {
-        getByName: () => ({
-          notify: (message: { version: number }) => {
-            notified.push(message.version);
-            return Promise.resolve();
-          },
-        }),
-      },
-    };
-    const late = newBrowser();
-
-    const response = await late.post(
-      joinPath(storyId),
-      { displayName: nameInTest("Late") },
-      { env },
-    );
-
-    expect(response.status).toBe(409);
-    expect(await readStory(ana, storyId)).toEqual(before);
-    expect(notified).toEqual([]);
-    expect(late.backgroundWork).toEqual([]);
-  });
-
-  it("reports name_taken, not story_full, for a duplicate name on a full story", async () => {
-    const { storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
-
-    const response = await newBrowser().post(joinPath(storyId), { displayName: `p1 ${storyId}` });
-
-    expect(response.status).toBe(409);
-    expect(await readError(response)).toBe("name_taken");
-  });
-
-  it("reports already_joined, not story_full, to a participant who joins again", async () => {
-    const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
-
-    const response = await ana.post(joinPath(storyId), {});
-
-    expect(await readError(response)).toBe("already_joined");
-  });
-
-  it("still lets participants read and write in a full story", async () => {
-    const { ana, storyId } = await storyWithParticipants(MAX_PARTICIPANTS);
-
-    const view = await readStory(ana, storyId);
-
-    expect(view.participants).toHaveLength(MAX_PARTICIPANTS);
-    expect(view.turn.holderId).toBe(view.participants[1]?.id);
   });
 
   // The turn_version guard already makes the second join lose, so this pins the route-level result

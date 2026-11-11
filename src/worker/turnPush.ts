@@ -1,5 +1,5 @@
 import { resolveTurn, turnEndsAt, turnPassedTo, type TurnState } from "../shared/turnOrder";
-import { blocksOpeningAuthor } from "./db/blockRepo";
+import { blocksUser } from "./db/blockRepo";
 import { deletePushSubscriptionByEndpoint, loadPushSubscriptions } from "./db/pushRepo";
 import type { ParticipantRow, PushSubscriptionRow } from "./db/rows";
 import { loadOpening, type Db } from "./db/storyRepo";
@@ -133,11 +133,9 @@ async function quotableOpening(
   storyId: string,
   holderUserId: string,
 ): Promise<string | null> {
-  if (await blocksOpeningAuthor(db, storyId, holderUserId)) {
-    return null;
-  }
+  const opening = await loadOpening(db, storyId);
 
-  return (await loadOpening(db, storyId)).text;
+  return (await blocksUser(db, holderUserId, opening.authorId)) ? null : opening.text;
 }
 
 // One subscription's failure, even a failed delete, must not stop the holder's others.

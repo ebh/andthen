@@ -54,19 +54,13 @@ export async function listBlocks(db: Db, userId: string): Promise<BlockRow[]> {
   return z.array(blockRowSchema).parse(result.results);
 }
 
-/** Whether `userId` blocks the author of the story's opening passage. */
-export async function blocksOpeningAuthor(
-  db: Db,
-  storyId: string,
-  userId: string,
-): Promise<boolean> {
+/** Whether `userId` blocks `blockedUserId`. */
+export async function blocksUser(db: Db, userId: string, blockedUserId: string): Promise<boolean> {
   const result = await db
     .prepare(
-      `SELECT b.id, b.blocked_user_id AS blockedUserId
-       FROM blocks b JOIN passages p ON p.author_id = b.blocked_user_id
-       WHERE b.user_id = ? AND p.story_id = ? AND p.seq = 1`,
+      "SELECT id, blocked_user_id AS blockedUserId FROM blocks WHERE user_id = ? AND blocked_user_id = ?",
     )
-    .bind(userId, storyId)
+    .bind(userId, blockedUserId)
     .all();
 
   return z.array(blockRowSchema).parse(result.results).length > 0;

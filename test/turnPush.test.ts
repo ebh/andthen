@@ -140,15 +140,25 @@ describe("pushing the turn", () => {
       expect(await holds(cy, storyId)).toBe(true);
     });
 
-    // Pins that a holder who blocks the opening's author gets a push that quotes none of it.
+    // Pins that only the holder's own block of the opening's author silences the quote: other
+    // blocks leave it in, and a holder who blocks the author gets a push that quotes none of it.
     // Without it a blocked author's words would reach the holder's lock screen.
-    it("quotes none of the opening to a holder who blocks its author", async () => {
+    it("quotes the opening unless the holder blocks its author", async () => {
       const { ana, ben, cy, storyId } = await threeWriters();
-      await block(cy, await userIdOf(env.DB, ana));
+      // Ben blocks the author, and Cy blocks someone else; neither is the holder with a block.
+      await block(ben, await userIdOf(env.DB, ana));
+      await block(cy, await userIdOf(env.DB, ben));
 
       await contribute(ben, storyId);
       await settle(ben);
+      expect(sender.sent[0]?.message.data.notification.body).toBe(OPENING_EXCERPT);
 
+      await contribute(cy, storyId);
+      await settle(cy);
+      sender.sent.length = 0;
+      await contribute(ana, storyId);
+      await settle(ana);
+      // Ben holds after Ana's turn, and blocks the opening's author.
       expect(sender.sent).toHaveLength(1);
       expect(sender.sent[0]?.message.data.notification).toEqual({
         title: "Your turn",
@@ -156,19 +166,6 @@ describe("pushing the turn", () => {
         navigate: `http://localhost/${storyId}`,
         tag: `turn-${storyId}`,
       });
-    });
-
-    // Pins that only the holder's own block of the opening's author silences the quote: another
-    // writer's block, or the holder blocking a different writer, leaves it in.
-    it("still quotes the opening when only someone else blocks its author, or the holder blocks another writer", async () => {
-      const { ana, ben, cy, storyId } = await threeWriters();
-      await block(ben, await userIdOf(env.DB, ana));
-      await block(cy, await userIdOf(env.DB, ben));
-
-      await contribute(ben, storyId);
-      await settle(ben);
-
-      expect(sender.sent[0]?.message.data.notification.body).toBe(OPENING_EXCERPT);
     });
   });
 

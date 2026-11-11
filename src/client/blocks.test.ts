@@ -17,13 +17,12 @@ describe("blockIdFor", () => {
     { id: "b2", blockedUserId: "u3" },
   ];
 
-  it("finds the block on a user", () => {
-    expect(blockIdFor(blocks, "u3")).toBe("b2");
-  });
-
-  it("is null for a user with no block, and for no blocks at all", () => {
-    expect(blockIdFor(blocks, "u9")).toBeNull();
-    expect(blockIdFor([], "u2")).toBeNull();
+  it.each([
+    { title: "finds the block on a user", given: blocks, userId: "u3", expected: "b2" },
+    { title: "is null for a user with no block", given: blocks, userId: "u9", expected: null },
+    { title: "is null for no blocks at all", given: [], userId: "u2", expected: null },
+  ])("$title", ({ given, userId, expected }) => {
+    expect(blockIdFor(given, userId)).toBe(expected);
   });
 });
 

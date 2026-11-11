@@ -19,7 +19,7 @@ import {
   type AuthorInParagraph,
 } from "../client/authorHighlight";
 import { blocksNotice } from "../client/blockMessages";
-import { isObscured } from "../client/blocks";
+import { isObscured, revealFor, type Reveal } from "../client/blocks";
 import { blockOffer } from "../client/storyRules";
 import { useBlocks, type BlocksValue } from "../client/useBlocks";
 import type { PassageView } from "../shared/api";
@@ -231,14 +231,14 @@ function Turn({
   highlighted: boolean;
 }) {
   const blockId = blocks.blockIdFor(turn.authorId);
-  const [reveal, setReveal] = useState({ blockId, shown: false });
+  const [stored, setReveal] = useState<Reveal>({ blockId, shown: false });
   const revealedText = useRef<TamaguiTextElement>(null);
 
-  // A new block, or none, starts hidden again; a reload that keeps the same block keeps the reveal.
-  if (reveal.blockId !== blockId) {
-    setReveal({ blockId, shown: false });
+  const reveal = revealFor(stored, blockId);
+  if (reveal !== stored) {
+    setReveal(reveal);
   }
-  const shown = reveal.blockId === blockId && reveal.shown;
+  const { shown } = reveal;
 
   // Pressing the stand-in removes the focused element; the text that replaces it takes the focus.
   useEffect(() => {

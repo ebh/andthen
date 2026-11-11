@@ -7,6 +7,7 @@ import {
   isObscured,
   isOpeningObscured,
   nextBlocksLoad,
+  revealFor,
 } from "./blocks";
 
 describe("blockIdFor", () => {
@@ -89,6 +90,37 @@ describe("isOpeningObscured", () => {
     },
   ])("$title", ({ blocks: given, authorId, expected }) => {
     expect(isOpeningObscured(given, authorId)).toBe(expected);
+  });
+});
+
+describe("revealFor", () => {
+  const shown = { blockId: "b1", shown: true };
+
+  it.each([
+    {
+      title: "keeps a reveal when a reload finds the same block",
+      reveal: shown,
+      blockId: "b1",
+      expected: shown,
+    },
+    {
+      title: "hides again when the block is a new one",
+      reveal: shown,
+      blockId: "b2",
+      expected: { blockId: "b2", shown: false },
+    },
+    {
+      title: "hides again when the block is gone",
+      reveal: shown,
+      blockId: null,
+      expected: { blockId: null, shown: false },
+    },
+  ])("$title", ({ reveal, blockId, expected }) => {
+    expect(revealFor(reveal, blockId)).toEqual(expected);
+  });
+
+  it("returns the same object when nothing changed", () => {
+    expect(revealFor(shown, "b1")).toBe(shown);
   });
 });
 

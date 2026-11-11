@@ -16,6 +16,12 @@ export interface BlocksLoad {
   blocks: readonly Block[];
 }
 
+/** Whether the user pressed a stand-in to show a blocked author's passage, and for which block. */
+export interface Reveal {
+  blockId: string | null;
+  shown: boolean;
+}
+
 /** The API calls a change can make. Passed in so a test can fake them. */
 export interface BlockCalls<Blocked, Unblocked> {
   blockUser: (request: { blockedUserId: string }) => Blocked;
@@ -63,6 +69,15 @@ export function blockRequest<Blocked, Unblocked>(
 /** The ID of the user's block on `userId`, or null when they have none. */
 export function blockIdFor(blocks: readonly Block[], userId: string): string | null {
   return blocks.find((block) => block.blockedUserId === userId)?.id ?? null;
+}
+
+/**
+ * The reveal after the passage's author block is looked up again. A new block, or none, hides the
+ * passage again; a reload that keeps the same block keeps the reveal. Returns `reveal` itself when
+ * nothing changed, so it is safe to store without a render loop.
+ */
+export function revealFor(reveal: Reveal, blockId: string | null): Reveal {
+  return reveal.blockId === blockId ? reveal : { blockId, shown: false };
 }
 
 /**

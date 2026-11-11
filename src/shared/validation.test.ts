@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   chooseDisplayName,
   displayNameKey,
+  joinRefusalBeforeWrite,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_PARTICIPANTS,
   MAX_PASSAGE_LENGTH,
@@ -212,5 +213,41 @@ describe("normaliseStoryId", () => {
 
   it.each(["abc1", "abc123", "abc-1", "", " abc12", "abc12 "])("rejects %j", (raw) => {
     expect(normaliseStoryId(raw)).toBeNull();
+  });
+});
+
+describe("joinRefusalBeforeWrite", () => {
+  const FREE = { alreadyJoined: false, nameHeld: false, activeWriterCount: 0 };
+  const ROOM_LEFT = MAX_PARTICIPANTS - 1;
+
+  it.each([
+    ["nothing wrong", FREE, null],
+    ["one place left", { ...FREE, activeWriterCount: ROOM_LEFT }, null],
+    ["already joined", { ...FREE, alreadyJoined: true }, "already_joined"],
+    ["name held", { ...FREE, nameHeld: true }, "name_taken"],
+    ["story full", { ...FREE, activeWriterCount: MAX_PARTICIPANTS }, "story_full"],
+    ["over the cap", { ...FREE, activeWriterCount: MAX_PARTICIPANTS + 1 }, "story_full"],
+    [
+      "already joined and name held",
+      { ...FREE, alreadyJoined: true, nameHeld: true },
+      "already_joined",
+    ],
+    [
+      "already joined and story full",
+      { ...FREE, alreadyJoined: true, activeWriterCount: MAX_PARTICIPANTS },
+      "already_joined",
+    ],
+    [
+      "name held and story full",
+      { ...FREE, nameHeld: true, activeWriterCount: MAX_PARTICIPANTS },
+      "name_taken",
+    ],
+    [
+      "all three",
+      { alreadyJoined: true, nameHeld: true, activeWriterCount: MAX_PARTICIPANTS },
+      "already_joined",
+    ],
+  ])("with %s answers %s", (_case, facts, expected) => {
+    expect(joinRefusalBeforeWrite(facts)).toBe(expected);
   });
 });

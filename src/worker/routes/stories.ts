@@ -23,6 +23,7 @@ import {
 } from "../../shared/turnOrder";
 import {
   chooseDisplayName,
+  joinRefusalBeforeWrite,
   MAX_PARTICIPANTS,
   normaliseStoryId,
   validatePassage,
@@ -148,12 +149,13 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
 
     const now = deps.now();
     const me = await requireOrCreateMe(c, deps);
-    if (loaded.participants.some((p) => p.userId === me.id)) {
-      throw new ApiError("already_joined");
-    }
-    await requireFreeDisplayName(c.env.DB, displayName, me.id);
-    if (loaded.activeParticipants.length >= MAX_PARTICIPANTS) {
-      throw new ApiError("story_full");
+    const refusal = joinRefusalBeforeWrite({
+      alreadyJoined: loaded.participants.some((p) => p.userId === me.id),
+      nameHeld: await isHeldByAnotherUser(c.env.DB, displayName, me.id),
+      activeWriterCount: loaded.activeParticipants.length,
+    });
+    if (refusal !== null) {
+      throw new ApiError(refusal);
     }
 
     const joinedState = onJoin(loaded.state, loaded.nextPosition, now);

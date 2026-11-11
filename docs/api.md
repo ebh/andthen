@@ -84,6 +84,7 @@ A block is one user blocking another (`blocks`, one row per pair), so it holds i
 - **Known limits:**
   - Another device shows a new block only after it reloads.
   - A list that went stale when a blocked author's user ID changed (a sign-in or merge) is [#171](https://github.com/ebh/andthen/issues/171).
+  - A merge that deletes either user between `POST`'s check that both exist and its insert makes the route answer 500 instead of 404 `not_found` ([#175](https://github.com/ebh/andthen/issues/175)).
   - Suggestions still see blocked passages ([#149](https://github.com/ebh/andthen/issues/149)).
   - The look of a failed or loading list is [#172](https://github.com/ebh/andthen/issues/172).
 

@@ -7,7 +7,9 @@ import type { CreatedBlock, NewBlock } from "./typeSchemas";
 /**
  * Blocks `blockedUserId` for `userId`. When the pair is already blocked, nothing is written and
  * the existing block's ID is returned, so `input.id` is not stored.
- * The insert and the read run in one batch, so a delete or a merge can't land between them.
+ * The insert and the read run in one batch, so a delete or a merge can't land between them. The
+ * caller's earlier check that both users exist is a separate step and can lose a race with a
+ * merge (#175).
  */
 export async function createBlock(db: Db, input: NewBlock): Promise<CreatedBlock> {
   const [inserted, selected] = await db.batch([

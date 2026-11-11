@@ -176,25 +176,16 @@ describe("StoryText", () => {
     expect(story().querySelector("img, b")).toBeNull();
   });
 
-  it("offers Block or Unblock on other authors only, calls the one picked, holds both while a change is out, and returns focus to the name on Escape", async () => {
+  // The offers are unit tested in storyRules.test.ts; this checks the picked one reaches change.
+  it("calls change with the offer picked, holds the offer while a change is out, and returns focus to the name on Escape", async () => {
     const change = vi.fn<ChangeBlock>();
     const user = userEvent.setup();
     setScreen({ wide: true, hover: true });
     const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, change }));
 
-    await openMenu(user, "Ana");
-    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
-    await user.keyboard("{Escape}");
-
-    await openMenu(user, "Cat");
-    await user.click(screen.getByRole("menuitem", { name: "Block Cat" }));
-    expect(change).toHaveBeenLastCalledWith("block", "p3");
-
     await openMenu(user, "Ben");
-    expect(screen.queryByRole("menuitem", { name: "Block Ben" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "Unblock Ben" }));
-    expect(change).toHaveBeenLastCalledWith("unblock", "p2");
-    expect(change).toHaveBeenCalledTimes(2);
+    expect(change).toHaveBeenCalledExactlyOnceWith("unblock", "p2");
 
     rerender(inTheme(storyElement(), fakeBlocks({ change, working: "Blocking…" })));
     await openMenu(user, "Cat");

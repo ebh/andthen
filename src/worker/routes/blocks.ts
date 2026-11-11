@@ -5,6 +5,7 @@ import {
   type BlocksResponse,
   type BlockUserResponse,
 } from "../../shared/api";
+import { canBlock } from "../../shared/blocks";
 import { createBlock, deleteBlock, listBlocks } from "../db/blockRepo";
 import type { UserRow } from "../db/rows";
 import { findUserById } from "../db/userRepo";
@@ -28,7 +29,7 @@ export function blockRoutes(deps: MeDeps): Hono<{ Bindings: Env }> {
   routes.post("/api/users/me/blocks", async (c) => {
     const body = await parseJsonBody(c, blockUserRequestSchema);
     const me = await requireMe(c, deps);
-    if (body.blockedUserId === me.id) {
+    if (!canBlock(me.id, body.blockedUserId)) {
       throw new ApiError("cannot_block_self");
     }
     if ((await findUserById(c.env.DB, body.blockedUserId)) === null) {

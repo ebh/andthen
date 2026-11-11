@@ -1,4 +1,5 @@
 import type { StoryView } from "../shared/api";
+import { canBlock } from "../shared/blocks";
 import { canSkip, onLeave, type TurnState } from "../shared/turnOrder";
 
 /** What an author's menu offers about blocking them. */
@@ -101,7 +102,7 @@ export function blockOffer(author: {
   myUserId: string;
   blockId: string | null;
 }): BlockOffer {
-  if (author.authorId === author.myUserId) {
+  if (!canBlock(author.myUserId, author.authorId)) {
     return { type: "none" };
   }
   if (author.blockId !== null) {

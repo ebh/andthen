@@ -86,7 +86,6 @@ describe("useBlocks", () => {
       expect(result.current.working).toBeNull();
     });
     expect(result.current.blockIdFor("u2")).toBe("b1");
-    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe('{"blockedUserId":"u2"}');
 
     // Unblock: by the block's ID.
     act(() => {

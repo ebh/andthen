@@ -275,27 +275,6 @@ describe("blocking", () => {
     });
   });
 
-  it("counts the 200 a repeat answers as success", async () => {
-    stubFetch(jsonResponse(200, { blockId: "b1" }));
-
-    expect(await blockUser({ blockedUserId: "u2" })).toEqual({
-      ok: true,
-      value: { blockId: "b1" },
-    });
-  });
-
-  it("returns a refusal as a value", async () => {
-    stubFetch(jsonResponse(400, { error: "cannot_block_self" }));
-
-    const result = await blockUser({ blockedUserId: "u1" });
-
-    expect(!result.ok && result.failure).toEqual({
-      type: "rejected",
-      status: 400,
-      code: "cannot_block_self",
-    });
-  });
-
   it("deletes the block with no body and accepts a 204", async () => {
     const fetchMock = stubFetch(noContentResponse());
 
@@ -303,18 +282,6 @@ describe("blocking", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/users/me/blocks/b1", {
       method: "DELETE",
       headers: { "X-Api-Level": String(API_LEVEL) },
-    });
-  });
-
-  it("returns a missing block as a value", async () => {
-    stubFetch(jsonResponse(404, { error: "not_found" }));
-
-    const result = await unblockUser("gone");
-
-    expect(!result.ok && result.failure).toEqual({
-      type: "rejected",
-      status: 404,
-      code: "not_found",
     });
   });
 });

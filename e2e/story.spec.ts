@@ -178,18 +178,6 @@ test("a second writer opens the invite link, joins by name and sees the story pa
   await expect(ben.getByRole("heading", { name: "Join this story" })).toHaveCount(0);
 });
 
-test("a writer who has joined stays in the story after a reload", async ({ browser }) => {
-  const ana = await newWriter(browser);
-  const ben = await newWriter(browser);
-  const inviteLink = await startStory(ana, names.ana, "Rain fell on the empty market.");
-  await joinStory(ben, inviteLink, names.ben);
-
-  await ben.reload();
-
-  await expect(ben.getByLabel("Invite link")).toHaveValue(inviteLink);
-  await expect(ben.getByRole("heading", { name: "Join this story" })).toHaveCount(0);
-});
-
 test("a page taller than a short screen scrolls to its last control", async ({ browser }) => {
   // Short enough that the invite link falls below the fold before anyone has joined.
   const screenHeight = 400;

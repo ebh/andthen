@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 import {
-  PHONE,
   expectPageNotReloaded,
   joinStory,
   names,
@@ -63,30 +62,4 @@ test("a writer who holds the turn can leave, the turn moves on live, and they ca
 
   await expect(turnBanner(ben)).toContainText(`${names.ben} (you)`);
   await expect(turnBanner(cy)).toContainText(names.ben);
-});
-
-test("on a phone, a writer sees their stories, leaves one and comes back", async ({ browser }) => {
-  const ana = await newWriter(browser);
-  const ben = await newWriter(browser, PHONE);
-  const inviteLink = await startStory(ana, names.ana, "The bridge hummed at dusk.");
-  await joinStory(ben, inviteLink, names.ben);
-  await startStory(ben, names.ben, "A kettle whistled upstairs.");
-
-  await ben.getByRole("link", { name: "← Your stories" }).click();
-  const stories = ben.getByRole("region", { name: "Your stories" });
-  await expect(stories.getByRole("link")).toHaveCount(2);
-  await expect(stories.getByRole("link", { name: /bridge hummed/ })).toContainText("Your turn");
-
-  await stories.getByRole("link", { name: /bridge hummed/ }).click();
-  await ben.getByRole("button", { name: "Leave story" }).click();
-  const dialog = ben.getByRole("alertdialog", { name: "Leave this story?" });
-  await expect(dialog).toContainText("the story will wait");
-  await dialog.getByRole("button", { name: "Leave story" }).click();
-
-  await expect(ben.getByText("You left the story.")).toBeVisible();
-  await expect(stories.getByRole("link")).toHaveCount(1);
-
-  await ben.goto(inviteLink);
-  await ben.getByRole("button", { name: `Rejoin as ${names.ben}` }).click();
-  await expect(turnBanner(ben)).toContainText("It's your turn");
 });

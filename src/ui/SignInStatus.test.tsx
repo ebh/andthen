@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { announceSignedOut } from "../client/account";
+import { onSignedOut as onAccountSignedOut } from "../client/account";
 import { SignInStatus } from "./SignInStatus";
 import { clerk, resetClerk } from "./clerkStub";
 import { inTheme, renderPage } from "./testRender";
@@ -12,7 +12,6 @@ const alerts = vi.hoisted(() => ({ turnOff: vi.fn<() => Promise<void>>() }));
 
 vi.mock("@clerk/expo", async () => (await import("./clerkStub")).clerkModule);
 vi.mock("expo-router", async () => (await import("./routerStub")).routerStub);
-vi.mock("../client/account", () => ({ announceSignedOut: vi.fn<() => void>() }));
 vi.mock("../client/turnAlerts", () => ({
   useTurnAlerts: () => ({
     state: { type: "unavailable" },
@@ -81,7 +80,7 @@ describe("SignInStatus", () => {
 
         return secondSignOut.promise;
       });
-    vi.mocked(announceSignedOut).mockImplementation(() => {
+    const stopListening = onAccountSignedOut(() => {
       order.push("blocks told");
     });
     const onSignedOut = vi.fn<() => void>(() => {
@@ -129,5 +128,6 @@ describe("SignInStatus", () => {
       "page told",
     ]);
     expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
+    stopListening();
   });
 });

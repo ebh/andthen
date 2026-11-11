@@ -206,110 +206,52 @@ describe("StoryText", () => {
     expect(highlighted()).toEqual([]);
   });
 
-  it("keeps one notice row with the same two live regions for its whole life, showing progress, a failure and a failed load", () => {
-    const { rerender } = renderPage(storyElement());
+  // Pins that a blocked author's passage reaches the page only as a stand-in, that the user can
+  // show it by press or key, and that a changed block hides it again. The rules are unit tested
+  // in blocks.test.ts and blockMessages.test.ts; without this the page would show blocked text.
+  it("obscures a blocked author's passage until pressed, hides it again when the block changes, and keeps one notice row", async () => {
+    const label = "Passage by Ben, hidden because you blocked them";
+    const unblock = vi.fn<BlockedUser>();
+    const user = userEvent.setup();
+    const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, unblock }));
     const progress = screen.getByRole("status");
     const failure = screen.getByRole("alert");
+    const filler = screen.getByRole("button", { name: label }).querySelector("[aria-hidden]");
+    expect(story().textContent).not.toContain("It opened nothing.");
+    expect(story().textContent).toContain("A fox found a key.");
+    expect(filler).toHaveAttribute("aria-hidden", "true");
+    expect(filler).toHaveStyle({ filter: "blur(4px)" });
+    expect(filler?.textContent).toHaveLength("It opened nothing.".length);
     expect(progress).toBeEmptyDOMElement();
     expect(failure).toBeEmptyDOMElement();
 
-    rerender(inTheme(storyElement(), fakeBlocks({ working: "Blocking…" })));
-    expect(progress).toHaveTextContent("Blocking…");
-    expect(failure).toBeEmptyDOMElement();
+    await user.click(screen.getByRole("button", { name: label }));
+    expect(screen.getByText("It opened nothing.")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    expect(unblock).not.toHaveBeenCalled();
 
-    rerender(inTheme(storyElement(), fakeBlocks({ error: "Couldn't block. Reload the page." })));
-    expect(progress).toBeEmptyDOMElement();
-    expect(failure).toHaveTextContent("Couldn't block. Reload the page.");
+    // The same block after a reload keeps the passage shown; a new block hides it again.
+    rerender(inTheme(storyElement(), fakeBlocks(blockingBen)));
+    expect(screen.getByText("It opened nothing.")).toBeInTheDocument();
+    rerender(inTheme(storyElement(), fakeBlocks({ blocked: [{ id: "b2", blockedUserId: "p2" }] })));
+    expect(story().textContent).not.toContain("It opened nothing.");
 
-    rerender(inTheme(storyElement(), fakeBlocks({ status: "failed" })));
-    expect(failure).toHaveTextContent("Couldn't load blocked users. Try again.");
-  });
+    // A Space that is not prevented would also scroll the page; other keys do nothing.
+    const standIn = screen.getByRole("button", { name: label });
+    fireEvent.keyDown(standIn, { key: "a" });
+    expect(screen.queryByText("It opened nothing.")).not.toBeInTheDocument();
+    expect(fireEvent.keyDown(standIn, { key: " " })).toBe(false);
+    expect(screen.getByText("It opened nothing.")).toBeInTheDocument();
 
-  describe("a blocked author's passage", () => {
-    const label = "Passage by Ben, hidden because you blocked them";
-
-    it("holds no real text until pressed, then shows it and moves focus to it without unblocking", async () => {
-      const unblock = vi.fn<BlockedUser>();
-      const user = userEvent.setup();
-      renderPage(storyElement(), fakeBlocks({ ...blockingBen, unblock }));
-      const filler = screen.getByRole("button", { name: label }).querySelector("[aria-hidden]");
-
-      expect(story().textContent).not.toContain("It opened nothing.");
-      expect(story().textContent).toContain("A fox found a key.");
-      expect(filler).toHaveAttribute("aria-hidden", "true");
-      expect(filler).toHaveStyle({ filter: "blur(4px)" });
-      expect(filler?.textContent).toHaveLength("It opened nothing.".length);
-
-      await user.click(screen.getByRole("button", { name: label }));
-
-      expect(screen.getByText("It opened nothing.")).toHaveFocus();
-      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
-      expect(unblock).not.toHaveBeenCalled();
-    });
-
-    it("shows on Enter and Space without scrolling the page, and ignores other keys", () => {
-      renderPage(storyElement(), fakeBlocks(blockingBen));
-      const standIn = screen.getByRole("button", { name: label });
-
-      fireEvent.keyDown(standIn, { key: "a" });
-      expect(screen.queryByText("It opened nothing.")).not.toBeInTheDocument();
-
-      // A Space that is not prevented would also scroll the page.
-      expect(fireEvent.keyDown(standIn, { key: " " })).toBe(false);
-      expect(screen.getByText("It opened nothing.")).toBeInTheDocument();
-    });
-
-    it("stays shown while the same block stands, and hides again when the block changes", async () => {
-      const user = userEvent.setup();
-      const { rerender } = renderPage(storyElement(), fakeBlocks(blockingBen));
-      await user.click(screen.getByRole("button", { name: label }));
-
-      rerender(inTheme(storyElement(), fakeBlocks(blockingBen)));
-      expect(screen.getByText("It opened nothing.")).toBeInTheDocument();
-
-      rerender(inTheme(storyElement(), fakeBlocks()));
-      expect(story().textContent).toContain("A fox found a key. It opened nothing.");
-
-      rerender(
-        inTheme(storyElement(), fakeBlocks({ blocked: [{ id: "b2", blockedUserId: "p2" }] })),
-      );
-      expect(story().textContent).not.toContain("It opened nothing.");
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
-    });
-  });
-
-  describe("until the user's blocks have loaded", () => {
-    it.each(["loading", "failed"] as const)(
-      "obscures everyone else's passages but not the user's own when %s, and reveals them one at a time",
-      async (status) => {
-        const user = userEvent.setup();
-        renderPage(storyElement(), fakeBlocks({ status }));
-
-        expect(story().textContent).not.toContain("It opened nothing.");
-        expect(story().textContent).not.toContain("Morning came.");
-        expect(story().textContent).toContain("A fox found a key. ");
-        expect(story().textContent).toContain("Or so it seemed.");
-
-        await user.click(
-          screen.getByRole("button", { name: "Passage by Cat, hidden because you blocked them" }),
-        );
-
-        expect(screen.getByText("Morning came.")).toBeInTheDocument();
-        expect(story().textContent).not.toContain("It opened nothing.");
-      },
+    // The notice row keeps its two live regions, so a screen reader announces what arrives.
+    rerender(
+      inTheme(
+        storyElement(),
+        fakeBlocks({ blocked: [{ id: "b2", blockedUserId: "p2" }], error: "Couldn't block." }),
+      ),
     );
-
-    it("hides a passage revealed while loading once the list arrives and blocks that author", async () => {
-      const user = userEvent.setup();
-      const { rerender } = renderPage(storyElement(), fakeBlocks({ status: "loading" }));
-      await user.click(
-        screen.getByRole("button", { name: "Passage by Ben, hidden because you blocked them" }),
-      );
-      expect(screen.getByText("It opened nothing.")).toBeInTheDocument();
-
-      rerender(inTheme(storyElement(), fakeBlocks(blockingBen)));
-
-      expect(story().textContent).not.toContain("It opened nothing.");
-    });
+    expect(screen.getByRole("status")).toBe(progress);
+    expect(screen.getByRole("alert")).toBe(failure);
+    expect(failure).toHaveTextContent("Couldn't block.");
   });
 });

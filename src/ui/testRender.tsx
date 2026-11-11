@@ -13,8 +13,7 @@ export function fakeBlocks(overrides: Partial<BlocksValue> & { blocked?: readonl
   return {
     status: "ready",
     blockIdFor: (userId) => blockIdFor(blocked, userId),
-    block: () => undefined,
-    unblock: () => undefined,
+    change: () => undefined,
     working: null,
     error: null,
     ...value,

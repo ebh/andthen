@@ -1,6 +1,7 @@
 import type { FocusEvent } from "react";
 import { Button, Menu, Text } from "tamagui";
 
+import type { BlockAction } from "../client/blockMessages";
 import type { BlockOffer } from "../client/storyRules";
 
 interface AuthorMenuProps {
@@ -9,7 +10,7 @@ interface AuthorMenuProps {
   /** True while any Block or Unblock is out or its list is reloading. */
   busy: boolean;
   /** Called when the user picks the Block or Unblock item. */
-  onBlockChange: () => void;
+  onBlockChange: (action: BlockAction) => void;
   highlighted: boolean;
   pinned: boolean;
   /** Whether the device has a pointer that hovers; touch devices fire emulated hovers on tap. */
@@ -77,7 +78,12 @@ export function AuthorMenu({
             Highlight passages
           </MenuItem>
           {offer.type !== "none" && (
-            <MenuItem disabled={busy} onSelect={onBlockChange}>
+            <MenuItem
+              disabled={busy}
+              onSelect={() => {
+                onBlockChange(offer.type);
+              }}
+            >
               {offer.label}
             </MenuItem>
           )}

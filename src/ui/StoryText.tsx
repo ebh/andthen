@@ -190,13 +190,8 @@ function ParagraphView({
                   name={authorName}
                   offer={offer}
                   busy={blocks.working !== null}
-                  onBlockChange={() => {
-                    const user = { id: authorId, name: authorName };
-                    if (offer.type === "block") {
-                      blocks.block(user);
-                    } else {
-                      blocks.unblock(user);
-                    }
+                  onBlockChange={(action) => {
+                    blocks.change(action, { id: authorId, name: authorName });
                   }}
                   highlighted={isSameAuthor(highlighted, author)}
                   pinned={isSameAuthor(pinned, author)}

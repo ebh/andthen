@@ -52,7 +52,7 @@ function storyElement(passages: readonly PassageView[] = turns) {
   return <StoryText passages={passages} myUserId="p1" />;
 }
 
-type BlockedUser = (user: { id: string; name: string }) => void;
+type ChangeBlock = (action: "block" | "unblock", user: { id: string; name: string }) => void;
 
 const blockingBen = { blocked: [{ id: "b1", blockedUserId: "p2" }] };
 
@@ -177,11 +177,10 @@ describe("StoryText", () => {
   });
 
   it("offers Block or Unblock on other authors only, calls the one picked, holds both while a change is out, and returns focus to the name on Escape", async () => {
-    const block = vi.fn<BlockedUser>();
-    const unblock = vi.fn<BlockedUser>();
+    const change = vi.fn<ChangeBlock>();
     const user = userEvent.setup();
     setScreen({ wide: true, hover: true });
-    const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, block, unblock }));
+    const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, change }));
 
     await openMenu(user, "Ana");
     expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
@@ -189,14 +188,15 @@ describe("StoryText", () => {
 
     await openMenu(user, "Cat");
     await user.click(screen.getByRole("menuitem", { name: "Block Cat" }));
-    expect(block).toHaveBeenCalledExactlyOnceWith({ id: "p3", name: "Cat" });
+    expect(change).toHaveBeenLastCalledWith("block", { id: "p3", name: "Cat" });
 
     await openMenu(user, "Ben");
     expect(screen.queryByRole("menuitem", { name: "Block Ben" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "Unblock Ben" }));
-    expect(unblock).toHaveBeenCalledExactlyOnceWith({ id: "p2", name: "Ben" });
+    expect(change).toHaveBeenLastCalledWith("unblock", { id: "p2", name: "Ben" });
+    expect(change).toHaveBeenCalledTimes(2);
 
-    rerender(inTheme(storyElement(), fakeBlocks({ block, working: "Blocking…" })));
+    rerender(inTheme(storyElement(), fakeBlocks({ change, working: "Blocking…" })));
     await openMenu(user, "Cat");
     expect(screen.getByRole("menuitem", { name: "Block Cat" })).toHaveAttribute("data-disabled");
     await user.keyboard("{Escape}");
@@ -212,9 +212,9 @@ describe("StoryText", () => {
   // in blocks.test.ts and blockMessages.test.ts; without this the page would show blocked text.
   it("obscures a blocked author's passage until pressed, hides it again when the block changes, and keeps one notice row", async () => {
     const label = hiddenPassageLabel("Ben");
-    const unblock = vi.fn<BlockedUser>();
+    const change = vi.fn<ChangeBlock>();
     const user = userEvent.setup();
-    const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, unblock }));
+    const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, change }));
     const progress = screen.getByRole("status");
     const failure = screen.getByRole("alert");
     const filler = screen.getByRole("button", { name: label }).querySelector("[aria-hidden]");
@@ -229,7 +229,7 @@ describe("StoryText", () => {
     await user.click(screen.getByRole("button", { name: label }));
     expect(screen.getByText("It opened nothing.")).toHaveFocus();
     expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
-    expect(unblock).not.toHaveBeenCalled();
+    expect(change).not.toHaveBeenCalled();
 
     // The same block after a reload keeps the passage shown; a new block hides it again.
     rerender(inTheme(storyElement(), fakeBlocks(blockingBen)));

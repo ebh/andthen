@@ -33,10 +33,11 @@ export interface BlocksValue {
   status: BlocksStatus;
   /** The ID of the user's block on `userId`, or null. */
   blockIdFor: (userId: string) => string | null;
-  /** Blocks the user, then reloads the list. Ignored while another change is out. */
-  block: (user: BlockTarget) => void;
-  /** Lifts the user's block on the user, then reloads the list. Ignored while another change is out. */
-  unblock: (user: BlockTarget) => void;
+  /**
+   * Blocks or unblocks the user, then reloads the list. Ignored while another change is out, and
+   * for an unblock of a user the list holds no block on.
+   */
+  change: (action: BlockAction, user: BlockTarget) => void;
   /** What is in flight, such as "Blocking…", until the list has reloaded; else null. */
   working: string | null;
   /** Why the last change failed, or null. Cleared by the next attempt. */
@@ -125,12 +126,7 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
     () => ({
       status: load.status,
       blockIdFor: (userId) => blockIdFor(load.blocks, userId),
-      block: (user) => {
-        change("block", user);
-      },
-      unblock: (user) => {
-        change("unblock", user);
-      },
+      change,
       working,
       error,
     }),

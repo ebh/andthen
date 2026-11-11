@@ -71,8 +71,8 @@ describe("useBlocks", () => {
 
     // Block: what is out shows until the list has reloaded, and a second change is ignored.
     act(() => {
-      result.current.block(ben);
-      result.current.block({ id: "u3", name: "Cat" });
+      result.current.change("block", ben);
+      result.current.change("block", { id: "u3", name: "Cat" });
     });
     expect(result.current.working).toBe("Blocking…");
     block.resolve(jsonResponse(201, { blockId: "b1" }));
@@ -90,7 +90,7 @@ describe("useBlocks", () => {
 
     // Unblock: by the block's ID.
     act(() => {
-      result.current.unblock(ben);
+      result.current.change("unblock", ben);
     });
     expect(result.current.working).toBe("Unblocking…");
     await waitFor(() => {
@@ -100,14 +100,14 @@ describe("useBlocks", () => {
 
     // A refused change reports why and keeps the list; the next attempt clears the report.
     act(() => {
-      result.current.block(ben);
+      result.current.change("block", ben);
     });
     await waitFor(() => {
       expect(result.current.error).toBe("Couldn't block. Reload the page.");
     });
     expect(result.current.status).toBe("ready");
     act(() => {
-      result.current.block(ben);
+      result.current.change("block", ben);
     });
     expect(result.current.error).toBeNull();
 
@@ -120,7 +120,7 @@ describe("useBlocks", () => {
 
     // The next change recovers it.
     act(() => {
-      result.current.block(ben);
+      result.current.change("block", ben);
     });
     await waitFor(() => {
       expect(result.current.status).toBe("ready");

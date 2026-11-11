@@ -24,7 +24,7 @@ export function isStylingProp(name: string): boolean {
   return stylingProps.has(name);
 }
 
-// Variants of the app's Tamagui components that pick a look (`<Button size="$5" theme="brand">`).
+// Variants of the app's Tamagui components that pick a look (`<Button size="xl" theme="brand">`).
 const variantProps = ["size", "variant", "theme"];
 
 const stylingProps = new Set([

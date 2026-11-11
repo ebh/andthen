@@ -18,7 +18,7 @@ import {
   uniqueAuthors,
   type AuthorInParagraph,
 } from "../client/authorHighlight";
-import { blocksNotice } from "../client/blockMessages";
+import { blocksNotice, hiddenPassageLabel } from "../client/blockMessages";
 import { isObscured, revealFor, type Reveal } from "../client/blocks";
 import { blockOffer } from "../client/storyRules";
 import { useBlocks, type BlocksValue } from "../client/useBlocks";
@@ -255,7 +255,7 @@ function Turn({
       {!shown && isObscured(blocks.status, blockId, turn.authorId === myUserId) ? (
         <ObscuredPassage
           text={turn.text}
-          label={`Passage by ${turn.authorName}, hidden because you blocked them`}
+          label={hiddenPassageLabel(turn.authorName)}
           onReveal={() => {
             setReveal({ blockId, shown: true });
           }}

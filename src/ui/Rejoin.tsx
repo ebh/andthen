@@ -3,12 +3,10 @@ import { useState } from "react";
 import { Anchor, Button, H2, Paragraph, XStack, YStack } from "tamagui";
 
 import { rejoinStory } from "../client/api";
-import { isOpeningObscured } from "../client/blocks";
 import { joinOutcome } from "../client/joinOutcome";
 import { describeFailure } from "../client/messages";
-import { useBlocks } from "../client/useBlocks";
 import { MAX_PARTICIPANTS } from "../shared/validation";
-import { ObscuredPassage } from "./ObscuredPassage";
+import { Opening } from "./Opening";
 
 interface RejoinProps {
   storyId: string;
@@ -30,7 +28,6 @@ export function Rejoin({
   openingAuthorId,
   onRejoined,
 }: RejoinProps) {
-  const blocks = useBlocks();
   const [error, setError] = useState<string | null>(null);
   const [rejoining, setRejoining] = useState(false);
   const [full, setFull] = useState(false);
@@ -58,14 +55,7 @@ export function Rejoin({
         You left this story
       </H2>
       <Paragraph fontFamily="story" fontSize="lg" lineHeight="lg" color="muted" numberOfLines={3}>
-        {isOpeningObscured(blocks, openingAuthorId) ? (
-          <ObscuredPassage
-            text={opening}
-            label="Opening passage, hidden because you blocked its author"
-          />
-        ) : (
-          `“${opening}”`
-        )}
+        <Opening text={opening} authorId={openingAuthorId} quoted />
       </Paragraph>
       <Paragraph>Rejoin as {displayName}. You’ll take the last place in the turn order.</Paragraph>
       <Paragraph role="alert" minH="6" color="error">

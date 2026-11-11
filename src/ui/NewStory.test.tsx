@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OPENING_HIDDEN_LABEL } from "../client/blockMessages";
 import { setLeftStoryNote, takeLeftStoryNote } from "../client/leftStoryNote";
 import { jsonResponse } from "../client/testFixtures";
 import type { StorySummary } from "../shared/api";
@@ -207,7 +208,7 @@ describe("NewStory", () => {
     expect(links[1]).not.toHaveTextContent("Ben has it.");
     expect(
       within(links[1] ?? document.body).getByRole("img", {
-        name: "Opening passage, hidden because you blocked its author",
+        name: OPENING_HIDDEN_LABEL,
       }),
     ).toBeInTheDocument();
     expect(links[2]).toHaveTextContent("Waiting for someone to join");

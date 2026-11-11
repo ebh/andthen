@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { OPENING_HIDDEN_LABEL } from "../client/blockMessages";
 import { ME, OTHER, jsonResponse, noContentResponse, storyView } from "../client/testFixtures";
 import { params } from "./routerStub";
 import { Story } from "./Story";
@@ -29,7 +30,6 @@ const LEFT_STORY = {
   opening: "The bell rang once.",
   openingAuthorId: "u2",
 };
-const OPENING_HIDDEN = "Opening passage, hidden because you blocked its author";
 
 // Which screen a story's address shows is useStory's (nextLoad); what a join or rejoin result
 // means is joinOutcome's; the wording of a name failure is messages.test.ts's. These sessions
@@ -212,7 +212,7 @@ describe("Story", () => {
     const blocked = fakeBlocks({ blocked: [{ id: "b1", blockedUserId: "u2" }] });
     rerender(inTheme(<Story />, blocked));
     expect(screen.queryByText("“The bell rang once.”")).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: OPENING_HIDDEN })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: OPENING_HIDDEN_LABEL })).toBeInTheDocument();
 
     // Held in flight: the button says so and can't be pressed again.
     await user.click(screen.getByRole("button", { name: "Rejoin as Ana" }));

@@ -6,7 +6,14 @@ import {
   blocksNotice,
   describeBlockFailure,
   describeBlockProgress,
+  hiddenPassageLabel,
 } from "./blockMessages";
+
+describe("hiddenPassageLabel", () => {
+  it("names the author and says why, without the text", () => {
+    expect(hiddenPassageLabel("Ben")).toBe("Passage by Ben, hidden because you blocked them");
+  });
+});
 
 describe("blocksNotice", () => {
   it.each([

@@ -34,6 +34,14 @@ export function blocksNotice(blocks: {
   };
 }
 
+/** The accessible name of an opening's stand-in. It cannot be pressed, so it is an image. */
+export const OPENING_HIDDEN_LABEL = "Opening passage, hidden because you blocked its author";
+
+/** The accessible name of a passage's stand-in: it says what is hidden and why, never the text. */
+export function hiddenPassageLabel(authorName: string): string {
+  return `Passage by ${authorName}, hidden because you blocked them`;
+}
+
 /** The line shown while a Block or Unblock request is out. */
 export function describeBlockProgress(action: BlockAction): string {
   return action === "block" ? "Blocking…" : "Unblocking…";

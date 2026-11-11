@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { hiddenPassageLabel } from "../client/blockMessages";
 import type { PassageView } from "../shared/api";
 import { StoryText } from "./StoryText";
 import { fakeBlocks, inTheme, renderPage } from "./testRender";
@@ -210,7 +211,7 @@ describe("StoryText", () => {
   // show it by press or key, and that a changed block hides it again. The rules are unit tested
   // in blocks.test.ts and blockMessages.test.ts; without this the page would show blocked text.
   it("obscures a blocked author's passage until pressed, hides it again when the block changes, and keeps one notice row", async () => {
-    const label = "Passage by Ben, hidden because you blocked them";
+    const label = hiddenPassageLabel("Ben");
     const unblock = vi.fn<BlockedUser>();
     const user = userEvent.setup();
     const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, unblock }));

@@ -176,35 +176,15 @@ describe("StoryText", () => {
     expect(story().querySelector("img, b")).toBeNull();
   });
 
-  // The offers are unit tested in storyRules.test.ts; this checks the picked one reaches change.
-  it("calls change with the offer picked, holds the offer while a change is out, and returns focus to the name on Escape", async () => {
-    const change = vi.fn<ChangeBlock>();
-    const user = userEvent.setup();
-    setScreen({ wide: true, hover: true });
-    const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, change }));
-
-    await openMenu(user, "Ben");
-    await user.click(screen.getByRole("menuitem", { name: "Unblock Ben" }));
-    expect(change).toHaveBeenCalledExactlyOnceWith("unblock", "p2");
-
-    rerender(inTheme(storyElement(), fakeBlocks({ change, working: "Blocking…" })));
-    await openMenu(user, "Cat");
-    expect(screen.getByRole("menuitem", { name: "Block Cat" })).toHaveAttribute("data-disabled");
-    await user.keyboard("{Escape}");
-
-    await waitFor(() => {
-      expect(firstAuthor("Cat")).toHaveFocus();
-    });
-    expect(highlighted()).toEqual([]);
-  });
-
   // Pins that a blocked author's passage reaches the page only as a stand-in, that the user can
-  // show it by press or key, and that a changed block hides it again. The rules are unit tested
-  // in blocks.test.ts and blockMessages.test.ts; without this the page would show blocked text.
-  it("obscures a blocked author's passage until pressed, hides it again when the block changes, and keeps one notice row", async () => {
+  // show it by press or key, that a changed block hides it again, and that the author menu's
+  // picked offer reaches change. The rules are unit tested in blocks.test.ts, blockMessages.test.ts
+  // and storyRules.test.ts; without this the page would show blocked text.
+  it("obscures a blocked author's passage until pressed, hides it again when the block changes, keeps one notice row, and offers the author menu's change", async () => {
     const label = hiddenPassageLabel("Ben");
     const change = vi.fn<ChangeBlock>();
     const user = userEvent.setup();
+    setScreen({ wide: true, hover: true });
     const { rerender } = renderPage(storyElement(), fakeBlocks({ ...blockingBen, change }));
     const progress = screen.getByRole("status");
     const failure = screen.getByRole("alert");
@@ -239,11 +219,33 @@ describe("StoryText", () => {
     rerender(
       inTheme(
         storyElement(),
-        fakeBlocks({ blocked: [{ id: "b2", blockedUserId: "p2" }], error: "Couldn't block." }),
+        fakeBlocks({
+          blocked: [{ id: "b2", blockedUserId: "p2" }],
+          change,
+          error: "Couldn't block.",
+        }),
       ),
     );
     expect(screen.getByRole("status")).toBe(progress);
     expect(screen.getByRole("alert")).toBe(failure);
     expect(failure).toHaveTextContent("Couldn't block.");
+
+    // The menu's picked offer reaches change, which is disabled while a change is out.
+    await openMenu(user, "Ben");
+    await user.click(screen.getByRole("menuitem", { name: "Unblock Ben" }));
+    expect(change).toHaveBeenCalledExactlyOnceWith("unblock", "p2");
+    rerender(
+      inTheme(
+        storyElement(),
+        fakeBlocks({ blocked: [{ id: "b2", blockedUserId: "p2" }], change, working: "Blocking…" }),
+      ),
+    );
+    await openMenu(user, "Cat");
+    expect(screen.getByRole("menuitem", { name: "Block Cat" })).toHaveAttribute("data-disabled");
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(firstAuthor("Cat")).toHaveFocus();
+    });
+    expect(highlighted()).toEqual([]);
   });
 });

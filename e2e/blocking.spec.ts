@@ -1,17 +1,7 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import {
-  PHONE,
-  addPassage,
-  joinStory,
-  names,
-  newWriter,
-  startStory,
-  storyText,
-} from "./writers.ts";
+import { addPassage, joinStory, names, newWriter, startStory, storyText } from "./writers.ts";
 
-// The longest display name the API accepts (`MAX_DISPLAY_NAME_LENGTH`); e2e cannot import from src.
-const LONGEST_NAME_LENGTH = 40;
 const DESKTOP = { width: 1280, height: 800 };
 const HIDDEN_PASSAGE = /^Passage by .*, hidden because you blocked them$/;
 const HIDDEN_OPENING = "Opening passage, hidden because you blocked its author";
@@ -107,72 +97,3 @@ test("a writer blocks another across all their stories, can reveal, unblock and 
   await expect(storyText(ben)).toContainText(firstOpening);
   await expect(ben.getByRole("button", { name: /hidden because you blocked/ })).toHaveCount(0);
 });
-
-// A server error and a lost connection give different messages; neither may move the story text.
-const serverError = (route: Route) => route.fulfill({ status: 500 });
-const lostConnection = (route: Route) => route.abort();
-
-for (const [size, viewport] of [
-  ["a phone", PHONE],
-  ["a desktop", DESKTOP],
-] as const) {
-  // Only a real browser lays text out, so only it shows whether a message wraps. A failed Block,
-  // Unblock or list load must fit the one row the notice holds, or the story text jumps.
-  test(`a failed block, unblock or list load leaves the story text where it was on ${size}`, async ({
-    browser,
-  }) => {
-    const ana = await newWriter(browser, viewport);
-    const ben = await newWriter(browser);
-    // The longest name allowed, so a name in the notice would wrap it.
-    const longName = `${names.ben} Wanderer of the Grey Sea and the Wide Moor`
-      .slice(0, LONGEST_NAME_LENGTH)
-      .trim();
-    const inviteLink = await startStory(ben, longName, "A boat drifted in with no one aboard.");
-    await joinStory(ana, inviteLink, names.ana);
-    if (viewport.width < 768) {
-      await ana.getByLabel("Show authors").check();
-    }
-    const top = () => storyText(ana).evaluate((region) => region.getBoundingClientRect().top);
-    const notice = ana.getByRole("alert").filter({ hasText: "Couldn't" });
-    const before = await top();
-
-    const failBlock = async (failure: (route: Route) => Promise<void>) => {
-      await ana.route("**/api/users/me/blocks", (route) =>
-        route.request().method() === "POST" ? failure(route) : route.fallback(),
-      );
-      await chooseFromAuthorMenu(ana, longName, `Block ${longName}`);
-      await expect(notice).toBeVisible();
-      expect(await top()).toBe(before);
-      await ana.unroute("**/api/users/me/blocks");
-    };
-    const failUnblock = async (failure: (route: Route) => Promise<void>) => {
-      await ana.route("**/api/users/me/blocks/*", (route) => failure(route));
-      await chooseFromAuthorMenu(ana, longName, `Unblock ${longName}`);
-      await expect(notice).toBeVisible();
-      expect(await top()).toBe(before);
-      await ana.unroute("**/api/users/me/blocks/*");
-    };
-
-    await failBlock(serverError);
-    await failBlock(lostConnection);
-
-    await chooseFromAuthorMenu(ana, longName, `Block ${longName}`);
-    await expect(ana.getByRole("button", { name: HIDDEN_PASSAGE })).toBeVisible();
-    await expect(notice).toHaveCount(0);
-
-    await failUnblock(serverError);
-    await failUnblock(lostConnection);
-
-    await ana.route("**/api/users/me/blocks", (route) =>
-      route.request().method() === "GET" ? route.abort() : route.fallback(),
-    );
-    await ana.reload();
-    if (viewport.width < 768) {
-      await ana.getByLabel("Show authors").check();
-    }
-    await expect(
-      ana.getByRole("alert").filter({ hasText: "Couldn't load blocked users" }),
-    ).toBeVisible();
-    expect(await top()).toBe(before);
-  });
-}

@@ -179,10 +179,11 @@ describe("PUT /api/users/me/account", () => {
         `${ACCEPTANCES_PATH}/${legalDocumentAcceptanceId}`,
       );
       expect(response.headers.getSetCookie()).toHaveLength(1);
-      expect(await acceptanceRows()).toEqual([
+      const phoneUserId = await userIdOf(testEnv.env.DB, phone);
+      expect((await acceptanceRows()).filter(({ userId }) => userId === phoneUserId)).toEqual([
         {
           id: legalDocumentAcceptanceId,
-          userId: await userIdOf(testEnv.env.DB, phone),
+          userId: phoneUserId,
           legalDocumentId: "terms-of-service",
           version: 1,
           storyId: null,

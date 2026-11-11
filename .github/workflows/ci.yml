@@ -56,8 +56,10 @@ jobs:
       - name: Generated Worker types are current
         run: pnpm wrangler types --check
 
+      # Shuffled order catches tests that depend on state left by another test.
+      # Vitest prints the seed; replay with `pnpm test --sequence.shuffle --sequence.seed=<seed>`.
       - name: Test with coverage
-        run: pnpm test:coverage
+        run: pnpm test:coverage --sequence.shuffle
 
       # The export is the same for every environment; the environment is chosen at deploy time.
       - name: Build

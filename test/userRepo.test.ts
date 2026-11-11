@@ -177,6 +177,9 @@ describe("userRepo", () => {
         expect(await blocksOf(db, "mb5-block")).toEqual([
           { userId: "mb5-device", blockedUserId: "mb5-other" },
         ]);
+        expect(await blocksOf(db, "mb5-duplicate")).toEqual([
+          { userId: "mb5-account", blockedUserId: "mb5-other" },
+        ]);
       });
     });
   });

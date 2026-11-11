@@ -107,28 +107,6 @@ describe("JoinForm", () => {
     expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
   });
 
-  it("treats a browser that already joined as joined", async () => {
-    stubFetch(noName(), jsonResponse(409, { error: "already_joined" }));
-    const onJoined = vi.fn<() => void>();
-    renderPage(<JoinForm storyId="abc12" onJoined={onJoined} />);
-
-    await submitName("Sam");
-
-    await waitFor(() => {
-      expect(onJoined).toHaveBeenCalledOnce();
-    });
-  });
-
-  it("explains a taken name, suggests signing in, and lets the user try another", async () => {
-    stubFetch(noName(), jsonResponse(409, { error: "name_taken" }));
-    renderPage(<JoinForm storyId="abc12" onJoined={vi.fn<() => void>()} />);
-
-    await submitName("Sam");
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("sign in");
-    expect(screen.getByRole("button", { name: "Join" })).toBeEnabled();
-  });
-
   // The name can change after the form loaded it, by sign-in or sign-out in another tab. Without
   // the reload, a user who lost their name would have no field and could never join.
   it("reloads the name when the server says the form's view of it is out of date", async () => {

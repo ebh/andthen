@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  blockUserRequestSchema,
   createPassageRequestSchema,
   createStoryRequestSchema,
   createStoryResponseSchema,
@@ -469,5 +470,19 @@ describe("vapidPublicKeyResponseSchema", () => {
       publicKey: "BKey",
     });
     expect(vapidPublicKeyResponseSchema.safeParse({ publicKey: "" }).success).toBe(false);
+  });
+});
+
+describe("blockUserRequestSchema", () => {
+  it("accepts a user ID", () => {
+    expect(blockUserRequestSchema.parse({ blockedUserId: "u2" })).toEqual({ blockedUserId: "u2" });
+  });
+
+  it.each([
+    ["no blockedUserId", {}],
+    ["an empty blockedUserId", { blockedUserId: "" }],
+    ["a blockedUserId that is not a string", { blockedUserId: 7 }],
+  ])("refuses a body with %s", (_name, body) => {
+    expect(blockUserRequestSchema.safeParse(body).success).toBe(false);
   });
 });

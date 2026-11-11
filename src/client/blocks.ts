@@ -67,7 +67,6 @@ export function blockRequest<Blocked, Unblocked>(
   return blockId === null ? null : () => calls.unblockUser(blockId);
 }
 
-/** The ID of the user's block on `userId`, or null when they have none. */
 export function blockIdFor(blocks: readonly Block[], userId: string): string | null {
   return blocks.find((block) => block.blockedUserId === userId)?.id ?? null;
 }

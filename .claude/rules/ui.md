@@ -17,7 +17,7 @@ The app exists to be read. Every visual decision serves the story text first.
 - Authors exist for accountability: tracing who wrote something offensive, and crediting a good contribution. They are never part of the reading, so they stay findable and quiet.
   - From `md` up, authors sit in a margin beside their paragraph.
   - Below `md` there is no room for a margin, so authors hide behind a switch that is off by default. Show less where there is less space.
-  - Pressing an author's name opens a menu: "Highlight passages" (a checkable item), and "Block <name>" or "Unblock <name>". The checkable item replaces press-to-pin, so `aria-pressed` does not apply to the author button. Hover and keyboard focus still preview the highlight.
+  - Pressing an author's name opens a menu: "Highlight passages" (a checkable item), and "Block <name>" or "Unblock <name>". The author button carries no `aria-pressed`; the pin is the menu's checkable item. Hover and keyboard focus still preview the highlight.
 - Hover is for wide screens; its phone equivalent is tap. Anything hover reveals, a tap or keyboard focus reveals too.
 - Paragraphs sit bare on the page, separated by space alone, so they read as one continuous text.
 

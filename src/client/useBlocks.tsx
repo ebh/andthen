@@ -57,7 +57,6 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
 
     return (async () => {
       const result = await listBlocks();
-      // A reply that a newer request has overtaken is dropped.
       if (isLatest()) {
         setLoad((previous) => nextBlocksLoad(previous, result));
       }
@@ -68,7 +67,6 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
     void reload();
 
     return () => {
-      // Drops the reply of a request still in flight.
       latest.cancel();
     };
   }, [latest, reload]);

@@ -45,7 +45,6 @@ export function blockRoutes(deps: MeDeps): Hono<{ Bindings: Env }> {
 
     c.header("Location", `/api/users/me/blocks/${blockId}`);
 
-    // A repeat is not a creation: it answers 200 with the existing block.
     return c.json(response, created ? 201 : 200);
   });
 

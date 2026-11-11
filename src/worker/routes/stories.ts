@@ -13,7 +13,6 @@ import {
   type MyStoriesResponse,
   type SuggestionsResponse,
 } from "../../shared/api";
-import { groupParagraphs } from "../../shared/paragraphs";
 import {
   afterContribution,
   newStoryState,
@@ -61,7 +60,12 @@ import { requireOrCreateMe, resolveMe, type MeDeps } from "../me";
 import type { PushSender } from "../push";
 import { buildStoryView } from "../storyView";
 import { summariseMyStories } from "../storySummaries";
-import type { SuggestionProvider, SuggestionResult } from "../suggestions/provider";
+import { storyTextWithParagraphBreaks } from "../suggestions/prompt";
+import {
+  askProvider,
+  failureRefundsQuotaSlot,
+  type SuggestionProvider,
+} from "../suggestions/provider";
 import { notifyTurnHolder } from "../turnPush";
 
 export interface StoryDeps extends MeDeps {
@@ -353,13 +357,9 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
       throw new ApiError("ai_rate_limited");
     }
 
-    const storyText = groupParagraphs(found.passages)
-      .map((paragraph) => paragraph.map(({ text }) => text).join(" "))
-      .join("\n\n");
-    const result = await askProvider(provider, storyText);
+    const result = await askProvider(provider, storyTextWithParagraphBreaks(found.passages));
     if (!result.ok) {
-      // Only an outage refunds: bad output and a timeout may already have been billed.
-      if (result.failure === "model_error") {
+      if (failureRefundsQuotaSlot(result.failure)) {
         await releaseQuietly(c.env.DB, request.id);
       }
       throw new ApiError("ai_unavailable");
@@ -384,19 +384,6 @@ export function storyRoutes(deps: StoryDeps): Hono<{ Bindings: Env }> {
   });
 
   return routes;
-}
-
-// A provider that throws breaks its contract; the quota slot still gets settled.
-async function askProvider(
-  provider: SuggestionProvider,
-  storyText: string,
-): Promise<SuggestionResult> {
-  try {
-    return await provider.suggest(storyText);
-  } catch (error) {
-    console.error("Suggestion provider threw", error);
-    return { ok: false, failure: "model_error" };
-  }
 }
 
 // If the refund itself fails the participant loses one slot for an hour; the 503 still goes out.

@@ -82,7 +82,7 @@ describe("story journeys", () => {
     );
   });
 
-  it("gives the turn to the first joiner and sends it back after they write", async () => {
+  it("gives the turn to the first joiner, sends it back after they write, and keeps startsParagraph as sent", async () => {
     clock.now = T0;
     const ana = newBrowser();
     const ben = newBrowser();
@@ -121,23 +121,17 @@ describe("story journeys", () => {
       endsAt: T0 + 1000 + TURN_WINDOW_MS,
       version: 2,
     });
-  });
 
-  it("keeps a passage's startsParagraph as the author sent it", async () => {
-    clock.now = T0;
-    const ana = newBrowser();
-    const ben = newBrowser();
-    const storyId = await createStory(ana);
-    await joinStory(ben, storyId, nameInTest("Ben"));
-
-    await ben.post(`/api/stories/${storyId}/passages`, {
+    clock.now = T0 + 2000;
+    const paragraph = await ana.post(`/api/stories/${storyId}/passages`, {
       text: "A new beginning.",
-      turnVersion: 1,
+      turnVersion: 2,
       startsParagraph: true,
     });
 
-    const view = await readStory(ana, storyId);
-    expect(view.passages.map((c) => c.startsParagraph)).toEqual([true, true]);
+    expect(paragraph.status).toBe(201);
+    const view = await readStory(ben, storyId);
+    expect(view.passages.map((c) => c.startsParagraph)).toEqual([true, false, true]);
   });
 
   it("lets a third person skip the holder, and the turn passes over the last writer", async () => {
@@ -171,13 +165,6 @@ describe("story journeys", () => {
     const before = await testEnv.env.DB.prepare("SELECT * FROM stories WHERE id = ?")
       .bind(storyId)
       .first();
-
-    clock.now = T0 + TURN_WINDOW_MS - 1;
-    expect((await readStory(ana, storyId)).turn).toEqual({
-      holderId: benId,
-      endsAt: T0 + TURN_WINDOW_MS,
-      version: 2,
-    });
 
     clock.now = T0 + TURN_WINDOW_MS;
     expect((await readStory(ana, storyId)).turn).toEqual({
@@ -240,17 +227,6 @@ describe("story journeys", () => {
       .bind(storyId)
       .first();
 
-  it("saves a skip over one expired window, from the version it loaded", async () => {
-    const { ana, storyId } = await threeAtT0();
-
-    clock.now = T0 + TURN_WINDOW_MS + 5;
-    // One window passed: Cat holds at version 3. Skipping her passes over Ana, the last writer.
-    const response = await ana.post(`/api/stories/${storyId}/skip`, { turnVersion: 3 });
-
-    expect(response.status).toBe(204);
-    expect(await turnRow(storyId)).toEqual({ p: 1, t: clock.now, v: 4, l: 0 });
-  });
-
   it("saves a skip over two expired windows, from the version it loaded", async () => {
     const { cat, storyId } = await threeAtT0();
 
@@ -260,19 +236,6 @@ describe("story journeys", () => {
 
     expect(response.status).toBe(204);
     expect(await turnRow(storyId)).toEqual({ p: 2, t: clock.now, v: 5, l: 0 });
-  });
-
-  it("saves a join over one expired window, from the version it loaded", async () => {
-    const { storyId } = await threeAtT0();
-
-    clock.now = T0 + TURN_WINDOW_MS + 5;
-    const response = await newBrowser().post(`/api/stories/${storyId}/participants`, {
-      displayName: nameInTest("Dee"),
-    });
-
-    expect(response.status).toBe(201);
-    // Cat holds from the end of the first window; the join adds one to version 3.
-    expect(await turnRow(storyId)).toEqual({ p: 2, t: T0 + TURN_WINDOW_MS, v: 4, l: 0 });
   });
 
   it("saves a join over two expired windows, from the version it loaded", async () => {

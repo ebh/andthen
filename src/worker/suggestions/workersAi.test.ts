@@ -67,4 +67,16 @@ describe("createWorkersAiProvider", () => {
       expect(run).toHaveBeenCalledTimes(1);
     }
   });
+
+  it("passes the abort signal on, so a hung call's timeout reaches the model call", async () => {
+    const run = vi.fn<RunModel>().mockResolvedValue({ response: { suggestions: GOOD } });
+
+    const result = await createWorkersAiProvider({ model: "m", run }).suggest(
+      "s",
+      AbortSignal.abort(),
+    );
+
+    expect(result).toEqual({ ok: false, failure: "timed_out" });
+    expect(run).not.toHaveBeenCalled();
+  });
 });

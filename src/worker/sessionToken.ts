@@ -17,7 +17,7 @@ const claimsSchema = z.object({ sub: z.string().min(1), azp: z.string() });
  * A verifier for this request's bindings. It checks the signature against `CLERK_JWT_KEY`, so it
  * makes no network call, and accepts only a token issued for `origin` (its `azp` claim).
  */
-export function selectSessionVerifier(env: Env): SessionVerifier {
+export function selectSessionVerifier(env: { CLERK_JWT_KEY: string }): SessionVerifier {
   return async (token, origin) => {
     try {
       const claims = await verifyToken(token, {

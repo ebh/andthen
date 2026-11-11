@@ -4,6 +4,7 @@ import {
   chooseDisplayName,
   displayNameKey,
   MAX_DISPLAY_NAME_LENGTH,
+  MAX_PARTICIPANTS,
   MAX_PASSAGE_LENGTH,
   normaliseStoryId,
   passageLength,
@@ -20,6 +21,7 @@ describe("limits", () => {
   it("pins the agreed values", () => {
     expect(MAX_PASSAGE_LENGTH).toBe(280);
     expect(MAX_DISPLAY_NAME_LENGTH).toBe(40);
+    expect(MAX_PARTICIPANTS).toBe(50);
     expect(TURN_WINDOW_MS).toBe(86_400_000);
   });
 });

@@ -7,9 +7,9 @@ describe("legalPages", () => {
   const pages = legalPages();
   const files = pages.map((page) => page.file);
 
-  // Pins one file per version plus one current page per document: 5 versions and 3 current pages.
+  // Pins one file per version plus one current page per document: 6 versions and 3 current pages.
   it("lists every version and one current page per document", () => {
-    expect(files).toHaveLength(8);
+    expect(files).toHaveLength(9);
     expect(files).toEqual(
       expect.arrayContaining([
         "legal/terms-of-service/v1.html",
@@ -17,6 +17,7 @@ describe("legalPages", () => {
         "legal/privacy-policy/v1.html",
         "legal/privacy-policy/v2.html",
         "legal/privacy-policy/v3.html",
+        "legal/privacy-policy/v4.html",
         "legal/privacy-policy.html",
         "legal/copyright-terms/equal-shares/v1.html",
         "legal/copyright-terms/equal-shares.html",
@@ -31,7 +32,7 @@ describe("legalPages", () => {
   it("builds the current page from the newest version", () => {
     expect(pages.find((page) => page.file === "legal/privacy-policy.html")).toEqual({
       id: "privacy-policy",
-      version: 3,
+      version: 4,
       file: "legal/privacy-policy.html",
     });
   });
@@ -62,13 +63,16 @@ describe("renderLegalPage", () => {
     );
     expect(page).toContain("<li>Version 2, effective 2026-11-17 (this page)</li>");
     expect(page).toContain(
-      '<li><a href="/legal/privacy-policy/v3">Version 3 (current), effective 2026-11-18</a></li>',
+      '<li><a href="/legal/privacy-policy/v3">Version 3, effective 2026-11-18</a></li>',
+    );
+    expect(page).toContain(
+      '<li><a href="/legal/privacy-policy/v4">Version 4 (current), effective 2026-11-18</a></li>',
     );
   });
 
   it("marks the current version when it is the page shown", () => {
-    expect(renderLegalPage("privacy-policy", 3, "# x")).toContain(
-      "<li>Version 3 (current), effective 2026-11-18 (this page)</li>",
+    expect(renderLegalPage("privacy-policy", 4, "# x")).toContain(
+      "<li>Version 4 (current), effective 2026-11-18 (this page)</li>",
     );
   });
 

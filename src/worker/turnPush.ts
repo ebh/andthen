@@ -14,12 +14,8 @@ export interface TurnChange {
   loaded: LoadedStory;
   /** The turn the request's write saved. */
   saved: TurnState;
-  /**
-   * The requester's position in `saved`'s turn order. It is not the position they held when they
-   * loaded the story if they joined or rejoined: both take a new place at the end. The requester
-   * is never pushed; they just acted and have the story open.
-   */
-  requesterPosition: number;
+  /** The requester is never pushed: they just acted and have the story open. */
+  requesterUserId: string;
   now: number;
 }
 
@@ -45,10 +41,15 @@ export function notifyTurnHolder(
   pushSender: (env: Env) => PushSender,
   change: TurnChange,
 ): void {
+  const requesterPosition = requesterPositionInSavedOrder(
+    change.loaded,
+    change.saved,
+    change.requesterUserId,
+  );
   const holderPosition = turnPassedToSomeoneOtherThanRequester(
     change.loaded.state,
     change.saved,
-    change.requesterPosition,
+    requesterPosition,
     change.now,
   );
   const endsAt = turnEndsAt(change.saved);
@@ -66,6 +67,31 @@ export function notifyTurnHolder(
       turnEndsAt: endsAt,
     }),
   );
+}
+
+/**
+ * The requester's position in `saved`'s turn order. A join or rejoin takes a new place at the end,
+ * which the story as loaded did not have. Positions are never reused, so a position that appears
+ * only in `saved` is the requester's. Any other write leaves the requester where they were loaded.
+ */
+export function requesterPositionInSavedOrder(
+  loaded: LoadedStory,
+  saved: TurnState,
+  requesterUserId: string,
+): number {
+  const added = saved.participantPositions.find(
+    (position) => !loaded.state.participantPositions.includes(position),
+  );
+  if (added !== undefined) {
+    return added;
+  }
+
+  const requester = loaded.participants.find((p) => p.userId === requesterUserId);
+  if (requester === undefined) {
+    throw new Error(`User ${requesterUserId} is not a participant of story ${loaded.story.id}`);
+  }
+
+  return requester.position;
 }
 
 /**

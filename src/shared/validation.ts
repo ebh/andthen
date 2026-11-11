@@ -4,6 +4,14 @@ export type ValidationResult =
 
 export type ValidationFailure = "empty" | "too_long";
 
+export type JoinRefusal = "already_joined" | "name_taken" | "story_full";
+
+export interface JoinFacts {
+  alreadyJoined: boolean;
+  nameHeld: boolean;
+  activeWriterCount: number;
+}
+
 export const MAX_PASSAGE_LENGTH = 280;
 export const MAX_DISPLAY_NAME_LENGTH = 40;
 /** Creator included. Anyone with the link can join, and each joiner can hold the turn for a day. */
@@ -93,6 +101,29 @@ export function displayNameKey(name: string): string {
 /** Lowercases a story ID from a URL; returns null when it isn't a valid ID. */
 export function normaliseStoryId(raw: string): string | null {
   return STORY_ID_PATTERN.test(raw) ? raw.toLowerCase() : null;
+}
+
+/**
+ * Why a join is refused before anything is written, or null when it may go ahead. The order is
+ * already_joined, name_taken, story_full: a person already in the story, or whose name is taken,
+ * hears that before hearing the story is full.
+ */
+export function joinRefusalBeforeWrite({
+  alreadyJoined,
+  nameHeld,
+  activeWriterCount,
+}: JoinFacts): JoinRefusal | null {
+  if (alreadyJoined) {
+    return "already_joined";
+  }
+  if (nameHeld) {
+    return "name_taken";
+  }
+  if (activeWriterCount >= MAX_PARTICIPANTS) {
+    return "story_full";
+  }
+
+  return null;
 }
 
 function validateLength(raw: string, max: number): ValidationResult {

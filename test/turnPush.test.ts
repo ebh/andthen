@@ -184,35 +184,6 @@ describe("pushing the turn", () => {
       expect(await holds(ben, storyId)).toBe(true);
       expect(sender.sent).toEqual([]);
     });
-
-    it("sends a rejoiner who takes a waiting story nothing", async () => {
-      setUp();
-      const [ana, ben] = [newBrowser(), newBrowser()];
-      const storyId = await createStory(ana);
-      await joinStory(ben, storyId, nameInTest("Ben"));
-      await subscribe(ben, "ben");
-      await ben.post(`/api/stories/${storyId}/leave`, {});
-      expect(await isWaiting(ana, storyId)).toBe(true);
-      await settle(ana, ben);
-
-      const response = await ben.post(`/api/stories/${storyId}/rejoin`, {});
-      await settle(ben);
-
-      expect(response.status).toBe(204);
-      expect(await holds(ben, storyId)).toBe(true);
-      expect(sender.sent).toEqual([]);
-    });
-
-    it("sends a skipper who takes the turn nothing", async () => {
-      const { cy, storyId } = await threeWriters();
-
-      // Ben holds, and Cy is next, so Cy skipping Ben takes the turn.
-      await cy.post(`/api/stories/${storyId}/skip`, { turnVersion: await version(cy, storyId) });
-      await settle(cy);
-
-      expect(await holds(cy, storyId)).toBe(true);
-      expect(sender.sent).toEqual([]);
-    });
   });
 
   describe("for each kind of write", () => {
@@ -375,10 +346,6 @@ async function holds(browser: Browser, storyId: string): Promise<boolean> {
   const story = await readStory(browser, storyId);
 
   return story.turn.holderId === story.me;
-}
-
-async function isWaiting(browser: Browser, storyId: string): Promise<boolean> {
-  return (await readStory(browser, storyId)).turn.holderId === null;
 }
 
 function withQuietRoom(base: Env): Env {

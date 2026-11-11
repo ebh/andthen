@@ -45,7 +45,7 @@ export async function leaveAsParticipant(
     storyId,
     loaded,
     saved: next,
-    requesterPosition: participant.position,
+    requesterUserId: participant.userId,
     now,
   });
 

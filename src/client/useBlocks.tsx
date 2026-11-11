@@ -11,8 +11,16 @@ import {
 
 import { onDeviceUserAdded, onSignedOut } from "./account";
 import { blockUser, listBlocks, unblockUser } from "./api";
-import { blockIdFor, type Block, type BlocksStatus } from "./blocks";
+import {
+  BLOCKS_LOADING,
+  blockIdFor,
+  blockRequest,
+  nextBlocksLoad,
+  type BlocksLoad,
+  type BlocksStatus,
+} from "./blocks";
 import { describeBlockFailure, describeBlockProgress, type BlockAction } from "./blockMessages";
+import { createLatestRequest } from "./latestRequest";
 
 /** A user a Block or Unblock names: the ID a passage's `authorId` holds, and the name to show. */
 export interface BlockTarget {
@@ -35,11 +43,6 @@ export interface BlocksValue {
   error: string | null;
 }
 
-interface BlocksLoad {
-  status: BlocksStatus;
-  blocks: readonly Block[];
-}
-
 export const BlocksContext = createContext<BlocksValue | null>(null);
 
 /**
@@ -47,37 +50,30 @@ export const BlocksContext = createContext<BlocksValue | null>(null);
  * block names a user, and every story shows that user's passages the same way.
  */
 export function BlocksProvider({ children }: { children: ReactNode }) {
-  const [load, setLoad] = useState<BlocksLoad>({ status: "loading", blocks: [] });
+  const [load, setLoad] = useState<BlocksLoad>(BLOCKS_LOADING);
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const latestRequest = useRef(0);
+  const [latest] = useState(createLatestRequest);
   const changing = useRef(false);
 
   const reload = useCallback(async () => {
-    latestRequest.current += 1;
-    const thisRequest = latestRequest.current;
+    const isLatest = latest.start();
 
     const result = await listBlocks();
     // A reply that a newer request has overtaken is dropped.
-    if (thisRequest === latestRequest.current) {
-      // A failed reload keeps the old list for lookups but is not ready: after a Block, the old
-      // list does not hold the new block, so nothing may be shown on its word.
-      setLoad((previous) =>
-        result.ok
-          ? { status: "ready", blocks: result.value.blocks }
-          : { status: "failed", blocks: previous.blocks },
-      );
+    if (isLatest()) {
+      setLoad((previous) => nextBlocksLoad(previous, result));
     }
-  }, []);
+  }, [latest]);
 
   useEffect(() => {
     void reload();
 
     return () => {
       // Drops the reply of a request still in flight.
-      latestRequest.current += 1;
+      latest.cancel();
     };
-  }, [reload]);
+  }, [latest, reload]);
 
   // Joining an account merges the device user's blocks into the account's.
   useEffect(
@@ -93,7 +89,7 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
   useEffect(
     () =>
       onSignedOut(() => {
-        setLoad({ status: "loading", blocks: [] });
+        setLoad(BLOCKS_LOADING);
         void reload();
       }),
     [reload],
@@ -101,13 +97,7 @@ export function BlocksProvider({ children }: { children: ReactNode }) {
 
   const change = useCallback(
     (action: BlockAction, user: BlockTarget): void => {
-      const blockId = blockIdFor(load.blocks, user.id);
-      const request =
-        action === "block"
-          ? () => blockUser({ blockedUserId: user.id })
-          : blockId === null
-            ? null
-            : () => unblockUser(blockId);
+      const request = blockRequest(action, load.blocks, user, { blockUser, unblockUser });
       if (changing.current || request === null) {
         return;
       }

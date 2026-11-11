@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { blockIdFor, isObscured, isOpeningObscured } from "./blocks";
+import {
+  BLOCKS_LOADING,
+  blockIdFor,
+  blockRequest,
+  isObscured,
+  isOpeningObscured,
+  nextBlocksLoad,
+} from "./blocks";
 
 describe("blockIdFor", () => {
   const blocks = [
@@ -82,5 +89,68 @@ describe("isOpeningObscured", () => {
     },
   ])("$title", ({ blocks: given, authorId, expected }) => {
     expect(isOpeningObscured(given, authorId)).toBe(expected);
+  });
+});
+
+describe("nextBlocksLoad", () => {
+  const known = { status: "ready" as const, blocks: [{ id: "b1", blockedUserId: "u2" }] };
+  const offline = { ok: false as const, failure: { type: "network" as const } };
+
+  it.each([
+    {
+      title: "is ready with the list that arrived",
+      previous: BLOCKS_LOADING,
+      result: { ok: true as const, value: { blocks: known.blocks } },
+      expected: known,
+    },
+    {
+      title: "replaces the old list with the one that arrived",
+      previous: known,
+      result: { ok: true as const, value: { blocks: [] } },
+      expected: { status: "ready", blocks: [] },
+    },
+    {
+      title: "keeps the old list but is failed when a reload does not arrive",
+      previous: known,
+      result: offline,
+      expected: { status: "failed", blocks: known.blocks },
+    },
+    {
+      title: "is failed with no list when the first load does not arrive",
+      previous: BLOCKS_LOADING,
+      result: offline,
+      expected: { status: "failed", blocks: [] },
+    },
+  ])("$title", ({ previous, result, expected }) => {
+    expect(nextBlocksLoad(previous, result)).toEqual(expected);
+  });
+});
+
+describe("blockRequest", () => {
+  const blocks = [{ id: "b1", blockedUserId: "u2" }];
+  const calls = {
+    blockUser: (request: { blockedUserId: string }) => `block ${request.blockedUserId}`,
+    unblockUser: (blockId: string) => `unblock ${blockId}`,
+  };
+
+  it.each([
+    { title: "blocks a user", action: "block", userId: "u3", expected: "block u3" },
+    { title: "blocks again a blocked user", action: "block", userId: "u2", expected: "block u2" },
+    {
+      title: "unblocks by the block's ID",
+      action: "unblock",
+      userId: "u2",
+      expected: "unblock b1",
+    },
+    {
+      title: "sends nothing to unblock a user who is not blocked",
+      action: "unblock",
+      userId: "u3",
+      expected: null,
+    },
+  ] as const)("$title", ({ action, userId, expected }) => {
+    const request = blockRequest(action, blocks, { id: userId }, calls);
+
+    expect(request === null ? null : request()).toBe(expected);
   });
 });

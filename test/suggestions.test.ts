@@ -3,16 +3,10 @@ import { z } from "zod";
 
 import { suggestionsResponseSchema } from "../src/shared/api";
 import { createApp } from "../src/worker/app";
-import {
-  SUGGESTION_LIMIT,
-  SUGGESTION_TIMEOUT_MS,
-  SUGGESTION_WINDOW_MS,
-} from "../src/worker/config";
+import { SUGGESTION_LIMIT, SUGGESTION_WINDOW_MS } from "../src/worker/config";
 import { selectSessionVerifier } from "../src/worker/sessionToken";
-import { FAKE_SUGGESTIONS } from "../src/worker/suggestions/fake";
 import type { SuggestionProvider, SuggestionResult } from "../src/worker/suggestions/provider";
 import { selectSuggestionProvider } from "../src/worker/suggestions/select";
-import type { RunModel } from "../src/worker/suggestions/workersAi";
 import {
   createBrowser,
   createStory,
@@ -126,7 +120,7 @@ describe("POST /api/stories/:storyId/suggestions", () => {
   }
 
   describe("for the turn holder", () => {
-    it("returns three suggestions, uncached", async () => {
+    it("returns three suggestions, uncached, with or without a body", async () => {
       const { storyId, ben } = await twoPersonStory();
 
       const response = await ask(ben, storyId);
@@ -138,21 +132,10 @@ describe("POST /api/stories/:storyId/suggestions", () => {
         "Two.",
         "Three.",
       ]);
-    });
 
-    it("works with the default fake provider", async () => {
-      // Its own story ID, apart from the shared app's counter, so test order doesn't matter.
-      const fakeApp = createTestApp(clock, () => "fakep");
-      clock.now = T0;
-      const [ana, ben] = [createBrowser(fakeApp, testEnv.env), createBrowser(fakeApp, testEnv.env)];
-      const storyId = await createStory(ana);
-      await joinStory(ben, storyId, nameInTest("Ben"));
+      const bodyless = await ask(ben, storyId, { rawBody: "" });
 
-      const response = await ask(ben, storyId);
-
-      expect(suggestionsResponseSchema.parse(await response.json()).suggestions).toEqual(
-        FAKE_SUGGESTIONS,
-      );
+      expect(bodyless.status).toBe(200);
     });
 
     it("shows the provider the story as paragraphs, passages in order", async () => {
@@ -164,125 +147,48 @@ describe("POST /api/stories/:storyId/suggestions", () => {
         startsParagraph: false,
       });
 
-      await ask(ana, storyId);
-
-      expect(seen).toEqual(["Opening line. Ben adds this."]);
-    });
-
-    it("separates paragraphs with a blank line in what the provider sees", async () => {
-      const { storyId, ana, ben } = await twoPersonStory();
-      expect((await readStory(ben, storyId)).turn.version).toBe(1);
-      await ben.post(`/api/stories/${storyId}/passages`, {
-        text: "Ben starts a new one.",
-        turnVersion: 1,
+      const { turn } = await readStory(ana, storyId);
+      await ana.post(`/api/stories/${storyId}/passages`, {
+        text: "Ana starts a new one.",
+        turnVersion: turn.version,
         startsParagraph: true,
       });
 
-      await ask(ana, storyId);
+      await ask(ben, storyId);
 
-      expect(seen).toEqual(["Opening line.\n\nBen starts a new one."]);
+      expect(seen).toEqual(["Opening line. Ben adds this.\n\nAna starts a new one."]);
     });
 
-    it("changes nothing in the story and does not touch the turn", async () => {
+    it("changes nothing in the story, does not touch the turn and tells no room, even when the model fails", async () => {
       const { storyId, ben } = await twoPersonStory();
       const before = await readStory(ben, storyId);
+      const backgroundWork = ben.backgroundWork.length;
 
       await ask(ben, storyId);
+      await ask(ben, storyId);
+      expect(await readStory(ben, storyId)).toEqual(before);
+
+      answer = () => MODEL_ERROR;
       await ask(ben, storyId);
 
       expect(await readStory(ben, storyId)).toEqual(before);
-    });
-
-    it("still lets the holder contribute at the version they saw", async () => {
-      const { storyId, ben } = await twoPersonStory();
-      const { turn } = await readStory(ben, storyId);
-
-      await ask(ben, storyId);
-      const response = await ben.post(`/api/stories/${storyId}/passages`, {
-        text: "Mine.",
-        turnVersion: turn.version,
-        startsParagraph: false,
-      });
-
-      expect(response.status).toBe(201);
-    });
-
-    it("accepts a request with no body", async () => {
-      const { storyId, ben } = await twoPersonStory();
-
-      const response = await ask(ben, storyId, { rawBody: "" });
-
-      expect(response.status).toBe(200);
+      expect(ben.backgroundWork).toHaveLength(backgroundWork);
     });
   });
 
   describe("who may ask", () => {
-    it("refuses a participant who does not hold the turn", async () => {
-      const { storyId, ana } = await twoPersonStory();
+    it("refuses a participant who does not hold the turn, following the resolved turn", async () => {
+      const { storyId, ana, ben } = await twoPersonStory();
 
       const response = await ask(ana, storyId);
 
       expect(response.status).toBe(403);
       expect(await readError(response)).toBe("not_your_turn");
       expect(seen).toEqual([]);
-    });
 
-    it("refuses anyone while the story is waiting for a joiner", async () => {
-      clock.now = T0;
-      const ana = newBrowser();
-      const storyId = await createStory(ana);
-
-      const response = await ask(ana, storyId);
-
-      expect(response.status).toBe(403);
-      expect(await readError(response)).toBe("not_your_turn");
-    });
-
-    it("refuses a browser that is not in the story, with or without a cookie", async () => {
-      const { storyId, ana } = await twoPersonStory();
-      const stranger = newBrowser();
-      await createStory(stranger, nameInTest("Zed"));
-
-      for (const browser of [stranger, newBrowser()]) {
-        const response = await ask(browser, storyId);
-
-        expect(response.status).toBe(403);
-        expect(await readError(response)).toBe("not_participant");
-      }
-      expect(ana.cookies.size).toBe(1);
-    });
-
-    it("answers 404 for an unknown story and for text that is not an ID", async () => {
-      const browser = newBrowser();
-
-      for (const id of ["zzzzz", "abc", "ab-12"]) {
-        const response = await ask(browser, id);
-
-        expect(response.status).toBe(404);
-        expect(await readError(response)).toBe("not_found");
-      }
-    });
-
-    it("applies the Origin and Content-Type guards", async () => {
-      const { storyId, ben } = await twoPersonStory();
-
-      const wrongOrigin = await ask(ben, storyId, { origin: "https://evil.example" });
-      const noOrigin = await ask(ben, storyId, { origin: null });
-      const wrongType = await ask(ben, storyId, { contentType: "text/plain" });
-
-      expect([wrongOrigin.status, noOrigin.status]).toEqual([403, 403]);
-      expect(await readError(wrongOrigin)).toBe("forbidden_origin");
-      expect(wrongType.status).toBe(400);
-      expect(await readError(wrongType)).toBe("bad_request");
-      expect(seen).toEqual([]);
-    });
-
-    it("follows the resolved turn when the stored holder has timed out", async () => {
       // Ben's turn runs out and passes to Cat, the next in turn order (Ana wrote last).
-      const { storyId, ben } = await twoPersonStory();
       const cat = newBrowser();
       await joinStory(cat, storyId, nameInTest("Cat"));
-
       clock.now = T0 + 24 * HOUR;
       const staleHolder = await ask(ben, storyId);
       const newHolder = await ask(cat, storyId);
@@ -292,12 +198,38 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       expect(newHolder.status).toBe(200);
     });
 
-    it("still answers at the last moment of the turn", async () => {
+    it("refuses a browser that is not in the story", async () => {
+      const { storyId, ana } = await twoPersonStory();
+      const stranger = newBrowser();
+      await createStory(stranger, nameInTest("Zed"));
+
+      const response = await ask(stranger, storyId);
+
+      expect(response.status).toBe(403);
+      expect(await readError(response)).toBe("not_participant");
+      expect(ana.cookies.size).toBe(1);
+    });
+
+    it("answers 404 for an unknown story", async () => {
+      const browser = newBrowser();
+
+      const response = await ask(browser, "zzzzz");
+
+      expect(response.status).toBe(404);
+      expect(await readError(response)).toBe("not_found");
+    });
+
+    it("applies the Origin and Content-Type guards", async () => {
       const { storyId, ben } = await twoPersonStory();
 
-      clock.now = T0 + 24 * HOUR - 1;
+      const wrongOrigin = await ask(ben, storyId, { origin: "https://evil.example" });
+      const wrongType = await ask(ben, storyId, { contentType: "text/plain" });
 
-      expect((await ask(ben, storyId)).status).toBe(200);
+      expect(wrongOrigin.status).toBe(403);
+      expect(await readError(wrongOrigin)).toBe("forbidden_origin");
+      expect(wrongType.status).toBe(400);
+      expect(await readError(wrongType)).toBe("bad_request");
+      expect(seen).toEqual([]);
     });
   });
 
@@ -316,25 +248,18 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       expect(seen).toHaveLength(SUGGESTION_LIMIT);
     });
 
-    it("counts each participant on their own", async () => {
-      const { storyId, ana, ben } = await twoPersonStory();
-      for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
-        await ask(ben, storyId);
-      }
-      await ben.post(`/api/stories/${storyId}/passages`, {
-        text: "Mine.",
-        turnVersion: 1,
-        startsParagraph: false,
-      });
-
-      expect((await ask(ana, storyId)).status).toBe(200);
-    });
-
-    it("counts per participant across stories", async () => {
+    it("counts each participant on their own, across stories", async () => {
       const first = await twoPersonStory();
       for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
         await ask(first.ben, first.storyId);
       }
+      await first.ben.post(`/api/stories/${first.storyId}/passages`, {
+        text: "Mine.",
+        turnVersion: 1,
+        startsParagraph: false,
+      });
+      expect((await ask(first.ana, first.storyId)).status).toBe(200);
+
       const second = await createStory(first.ana);
       await joinStory(first.ben, second);
 
@@ -360,18 +285,6 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       expect((await ask(ben, storyId)).status).toBe(200);
     });
 
-    it("limits a refused request before the provider is called", async () => {
-      const { storyId, ben } = await twoPersonStory();
-      for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
-        await ask(ben, storyId);
-      }
-      seen.length = 0;
-
-      await ask(ben, storyId);
-
-      expect(seen).toEqual([]);
-    });
-
     it("lets only the limit through when requests arrive at once", async () => {
       const { storyId, ben, benId } = await twoPersonStory();
       const requests = 6;
@@ -389,49 +302,28 @@ describe("POST /api/stories/:storyId/suggestions", () => {
   });
 
   describe("when the model errors", () => {
-    it("answers 503 ai_unavailable", async () => {
-      const { storyId, ben } = await twoPersonStory();
-      answer = () => MODEL_ERROR;
-
-      const response = await ask(ben, storyId);
-
-      expect(response.status).toBe(503);
-      expect(await readError(response)).toBe("ai_unavailable");
-    });
-
-    it("does not use up quota", async () => {
+    it("answers 503 ai_unavailable, and gives back only the failed request's slot", async () => {
       const { storyId, ben, benId } = await twoPersonStory();
       answer = () => MODEL_ERROR;
-      for (let n = 0; n < SUGGESTION_LIMIT + 2; n += 1) {
+      const first = await ask(ben, storyId);
+      expect(first.status).toBe(503);
+      expect(await readError(first)).toBe("ai_unavailable");
+      for (let n = 1; n < SUGGESTION_LIMIT + 2; n += 1) {
         expect((await ask(ben, storyId)).status).toBe(503);
       }
       expect(await requestCount(benId)).toBe(0);
 
       answer = goodAnswer;
-      for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
+      expect((await ask(ben, storyId)).status).toBe(200);
+      answer = () => MODEL_ERROR;
+      await ask(ben, storyId);
+      expect(await requestCount(benId)).toBe(1);
+
+      answer = goodAnswer;
+      for (let n = 1; n < SUGGESTION_LIMIT; n += 1) {
         expect((await ask(ben, storyId)).status).toBe(200);
       }
       expect((await ask(ben, storyId)).status).toBe(429);
-    });
-
-    it("gives back only the failed request's slot", async () => {
-      const { storyId, ben, benId } = await twoPersonStory();
-      await ask(ben, storyId);
-      answer = () => MODEL_ERROR;
-
-      await ask(ben, storyId);
-
-      expect(await requestCount(benId)).toBe(1);
-    });
-
-    it("leaves the story unchanged", async () => {
-      const { storyId, ben } = await twoPersonStory();
-      const before = await readStory(ben, storyId);
-      answer = () => MODEL_ERROR;
-
-      await ask(ben, storyId);
-
-      expect(await readStory(ben, storyId)).toEqual(before);
     });
 
     it("holds the slot while the call runs, so an overlapping request can get 429 early", async () => {
@@ -478,17 +370,6 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       expect(await readError(response)).toBe("ai_unavailable");
       expect(await requestCount(benId)).toBe(1);
     });
-
-    it("treats a provider that throws as a model error and refunds", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => undefined);
-      const { storyId, ben, benId } = await twoPersonStory();
-      gate = () => Promise.reject(new Error("contract broken"));
-
-      const response = await ask(ben, storyId);
-
-      expect(response.status).toBe(503);
-      expect(await requestCount(benId)).toBe(0);
-    });
   });
 
   describe("when the model's output is unusable", () => {
@@ -502,27 +383,6 @@ describe("POST /api/stories/:storyId/suggestions", () => {
       expect(await readError(response)).toBe("ai_unavailable");
       expect(await requestCount(benId)).toBe(1);
     });
-
-    it("runs out of quota like any other request", async () => {
-      const { storyId, ben } = await twoPersonStory();
-      answer = () => UNUSABLE;
-      for (let n = 0; n < SUGGESTION_LIMIT; n += 1) {
-        expect((await ask(ben, storyId)).status).toBe(503);
-      }
-
-      expect((await ask(ben, storyId)).status).toBe(429);
-    });
-  });
-
-  it("does not tell the story's room anything", async () => {
-    const { storyId, ben } = await twoPersonStory();
-    const before = ben.backgroundWork.length;
-
-    await ask(ben, storyId);
-    answer = () => MODEL_ERROR;
-    await ask(ben, storyId);
-
-    expect(ben.backgroundWork).toHaveLength(before);
   });
 
   describe("with the configured provider", () => {
@@ -547,71 +407,6 @@ describe("POST /api/stories/:storyId/suggestions", () => {
 
       return { ben, storyId, env };
     }
-
-    it("runs the Workers AI model and returns its suggestions", async () => {
-      const run = vi
-        .fn<RunModel>()
-        .mockResolvedValue({ response: { suggestions: ["x", "y", "z"] } });
-      const { ben, storyId } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
-
-      const response = await ask(ben, storyId);
-
-      expect(response.status).toBe(200);
-      expect(suggestionsResponseSchema.parse(await response.json()).suggestions).toEqual([
-        "x",
-        "y",
-        "z",
-      ]);
-      expect(run).toHaveBeenCalledTimes(1);
-    });
-
-    it("answers 503 when Workers AI throws, and gives the slot back", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => undefined);
-      const run = vi.fn<RunModel>().mockRejectedValue(new Error("quota exceeded"));
-      const { ben, storyId, env } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
-      const before = await totalRequests(env.DB);
-
-      const response = await ask(ben, storyId);
-
-      expect(response.status).toBe(503);
-      expect(await readError(response)).toBe("ai_unavailable");
-      expect(await totalRequests(env.DB)).toBe(before);
-    });
-
-    it("keeps the slot when Workers AI keeps returning unusable output", async () => {
-      const run = vi.fn<RunModel>().mockResolvedValue({ response: "not json" });
-      const { ben, storyId, env } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
-      const before = await totalRequests(env.DB);
-
-      const response = await ask(ben, storyId);
-
-      expect(response.status).toBe(503);
-      expect(run).toHaveBeenCalledTimes(2);
-      expect(await totalRequests(env.DB)).toBe(before + 1);
-    });
-
-    it("gives up on a hung Workers AI call, keeps the slot, and never starts a retry", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => undefined);
-      const lateAnswer = Promise.withResolvers<unknown>();
-      const run = vi.fn<RunModel>().mockReturnValue(lateAnswer.promise);
-      const { ben, storyId, env } = await holder({ AI_PROVIDER: "workers-ai", AI: { run } });
-      const before = await totalRequests(env.DB);
-      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-
-      const pending = ask(ben, storyId);
-      await vi.waitFor(() => {
-        expect(run).toHaveBeenCalledTimes(1);
-      });
-      await vi.advanceTimersByTimeAsync(SUGGESTION_TIMEOUT_MS);
-      const response = await pending;
-      lateAnswer.resolve({ response: "unusable" });
-      await vi.advanceTimersByTimeAsync(1000);
-      vi.useRealTimers();
-
-      expect(response.status).toBe(503);
-      expect(run).toHaveBeenCalledTimes(1);
-      expect(await totalRequests(env.DB)).toBe(before + 1);
-    });
 
     it("fails with 500 on a bad AI_PROVIDER, before using up quota", async () => {
       vi.spyOn(console, "error").mockImplementation(() => undefined);

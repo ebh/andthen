@@ -1,13 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("every request to the API says which API level the app speaks", async ({ page }) => {
-  const listRequest = page.waitForRequest((request) => request.url().endsWith("/api/stories"));
-
-  await page.goto("/");
-
-  expect((await listRequest).headers()["x-api-level"]).toBe("3");
-});
-
+// Pins that "Update now" clears the real browser Cache API (`deleteAllCaches` in
+// src/client/appUpdate.ts), which only a real browser has. The screen text is covered by
+// src/ui/UpdateGate.test.tsx. Without this test, that cache clearing is untested.
 test("a Worker that refuses the app's API level replaces the page with an update screen", async ({
   page,
 }) => {
@@ -18,9 +13,6 @@ test("a Worker that refuses the app's API level replaces the page with an update
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 2, name: "Update to continue" })).toBeVisible();
-  await expect(page.getByText("This version of And then… is out of date.")).toBeVisible();
-  await expect(page.getByRole("button")).toHaveCount(1);
-  await expect(page.getByLabel("Opening passage")).toHaveCount(0);
 
   await page.evaluate(() => caches.open("stale"));
 

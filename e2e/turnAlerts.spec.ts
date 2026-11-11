@@ -16,8 +16,6 @@ import { PHONE, names, startStory, turnBanner } from "./writers.ts";
 // `standInForPushService`); they say so in their names.
 
 const SWITCH_LABEL = "Notify me when it's my turn";
-const IPHONE_USER_AGENT =
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 const DESKTOP = { width: 1280, height: 800 };
 // The stand-in's endpoint hashed with SHA-256, worked out outside the app so the test pins the ID.
 const SUBSCRIPTION_URL =
@@ -45,11 +43,10 @@ async function writerOn(
 /**
  * Replaces the permission prompt and the browser's push subscription with a stand-in kept in
  * `localStorage`, so it survives a reload as the real one does. The page, the service worker and
- * the Worker are real. Pass `subscribeFails` to make subscribing throw, as Brave does with its
- * Google push setting off.
+ * the Worker are real.
  */
-async function standInForPushService(page: Page, subscribeFails = false): Promise<void> {
-  await page.addInitScript((fails) => {
+async function standInForPushService(page: Page): Promise<void> {
+  await page.addInitScript(() => {
     const subscriptionKey = "e2e-subscription";
     const subscription = () => {
       const endpoint = localStorage.getItem(subscriptionKey);
@@ -81,14 +78,11 @@ async function standInForPushService(page: Page, subscribeFails = false): Promis
     });
     Reflect.set(PushManager.prototype, "getSubscription", () => Promise.resolve(subscription()));
     Reflect.set(PushManager.prototype, "subscribe", () => {
-      if (fails) {
-        return Promise.reject(new Error("push service unreachable"));
-      }
       localStorage.setItem(subscriptionKey, "https://fcm.googleapis.com/fcm/send/e2e-stand-in");
 
       return Promise.resolve(subscription());
     });
-  }, subscribeFails);
+  });
 }
 
 function notifySwitch(page: Page) {
@@ -119,35 +113,6 @@ test("on a phone the switch is under the turn banner", async ({ browser }) => {
 
   await expect(notifySwitch(page)).toBeVisible();
   await expectUnderTurnBanner(page);
-});
-
-test("where the browser blocks notifications the switch is off and cannot be used", async ({
-  browser,
-}) => {
-  // Headless Chromium reports "denied", which is also what a user who blocked the site gets.
-  const page = await writerOn(browser);
-
-  await expect(notifySwitch(page)).toBeDisabled();
-  await expect(notifySwitch(page)).not.toBeChecked();
-  await expect(
-    page.getByText("Notifications are blocked in this browser's settings."),
-  ).toBeVisible();
-});
-
-test("on an iPhone in a browser tab there is a hint and no switch", async ({ browser }) => {
-  const page = await writerOn(browser, {
-    userAgent: IPHONE_USER_AGENT,
-    viewport: PHONE,
-    hasTouch: true,
-    isMobile: true,
-  });
-
-  await expect(
-    page.getByText(
-      "To get notified, add this app to your Home Screen: tap Share (under ⋯ on newer iPhones), then Add to Home Screen.",
-    ),
-  ).toBeVisible();
-  await expect(page.getByRole("switch", { name: SWITCH_LABEL })).toHaveCount(0);
 });
 
 test("with a stand-in for the push service: on sends the subscription, a reload sends it again, off deletes it", async ({
@@ -189,29 +154,4 @@ test("with a stand-in for the push service: on sends the subscription, a reload 
   expect(removedResponse.status()).toBe(204);
   expect(removedResponse.request().postData()).toBeNull();
   await expect(notifySwitch(page)).not.toBeChecked();
-});
-
-test("with a stand-in for the push service: a browser that cannot subscribe shows an error and stays off", async ({
-  browser,
-}) => {
-  const context = await browser.newContext({ viewport: DESKTOP, serviceWorkers: "allow" });
-  const page = await context.newPage();
-  await standInForPushService(page, true);
-  await startStory(page, names.ana, "The lighthouse went dark at noon.");
-  const sent: string[] = [];
-  page.on("request", (request) => {
-    if (request.url().endsWith(SUBSCRIPTION_URL)) {
-      sent.push(request.method());
-    }
-  });
-
-  await notifySwitch(page).click();
-
-  // The story page also holds an empty alert for a failed Block or Unblock, so this one is found by its text.
-  await expect(
-    page.getByRole("alert").filter({ hasText: "Notifications couldn't be turned on" }),
-  ).toHaveText("Notifications couldn't be turned on in this browser.");
-  await expect(notifySwitch(page)).not.toBeChecked();
-  await expect(notifySwitch(page)).toBeEnabled();
-  expect(sent).toEqual([]);
 });

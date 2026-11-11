@@ -126,64 +126,39 @@ describe("userRepo", () => {
     });
 
     describe("blocks", () => {
-      it("moves a block the merged-away user made to the account user", async () => {
-        const device = await insertedUser(db, "mb1-device");
-        await insertUser(db, "mb1-account");
-        await insertUser(db, "mb1-other");
-        await insertBlock(db, "mb1-block", "mb1-device", "mb1-other");
+      it("moves the merged-away user's blocks to the account user, and drops one that would repeat or block the user on itself", async () => {
+        const device = await insertedUser(db, "mb-device");
+        for (const id of ["mb-account", "mb-made", "mb-against", "mb-repeat"]) {
+          await insertUser(db, id);
+        }
+        await insertBlock(db, "mb-moved-made", "mb-device", "mb-made");
+        await insertBlock(db, "mb-moved-against", "mb-against", "mb-device");
+        await insertBlock(db, "mb-kept-made", "mb-account", "mb-repeat");
+        await insertBlock(db, "mb-dropped-made", "mb-device", "mb-repeat");
+        await insertBlock(db, "mb-kept-against", "mb-repeat", "mb-account");
+        await insertBlock(db, "mb-dropped-against", "mb-repeat", "mb-device");
+        await insertBlock(db, "mb-self-made", "mb-device", "mb-account");
+        await insertBlock(db, "mb-self-against", "mb-account", "mb-device");
 
-        await mergeUserInto(db, device, "mb1-account");
+        expect(await mergeUserInto(db, device, "mb-account")).toBe(true);
 
-        expect(await blocksOf(db, "mb1-block")).toEqual([
-          { userId: "mb1-account", blockedUserId: "mb1-other" },
+        expect(await blocksOf(db, "mb-moved-made")).toEqual([
+          { userId: "mb-account", blockedUserId: "mb-made" },
         ]);
-      });
-
-      it("moves a block against the merged-away user to the account user", async () => {
-        const device = await insertedUser(db, "mb2-device");
-        await insertUser(db, "mb2-account");
-        await insertUser(db, "mb2-other");
-        await insertBlock(db, "mb2-block", "mb2-other", "mb2-device");
-
-        await mergeUserInto(db, device, "mb2-account");
-
-        expect(await blocksOf(db, "mb2-block")).toEqual([
-          { userId: "mb2-other", blockedUserId: "mb2-account" },
+        expect(await blocksOf(db, "mb-moved-against")).toEqual([
+          { userId: "mb-against", blockedUserId: "mb-account" },
         ]);
-      });
-
-      it("drops a block that would repeat one the account user already holds, from either side", async () => {
-        const device = await insertedUser(db, "mb3-device");
-        await insertUser(db, "mb3-account");
-        await insertUser(db, "mb3-other");
-        await insertBlock(db, "mb3-kept-made", "mb3-account", "mb3-other");
-        await insertBlock(db, "mb3-dropped-made", "mb3-device", "mb3-other");
-        await insertBlock(db, "mb3-kept-against", "mb3-other", "mb3-account");
-        await insertBlock(db, "mb3-dropped-against", "mb3-other", "mb3-device");
-
-        await mergeUserInto(db, device, "mb3-account");
-
-        expect(await blocksOf(db, "mb3-kept-made")).toEqual([
-          { userId: "mb3-account", blockedUserId: "mb3-other" },
+        expect(await blocksOf(db, "mb-kept-made")).toEqual([
+          { userId: "mb-account", blockedUserId: "mb-repeat" },
         ]);
-        expect(await blocksOf(db, "mb3-kept-against")).toEqual([
-          { userId: "mb3-other", blockedUserId: "mb3-account" },
+        expect(await blocksOf(db, "mb-kept-against")).toEqual([
+          { userId: "mb-repeat", blockedUserId: "mb-account" },
         ]);
-        expect(await blocksOf(db, "mb3-dropped-made")).toEqual([]);
-        expect(await blocksOf(db, "mb3-dropped-against")).toEqual([]);
-      });
-
-      it("drops a block between the two merged users, which would be a block on itself", async () => {
-        const device = await insertedUser(db, "mb4-device");
-        await insertUser(db, "mb4-account");
-        await insertBlock(db, "mb4-made", "mb4-device", "mb4-account");
-        await insertBlock(db, "mb4-against", "mb4-account", "mb4-device");
-
-        await mergeUserInto(db, device, "mb4-account");
-
-        expect(await blocksOf(db, "mb4-made")).toEqual([]);
-        expect(await blocksOf(db, "mb4-against")).toEqual([]);
-        expect(await findUserByBrowserTokenHash(db, "hash-of-mb4-device")).toBeNull();
+        expect(await blocksOf(db, "mb-dropped-made")).toEqual([]);
+        expect(await blocksOf(db, "mb-dropped-against")).toEqual([]);
+        expect(await blocksOf(db, "mb-self-made")).toEqual([]);
+        expect(await blocksOf(db, "mb-self-against")).toEqual([]);
+        expect(await findUserByBrowserTokenHash(db, "hash-of-mb-device")).toBeNull();
       });
 
       it("leaves every block alone when the merge is refused for a name given after the read", async () => {

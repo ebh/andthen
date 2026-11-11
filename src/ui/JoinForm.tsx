@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Form, H2, Paragraph } from "tamagui";
 
 import { joinStory } from "../client/api";
+import { joinOutcome } from "../client/joinOutcome";
 import { NAME_FAILURE_MESSAGES, describeFailure, describeNameProblem } from "../client/messages";
 import { nameIsSettled, nameStep, nameToSend, nameWasStale } from "../client/userName";
 import { useUserName } from "../client/useUserName";
@@ -38,17 +39,15 @@ export function JoinForm({ storyId, onJoined }: JoinFormProps) {
     void (async () => {
       const result = await joinStory(storyId, toSend.request);
       setSubmitting(false);
-      if (
-        result.ok ||
-        (result.failure.type === "rejected" && result.failure.code === "already_joined")
-      ) {
+      const outcome = joinOutcome(result);
+      if (outcome.type === "joined") {
         onJoined();
         return;
       }
-      // A full story stays full: retrying would only fail again.
-      setFull(result.failure.type === "rejected" && result.failure.code === "story_full");
-      setError(describeFailure(result.failure, FAILURE_MESSAGES));
-      if (nameWasStale(result.failure)) {
+
+      setFull(!outcome.canRetry);
+      setError(describeFailure(outcome.failure, FAILURE_MESSAGES));
+      if (nameWasStale(outcome.failure)) {
         reload();
       }
     })();

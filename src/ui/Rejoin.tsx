@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Anchor, Button, H2, Paragraph, XStack, YStack } from "tamagui";
 
 import { rejoinStory } from "../client/api";
+import { joinOutcome } from "../client/joinOutcome";
 import { describeFailure } from "../client/messages";
 import { MAX_PARTICIPANTS } from "../shared/validation";
 
@@ -28,16 +29,14 @@ export function Rejoin({ storyId, displayName, opening, onRejoined }: RejoinProp
     void (async () => {
       const result = await rejoinStory(storyId);
       setRejoining(false);
-      if (
-        result.ok ||
-        (result.failure.type === "rejected" && result.failure.code === "already_joined")
-      ) {
+      const outcome = joinOutcome(result);
+      if (outcome.type === "joined") {
         onRejoined();
         return;
       }
-      // A full story stays full: retrying would only fail again.
-      setFull(result.failure.type === "rejected" && result.failure.code === "story_full");
-      setError(describeFailure(result.failure, FAILURE_MESSAGES));
+
+      setFull(!outcome.canRetry);
+      setError(describeFailure(outcome.failure, FAILURE_MESSAGES));
     })();
   };
 

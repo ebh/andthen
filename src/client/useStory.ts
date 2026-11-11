@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { StoryView } from "../shared/api";
 import { fetchStory, type ApiFailure, type ApiResult } from "./api";
+import { createLatestRequest } from "./latestRequest";
 
 export type StoryLoad =
   | { type: "loading" }
@@ -21,33 +22,32 @@ const LOADING: StoryLoad = { type: "loading" };
  */
 export function useStory(storyId: string): { load: StoryLoad; refetch: () => void } {
   const [load, setLoad] = useState<StoryLoad>(LOADING);
-  const latestRequest = useRef(0);
+  const [latest] = useState(createLatestRequest);
 
   const refetch = useCallback(() => {
-    latestRequest.current += 1;
-    const thisRequest = latestRequest.current;
+    const isLatest = latest.start();
 
     void (async () => {
       const result = await fetchStory(storyId);
-      if (thisRequest === latestRequest.current) {
+      if (isLatest()) {
         setLoad((previous) => nextLoad(previous, result));
       }
     })();
-  }, [storyId]);
+  }, [latest, storyId]);
 
   useEffect(() => {
     refetch();
 
     return () => {
       // Drops the reply of a request still in flight.
-      latestRequest.current += 1;
+      latest.cancel();
     };
-  }, [refetch]);
+  }, [latest, refetch]);
 
   return { load, refetch };
 }
 
-function nextLoad(previous: StoryLoad, result: ApiResult<StoryView>): StoryLoad {
+export function nextLoad(previous: StoryLoad, result: ApiResult<StoryView>): StoryLoad {
   if (result.ok) {
     return { type: "loaded", view: result.value, refreshFailed: false };
   }

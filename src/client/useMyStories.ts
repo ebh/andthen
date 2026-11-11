@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { StorySummary } from "../shared/api";
 import { onDeviceUserAdded } from "./account";
 import { listMyStories, type ApiFailure } from "./api";
+import { createLatestRequest } from "./latestRequest";
 import { withPageAppended } from "./withPageAppended";
 
 export type MyStoriesLoad =
@@ -32,16 +33,15 @@ export function useMyStories(): {
 } {
   const [load, setLoad] = useState<MyStoriesLoad>(LOADING);
   const [moreStatus, setMoreStatus] = useState<MoreStoriesStatus>("idle");
-  const latestRequest = useRef<object>({});
+  const [latest] = useState(createLatestRequest);
 
   const fetchStories = useCallback(() => {
-    const thisRequest = {};
-    latestRequest.current = thisRequest;
+    const isLatest = latest.start();
 
     void (async () => {
       const result = await listMyStories();
       // A reply that a newer request has overtaken is dropped.
-      if (thisRequest === latestRequest.current) {
+      if (isLatest()) {
         setLoad(
           result.ok
             ? { type: "loaded", stories: result.value.stories, nextCursor: result.value.nextCursor }
@@ -49,7 +49,7 @@ export function useMyStories(): {
         );
       }
     })();
-  }, []);
+  }, [latest]);
 
   useEffect(() => {
     fetchStories();
@@ -83,11 +83,11 @@ export function useMyStories(): {
     }
 
     // A first-page request that starts meanwhile replaces the list, so this page is dropped.
-    const thisRequest = latestRequest.current;
+    const isLatest = latest.join();
     setMoreStatus("loading");
     void (async () => {
       const result = await listMyStories(nextCursor);
-      if (thisRequest !== latestRequest.current) {
+      if (!isLatest()) {
         return;
       }
 

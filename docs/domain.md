@@ -59,6 +59,7 @@ The words this app uses, each with one meaning. `.claude/rules/naming.md` says h
 
 - **Legal document:** a text people agree to or are told about, kept as Markdown in `legal/<id>/v<n>.md` and registered in `LEGAL_DOCUMENTS` in `src/shared/legalDocuments.ts`. Its ID is its folder: `terms-of-service`, `privacy-policy` or `copyright-terms/<copyright model>`.
   - **Version:** one numbered text of a legal document, `{ version, effectiveOn }`. Versions run 1..n. A merged version is never edited; a change is a new version. `currentVersion`, `legalDocumentPath`.
+- **Legal page:** the web page of one version of a legal document, at `/legal/<id>/v<n>`. `/legal/<id>` shows the current version. Made at build time from the Markdown. `legalPageUrl` in `src/shared/legalPageUrl.ts`, `legalPages` in `src/shared/legalPages.ts`.
 - **Terms of service:** the rules for using andthen.page, including the licence that lets the app store, show and send the text of stories on. It applies to every story, whatever copyright model it uses. `legal/terms-of-service/`.
 - **Privacy policy:** what personal information the app stores and sends, where, and for how long. `legal/privacy-policy/`.
 - **Copyright terms:** the deal between the writers of a story about who may use the story's text. One copyright model per folder, `legal/copyright-terms/<model>/`.

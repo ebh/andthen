@@ -12,10 +12,13 @@ public/         served at the web root unchanged
   index.html, manifest.json    hand-written, in git
   icon.svg, favicon.ico, icon-*.png, apple-touch-icon.png    generated, not in git
 scripts/renderIcons.ts, scripts/icons.ts    make every generated file
+dist/legal/     the legal pages: made by `pnpm build`, not in git
 src/ui/         an image that one screen shows sits beside that screen
 ```
 
 `assets/` is Expo's folder for files the native build reads. `public/` is Expo's web root: everything in it is copied to `dist/` as it is.
+
+`dist/legal/` holds the legal pages as HTML, `<id>.html` for the current version and `<id>/v<n>.html` for each version. `scripts/buildLegalPages.ts` makes them from `legal/<id>/v<n>.md` during `pnpm build`, after the Expo export. Nothing in it is committed.
 
 ## How the icons are made
 

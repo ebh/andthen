@@ -4,14 +4,8 @@ import type { TextInputInstance } from "react-native";
 import { Anchor, Button, Paragraph, XStack, YStack, useMedia } from "tamagui";
 
 import { createPassage, leaveStory, skipTurn } from "../client/api";
-import { describeFailure } from "../client/messages";
 import { setLeftStoryNote } from "../client/leftStoryNote";
-import {
-  CONTRIBUTE_MESSAGES,
-  LEAVE_MESSAGES,
-  SKIP_MESSAGES,
-  isStoryOutOfDate,
-} from "../client/storyBoard";
+import { leaveOutcome, sendOutcome, skipOutcome } from "../client/storyBoard";
 import { isMyTurn, turnAfterLeaving } from "../client/storyRules";
 import { useNow } from "../client/useNow";
 import { useStoryLive } from "../client/useStoryLive";
@@ -100,17 +94,17 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
         startsParagraph,
       });
       setSending(false);
-      if (result.ok) {
+      const outcome = sendOutcome(result);
+      if (outcome.type === "sent") {
         edit("");
         setStartsParagraph(false);
         refetch();
         return;
       }
-      // The draft stays: after a 409 or 403 the turn may come back, and the text took effort.
-      if (isStoryOutOfDate(result.failure)) {
+      if (outcome.refetch) {
         refetch();
       }
-      setNotice(describeFailure(result.failure, CONTRIBUTE_MESSAGES));
+      setNotice(outcome.notice);
     })();
   };
 
@@ -121,8 +115,9 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
       const result = await skipTurn(storyId, view.turn.version);
       setSkipping(false);
       refetch();
-      if (!result.ok) {
-        setNotice(describeFailure(result.failure, SKIP_MESSAGES));
+      const { notice: skipNotice } = skipOutcome(result);
+      if (skipNotice !== null) {
+        setNotice(skipNotice);
       }
     })();
   };
@@ -132,17 +127,17 @@ export function StoryBoard({ storyId, view, refreshFailed, refetch }: StoryBoard
     setLeaveError(null);
     void (async () => {
       const result = await leaveStory(storyId);
-      if (result.ok) {
+      const outcome = leaveOutcome(result);
+      if (outcome.type === "left") {
         setLeftStoryNote();
         router.replace("/");
         return;
       }
       setLeaving(false);
-      if (isStoryOutOfDate(result.failure)) {
-        // The dialog says who gets the turn; the story it was worked out from has moved on.
+      if (outcome.refetch) {
         refetch();
       }
-      setLeaveError(describeFailure(result.failure, LEAVE_MESSAGES));
+      setLeaveError(outcome.error);
     })();
   };
 

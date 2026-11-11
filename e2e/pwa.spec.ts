@@ -27,6 +27,22 @@ test("the app shell loads offline, on the start page and on a deep link", async 
   await expectShellFromWorker(page, "/abcde");
 });
 
+test("legal pages are served as static pages, not the app shell", async ({ page }) => {
+  await page.goto("/");
+  await expectControlled(page);
+
+  const current = await page.goto("/legal/privacy-policy");
+
+  expect(current?.fromServiceWorker()).toBe(false);
+  await expect(page.getByRole("heading", { level: 1, name: "Privacy policy" })).toBeVisible();
+  await expect(page).toHaveTitle(/^Privacy policy, version \d+$/);
+
+  await page.goto("/legal/privacy-policy/v1");
+
+  await expect(page).toHaveTitle("Privacy policy, version 1");
+  await expect(page.getByText("Version 1 · Effective")).toBeVisible();
+});
+
 test("the API is never answered from the cache", async ({ page, context }) => {
   await page.goto("/");
   await expectControlled(page);

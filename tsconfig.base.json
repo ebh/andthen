@@ -11,6 +11,8 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // `src/shared/legalPages.ts` is also run by Node in a build script, and Node needs the extension.
+    "allowImportingTsExtensions": true
   }
 }

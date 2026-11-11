@@ -14,32 +14,22 @@ beforeEach(() => {
 });
 
 describe("ShareClerkSessionToken", () => {
-  it("lets the API client fetch Clerk's token", async () => {
-    vi.mocked(clerk.getToken).mockResolvedValue("tok-1");
-    const pending = getSessionToken();
-
-    render(<ShareClerkSessionToken />);
-
-    expect(await pending).toBe("tok-1");
-  });
-
-  it("passes the fresh-token option through to Clerk", async () => {
-    render(<ShareClerkSessionToken />);
-
-    await getSessionToken({ fresh: true });
-
-    expect(clerk.getToken).toHaveBeenCalledWith({ skipCache: true });
-  });
-
-  it("keeps the API client waiting while Clerk is still loading", async () => {
+  // Pins the hand-off to the API client, which can't call hooks: a request made while Clerk is
+  // loading waits for it, and a fresh token is passed through as Clerk's skipCache. Without it
+  // early requests would go out unsigned, or a retry after a 401 would reuse the stale token.
+  it("lets the API client wait for Clerk, then fetch its token, fresh when asked", async () => {
     clerk.isLoaded = false;
     const { rerender } = render(<ShareClerkSessionToken />);
     const pending = getSessionToken();
-    vi.mocked(clerk.getToken).mockResolvedValue("tok-2");
+    vi.mocked(clerk.getToken).mockResolvedValue("tok-1");
 
     clerk.isLoaded = true;
     rerender(<ShareClerkSessionToken />);
 
-    expect(await pending).toBe("tok-2");
+    expect(await pending).toBe("tok-1");
+
+    await getSessionToken({ fresh: true });
+
+    expect(clerk.getToken).toHaveBeenLastCalledWith({ skipCache: true });
   });
 });

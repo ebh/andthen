@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TurnAlertsState } from "../client/turnAlerts";
-import { renderPage } from "./testRender";
+import { inTheme, renderPage } from "./testRender";
 import { TurnAlertsSwitch } from "./TurnAlertsSwitch";
 
 interface FakeAlerts {
@@ -24,12 +24,19 @@ vi.mock("../client/turnAlerts", async (importOriginal) => ({
   useTurnAlerts: () => ({ state: alerts.state, turnOn: alerts.turnOn, turnOff: alerts.turnOff }),
 }));
 
-function show(state: TurnAlertsState) {
-  alerts.state = state;
-  renderPage(<TurnAlertsSwitch />);
-}
-
 const off: TurnAlertsState = { type: "ready", on: false, busy: false, failed: false };
+const SWITCH = { name: "Notify me when it's my turn" };
+
+// The hook is the browser's push state; a test moves it on and renders again, as a state change would.
+function renderAlerts(state: TurnAlertsState) {
+  alerts.state = state;
+  const { rerender } = renderPage(<TurnAlertsSwitch />);
+
+  return (next: TurnAlertsState) => {
+    alerts.state = next;
+    rerender(inTheme(<TurnAlertsSwitch />));
+  };
+}
 
 beforeEach(() => {
   vi.mocked(alerts.turnOn).mockResolvedValue(undefined);
@@ -37,58 +44,71 @@ beforeEach(() => {
 });
 
 describe("TurnAlertsSwitch", () => {
-  it("renders nothing where alerts are not available", () => {
-    show({ type: "unavailable" });
-
+  it("offers no switch where alerts are unavailable, asks an iPhone in a tab to install, and explains a block", () => {
+    const show = renderAlerts({ type: "unavailable" });
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByText(/notif/i)).not.toBeInTheDocument();
-  });
 
-  it("offers a switch labelled for the reader's turn, off by default", () => {
-    show(off);
-
-    expect(screen.getByRole("switch", { name: "Notify me when it's my turn" })).not.toBeChecked();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("turns alerts on when the reader switches it on", async () => {
-    show(off);
-
-    await userEvent.setup().click(screen.getByRole("switch"));
-
-    expect(alerts.turnOn).toHaveBeenCalledTimes(1);
-    expect(alerts.turnOff).not.toHaveBeenCalled();
-  });
-
-  it("shows the switch on, and turns alerts off when the reader switches it off", async () => {
-    show({ ...off, on: true });
-    const toggle = screen.getByRole("switch", { name: "Notify me when it's my turn" });
-    expect(toggle).toBeChecked();
-
-    await userEvent.setup().click(toggle);
-
-    expect(alerts.turnOff).toHaveBeenCalledTimes(1);
-    expect(alerts.turnOn).not.toHaveBeenCalled();
-  });
-
-  it("asks an iPhone or iPad in a browser tab to add the app to the Home Screen, with no switch", () => {
     show({ type: "needs_install" });
-
     expect(
       screen.getByText(
         "To get notified, add this app to your Home Screen: tap Share (under ⋯ on newer iPhones), then Add to Home Screen.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+
+    show({ type: "blocked" });
+    expect(screen.getByRole("switch", SWITCH)).toBeDisabled();
+    expect(screen.getByRole("switch", SWITCH)).not.toBeChecked();
+    expect(screen.getByText(/blocked in this browser's settings/)).toBeInTheDocument();
+    expect(screen.queryByText(/Home Screen/)).not.toBeInTheDocument();
   });
 
-  it("says so in an alert when turning on failed, and leaves the switch off and usable", () => {
-    show({ ...off, failed: true });
+  it("turns alerts on and off, and locks the switch while the browser works", async () => {
+    const user = userEvent.setup();
+    const show = renderAlerts(off);
+    expect(screen.getByRole("switch", SWITCH)).not.toBeChecked();
+    expect(screen.getByRole("switch", SWITCH)).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/blocked/)).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole("switch", SWITCH));
+    expect(alerts.turnOn).toHaveBeenCalledTimes(1);
+    expect(alerts.turnOff).not.toHaveBeenCalled();
+
+    show({ ...off, busy: true });
+    expect(screen.getByRole("switch", SWITCH)).toBeDisabled();
+    await user.click(screen.getByRole("switch", SWITCH));
+    expect(alerts.turnOn).toHaveBeenCalledTimes(1);
+
+    show({ ...off, on: true });
+    expect(screen.getByRole("switch", SWITCH)).toBeChecked();
+    expect(screen.getByRole("switch", SWITCH)).toBeEnabled();
+
+    await user.click(screen.getByRole("switch", SWITCH));
+    expect(alerts.turnOff).toHaveBeenCalledTimes(1);
+    expect(alerts.turnOn).toHaveBeenCalledTimes(1);
+
+    show({ ...off, on: true, busy: true });
+    expect(screen.getByRole("switch", SWITCH)).toBeDisabled();
+  });
+
+  it("says in an alert when turning on or off failed, and leaves the switch usable", () => {
+    const show = renderAlerts({ ...off, failed: true });
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Notifications couldn't be turned on in this browser.",
     );
-    expect(screen.getByRole("switch")).not.toBeChecked();
-    expect(screen.getByRole("switch")).toBeEnabled();
+    expect(screen.getByRole("switch", SWITCH)).not.toBeChecked();
+    expect(screen.getByRole("switch", SWITCH)).toBeEnabled();
+
+    show({ ...off, on: true, failed: true });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Notifications couldn't be turned off in this browser.",
+    );
+    expect(screen.getByRole("switch", SWITCH)).toBeChecked();
+    expect(screen.getByRole("switch", SWITCH)).toBeEnabled();
+
+    show({ ...off, on: true });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

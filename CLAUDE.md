@@ -23,7 +23,7 @@ A group writes a story in turns. One Cloudflare Worker (Hono) serves `/api/*`, s
 
 ## Before you push
 
-`pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm stryker` must all pass. `pnpm build` produces `dist/`, which the Worker serves. Stryker breaks below an 80% mutation score.
+`pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm stryker` must all pass. `pnpm build` produces `dist/`, which the Worker serves. Stryker breaks below an 80% mutation score.
 
 ## Background
 

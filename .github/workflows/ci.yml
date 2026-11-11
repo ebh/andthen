@@ -56,8 +56,8 @@ jobs:
       - name: Generated Worker types are current
         run: pnpm wrangler types --check
 
-      - name: Test
-        run: pnpm test
+      - name: Test with coverage
+        run: pnpm test:coverage
 
       # The export is the same for every environment; the environment is chosen at deploy time.
       - name: Build
@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        area: [shared, worker, client]
+        area: [shared, worker, client, ui]
     env:
       STRYKER_AREA: ${{ matrix.area }}
     steps:

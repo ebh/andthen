@@ -2,7 +2,8 @@
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "packageManager": "pnpm",
   "testRunner": "vitest",
-  "plugins": ["@stryker-mutator/vitest-runner"],
+  "plugins": ["@stryker-mutator/vitest-runner", "./scripts/strykerStylePropIgnorer.ts"],
+  "ignorers": ["tamagui-style-props"],
   "vitest": {
     "configFile": "vitest.config.ts"
   },
@@ -11,9 +12,17 @@
     "src/shared/**/*.ts",
     "src/worker/**/*.ts",
     "src/client/**/*.ts",
+    "src/ui/**/*.ts",
+    "src/ui/**/*.tsx",
     "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
     "!src/client/testFixtures.ts",
     "!src/client/testSetup.ts",
+    "!src/ui/routerStub.tsx",
+    "!src/ui/clerkStub.ts",
+    "!src/ui/testRender.tsx",
+    "!src/ui/testScreen.ts",
+    "!src/ui/testSetup.ts",
     "!src/worker/index.ts",
     "!src/worker/storyRoom.ts",
     "!src/worker/db/typeSchemas.ts"

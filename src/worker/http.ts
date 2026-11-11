@@ -21,6 +21,17 @@ export interface OriginCheck {
   carriesCredential: boolean;
 }
 
+/**
+ * The parts of a mutating request that decide whether its body is acceptable. An undefined header
+ * was not sent.
+ */
+export interface MutationRequestShape {
+  method: string;
+  contentType: string | undefined;
+  contentLength: string | undefined;
+  transferEncoding: string | undefined;
+}
+
 /** Thrown by routes and guards; `handleError` turns it into the status and body for its code. */
 export class ApiError extends Error {
   readonly code: PlainErrorCode;
@@ -111,7 +122,14 @@ export function requireApiLevel(minApiLevel: number): (c: AppContext, next: Next
 export async function guardMutation(c: AppContext, next: Next): Promise<void> {
   if (!SAFE_METHODS.has(c.req.method)) {
     requireTrustedOrigin(c);
-    if (!isJsonOrBodylessDelete(c)) {
+    if (
+      !isJsonOrBodylessDelete({
+        method: c.req.method,
+        contentType: c.req.header("Content-Type"),
+        contentLength: c.req.header("Content-Length"),
+        transferEncoding: c.req.header("Transfer-Encoding"),
+      })
+    ) {
       throw new ApiError("bad_request");
     }
   }
@@ -222,18 +240,14 @@ export async function noStore(c: AppContext, next: Next): Promise<void> {
   }
 }
 
-function isJsonOrBodylessDelete(c: AppContext): boolean {
-  return c.req.method === "DELETE" ? hasNoBody(c) : isJson(c.req.header("Content-Type"));
+export function isJsonOrBodylessDelete(request: MutationRequestShape): boolean {
+  return request.method === "DELETE" ? hasNoBody(request) : isJson(request.contentType);
 }
 
 // Not `request.body === null`: behind the dev proxy and in browsers' fetch the runtime can hand a
 // bodyless DELETE an empty stream. HTTP says a body is announced by one of these two headers.
-function hasNoBody(c: AppContext): boolean {
-  const length = c.req.header("Content-Length");
-
-  return (
-    c.req.header("Transfer-Encoding") === undefined && (length === undefined || length === "0")
-  );
+function hasNoBody({ contentLength, transferEncoding }: MutationRequestShape): boolean {
+  return transferEncoding === undefined && (contentLength === undefined || contentLength === "0");
 }
 
 function isJson(contentType: string | undefined): boolean {
